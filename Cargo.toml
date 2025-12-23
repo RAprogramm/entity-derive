@@ -17,8 +17,8 @@ proc-macro = true
 syn = { version = "2", features = ["full", "extra-traits", "parsing"] }
 quote = "1"
 proc-macro2 = "1"
-darling = "0.20"
-convert_case = "0.8"
+darling = "0.23"
+convert_case = "0.10"
 
 [dev-dependencies]
 trybuild = "1"
