@@ -1,4 +1,4 @@
-//! DB Row struct generation for Entity derive macro.
+//! DB Row struct generation for the Entity derive macro.
 //!
 //! Generates Row struct with sqlx::FromRow derive.
 
@@ -15,23 +15,15 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
 
     let vis = &entity.vis;
     let row_name = entity.ident_with("", "Row");
-    let fields = entity.all_fields();
-
-    let field_defs: Vec<_> = fields
-        .iter()
-        .map(|f| {
-            let name = f.name();
-            let ty = f.ty();
-            quote! { pub #name: #ty }
-        })
-        .collect();
+    let field_defs = entity.all_fields().iter().map(|f| {
+        let name = f.name();
+        let ty = f.ty();
+        quote! { pub #name: #ty }
+    });
 
     quote! {
-        /// Database row representation for sqlx queries.
         #[derive(Debug, Clone)]
         #[cfg_attr(feature = "db", derive(sqlx::FromRow))]
-        #vis struct #row_name {
-            #(#field_defs),*
-        }
+        #vis struct #row_name { #(#field_defs),* }
     }
 }

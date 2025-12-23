@@ -1,4 +1,4 @@
-//! DTO generation for Entity derive macro.
+//! DTO generation for the Entity derive macro.
 //!
 //! Generates CreateRequest, UpdateRequest, and Response structs.
 
@@ -9,107 +9,78 @@ use super::parse::EntityDef;
 
 /// Generate all DTOs for the entity.
 pub fn generate(entity: &EntityDef) -> TokenStream {
-    let create_dto = generate_create_dto(entity);
-    let update_dto = generate_update_dto(entity);
-    let response_dto = generate_response_dto(entity);
+    let create = generate_create_dto(entity);
+    let update = generate_update_dto(entity);
+    let response = generate_response_dto(entity);
 
-    quote! {
-        #create_dto
-        #update_dto
-        #response_dto
-    }
+    quote! { #create #update #response }
 }
 
-/// Generate CreateRequest DTO.
 fn generate_create_dto(entity: &EntityDef) -> TokenStream {
-    let vis = &entity.vis;
-    let name = entity.ident_with("Create", "Request");
     let fields = entity.create_fields();
-
     if fields.is_empty() {
         return TokenStream::new();
     }
 
-    let field_defs: Vec<_> = fields
-        .iter()
-        .map(|f| {
-            let name = f.name();
-            let ty = f.ty();
-            quote! { pub #name: #ty }
-        })
-        .collect();
+    let vis = &entity.vis;
+    let name = entity.ident_with("Create", "Request");
+    let field_defs = fields.iter().map(|f| {
+        let n = f.name();
+        let t = f.ty();
+        quote! { pub #n: #t }
+    });
 
     quote! {
-        /// Request DTO for creating a new entity.
         #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
         #[cfg_attr(feature = "api", derive(utoipa::ToSchema))]
         #[cfg_attr(feature = "validate", derive(validator::Validate))]
-        #vis struct #name {
-            #(#field_defs),*
-        }
+        #vis struct #name { #(#field_defs),* }
     }
 }
 
-/// Generate UpdateRequest DTO.
 fn generate_update_dto(entity: &EntityDef) -> TokenStream {
-    let vis = &entity.vis;
-    let name = entity.ident_with("Update", "Request");
     let fields = entity.update_fields();
-
     if fields.is_empty() {
         return TokenStream::new();
     }
 
-    // For update, wrap non-Option fields in Option
-    let field_defs: Vec<_> = fields
-        .iter()
-        .map(|f| {
-            let name = f.name();
-            let ty = f.ty();
-            if f.is_option() {
-                quote! { pub #name: #ty }
-            } else {
-                quote! { pub #name: Option<#ty> }
-            }
-        })
-        .collect();
+    let vis = &entity.vis;
+    let name = entity.ident_with("Update", "Request");
+    let field_defs = fields.iter().map(|f| {
+        let n = f.name();
+        let t = f.ty();
+        if f.is_option() {
+            quote! { pub #n: #t }
+        } else {
+            quote! { pub #n: Option<#t> }
+        }
+    });
 
     quote! {
-        /// Request DTO for updating an existing entity.
         #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
         #[cfg_attr(feature = "api", derive(utoipa::ToSchema))]
         #[cfg_attr(feature = "validate", derive(validator::Validate))]
-        #vis struct #name {
-            #(#field_defs),*
-        }
+        #vis struct #name { #(#field_defs),* }
     }
 }
 
-/// Generate Response DTO.
 fn generate_response_dto(entity: &EntityDef) -> TokenStream {
-    let vis = &entity.vis;
-    let name = entity.ident_with("", "Response");
     let fields = entity.response_fields();
-
     if fields.is_empty() {
         return TokenStream::new();
     }
 
-    let field_defs: Vec<_> = fields
-        .iter()
-        .map(|f| {
-            let name = f.name();
-            let ty = f.ty();
-            quote! { pub #name: #ty }
-        })
-        .collect();
+    let vis = &entity.vis;
+    let name = entity.ident_with("", "Response");
+    let field_defs = fields.iter().map(|f| {
+        let n = f.name();
+        let t = f.ty();
+        quote! { pub #n: #t }
+    });
 
     quote! {
-        /// Response DTO for API output.
         #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
         #[cfg_attr(feature = "api", derive(utoipa::ToSchema))]
-        #vis struct #name {
-            #(#field_defs),*
-        }
+        #vis struct #name { #(#field_defs),* }
     }
 }

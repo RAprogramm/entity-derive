@@ -1,12 +1,11 @@
 //! Entity derive macro implementation.
 //!
-//! This module contains all code generation logic for the `#[derive(Entity)]`
-//! macro.
+//! Contains all code generation logic for `#[derive(Entity)]`.
 
 mod dto;
 mod insertable;
 mod mappers;
-mod parse;
+pub mod parse;
 mod repository;
 mod row;
 mod sql;
@@ -27,22 +26,21 @@ pub fn derive(input: TokenStream) -> TokenStream {
     }
 }
 
-/// Generate all code for the entity.
 fn generate(entity: EntityDef) -> TokenStream {
-    let dto_tokens = dto::generate(&entity);
-    let repository_tokens = repository::generate(&entity);
-    let row_tokens = row::generate(&entity);
-    let insertable_tokens = insertable::generate(&entity);
-    let mapper_tokens = mappers::generate(&entity);
-    let sql_tokens = sql::generate(&entity);
+    let dto = dto::generate(&entity);
+    let repository = repository::generate(&entity);
+    let row = row::generate(&entity);
+    let insertable = insertable::generate(&entity);
+    let mappers = mappers::generate(&entity);
+    let sql = sql::generate(&entity);
 
     let expanded = quote! {
-        #dto_tokens
-        #repository_tokens
-        #row_tokens
-        #insertable_tokens
-        #mapper_tokens
-        #sql_tokens
+        #dto
+        #repository
+        #row
+        #insertable
+        #mappers
+        #sql
     };
 
     expanded.into()

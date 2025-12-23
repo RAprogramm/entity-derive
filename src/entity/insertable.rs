@@ -1,4 +1,4 @@
-//! Insertable struct generation for Entity derive macro.
+//! Insertable struct generation for the Entity derive macro.
 //!
 //! Generates Insertable struct for database INSERT operations.
 
@@ -15,22 +15,14 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
 
     let vis = &entity.vis;
     let insertable_name = entity.ident_with("Insertable", "");
-    let fields = entity.all_fields();
-
-    let field_defs: Vec<_> = fields
-        .iter()
-        .map(|f| {
-            let name = f.name();
-            let ty = f.ty();
-            quote! { pub #name: #ty }
-        })
-        .collect();
+    let field_defs = entity.all_fields().iter().map(|f| {
+        let name = f.name();
+        let ty = f.ty();
+        quote! { pub #name: #ty }
+    });
 
     quote! {
-        /// Insertable representation for database INSERT operations.
         #[derive(Debug, Clone)]
-        #vis struct #insertable_name {
-            #(#field_defs),*
-        }
+        #vis struct #insertable_name { #(#field_defs),* }
     }
 }
