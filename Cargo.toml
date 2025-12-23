@@ -1,0 +1,24 @@
+[package]
+name = "revelation-macros"
+version = "0.1.0"
+edition = "2024"
+authors = ["Revelation Team"]
+description = "Procedural macros for Revelation ecosystem - Entity, Repository, DTO generation"
+license = "MIT"
+repository = "https://github.com/Revelation-Path/revelation-macros"
+readme = "README.md"
+keywords = ["revelation", "macros", "proc-macro", "entity", "repository"]
+categories = ["development-tools::procedural-macro-helpers"]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { version = "2", features = ["full", "extra-traits", "parsing"] }
+quote = "1"
+proc-macro2 = "1"
+darling = "0.20"
+convert_case = "0.8"
+
+[dev-dependencies]
+trybuild = "1"
