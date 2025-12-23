@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2025 RAprogramm <andrey.rozanov.vl@gmail.com>
+// SPDX-License-Identifier: MIT
+
 //! DTO generation for the Entity derive macro.
 //!
 //! Generates CreateRequest, UpdateRequest, and Response structs.

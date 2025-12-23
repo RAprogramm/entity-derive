@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2025 RAprogramm <andrey.rozanov.vl@gmail.com>
+// SPDX-License-Identifier: MIT
+
 //! DB Row struct generation for the Entity derive macro.
 //!
 //! Generates Row struct with sqlx::FromRow derive.

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2025 RAprogramm <andrey.rozanov.vl@gmail.com>
+// SPDX-License-Identifier: MIT
+
 //! Repository trait generation for the Entity derive macro.
 //!
 //! Generates async Repository trait with CRUD operations.

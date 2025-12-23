@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2025 RAprogramm <andrey.rozanov.vl@gmail.com>
+// SPDX-License-Identifier: MIT
+
 //! SQL implementation generation for the Entity derive macro.
 //!
 //! Generates `impl {Entity}Repository for sqlx::PgPool` with CRUD queries.

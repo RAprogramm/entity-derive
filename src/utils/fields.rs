@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2025 RAprogramm <andrey.rozanov.vl@gmail.com>
+// SPDX-License-Identifier: MIT
+
 //! Field assignment utilities for `From` implementations.
 
 use proc_macro2::{Span, TokenStream};

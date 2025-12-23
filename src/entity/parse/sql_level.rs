@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2025 RAprogramm <andrey.rozanov.vl@gmail.com>
+// SPDX-License-Identifier: MIT
+
 //! SQL generation level configuration.
 //!
 //! This module defines [`SqlLevel`], which controls how much database-related

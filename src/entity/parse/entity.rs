@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2025 RAprogramm <andrey.rozanov.vl@gmail.com>
+// SPDX-License-Identifier: MIT
+
 //! Entity-level attribute parsing.
 //!
 //! This module handles parsing of entity-level attributes using darling,

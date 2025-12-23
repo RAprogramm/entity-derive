@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2025 RAprogramm <andrey.rozanov.vl@gmail.com>
+// SPDX-License-Identifier: MIT
+
 //! Mapper generation for the Entity derive macro.
 //!
 //! Generates `From` implementations between Entity, DTOs, Row, and Insertable.

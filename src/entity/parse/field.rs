@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2025 RAprogramm <andrey.rozanov.vl@gmail.com>
+// SPDX-License-Identifier: MIT
+
 //! Field-level attribute parsing.
 //!
 //! This module handles parsing of field attributes like `#[id]`, `#[auto]`,

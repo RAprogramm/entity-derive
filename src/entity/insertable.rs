@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2025 RAprogramm <andrey.rozanov.vl@gmail.com>
+// SPDX-License-Identifier: MIT
+
 //! Insertable struct generation for the Entity derive macro.
 //!
 //! Generates Insertable struct for database INSERT operations.

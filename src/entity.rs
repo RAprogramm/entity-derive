@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2025 RAprogramm <andrey.rozanov.vl@gmail.com>
+// SPDX-License-Identifier: MIT
+
 //! Entity derive macro implementation.
 //!
 //! Contains all code generation logic for `#[derive(Entity)]`.
