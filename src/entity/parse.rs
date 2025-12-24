@@ -88,7 +88,6 @@
 
 mod dialect;
 
-use convert_case::{Case, Casing};
 use darling::{FromDeriveInput, FromMeta};
 pub use dialect::DatabaseDialect;
 use proc_macro2::Span;
@@ -170,6 +169,60 @@ impl FromMeta for SqlLevel {
     }
 }
 
+/// UUID version for ID generation.
+///
+/// Controls which UUID version is used for auto-generated primary keys.
+///
+/// # Variants
+///
+/// | Version | Method | Properties |
+/// |---------|--------|------------|
+/// | `V7` | `Uuid::now_v7()` | Time-ordered, sortable, default |
+/// | `V4` | `Uuid::new_v4()` | Random, widely compatible |
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// // UUIDv7 (default) - time-ordered, best for databases
+/// #[entity(table = "users")]
+/// #[entity(table = "users", uuid = "v7")]
+///
+/// // UUIDv4 - random, for compatibility
+/// #[entity(table = "users", uuid = "v4")]
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum UuidVersion {
+    /// UUID version 7 - time-ordered.
+    ///
+    /// Uses `Uuid::now_v7()`. Recommended for database primary keys
+    /// as it provides natural ordering by creation time.
+    #[default]
+    V7,
+
+    /// UUID version 4 - random.
+    ///
+    /// Uses `Uuid::new_v4()`. Classic random UUID, widely supported.
+    V4
+}
+
+impl FromMeta for UuidVersion {
+    /// Parse UUID version from string attribute value.
+    ///
+    /// # Accepted Values
+    ///
+    /// - `"v7"`, `"7"` → [`UuidVersion::V7`]
+    /// - `"v4"`, `"4"` → [`UuidVersion::V4`]
+    ///
+    /// Values are case-insensitive.
+    fn from_string(value: &str) -> darling::Result<Self> {
+        match value.to_lowercase().as_str() {
+            "v7" | "7" => Ok(UuidVersion::V7),
+            "v4" | "4" => Ok(UuidVersion::V4),
+            _ => Err(darling::Error::unknown_value(value))
+        }
+    }
+}
+
 /// Entity-level attributes parsed from `#[entity(...)]`.
 ///
 /// This is an internal struct used by darling for parsing.
@@ -206,7 +259,13 @@ struct EntityAttrs {
     ///
     /// Defaults to [`DatabaseDialect::Postgres`] if not specified.
     #[darling(default)]
-    dialect: DatabaseDialect
+    dialect: DatabaseDialect,
+
+    /// UUID version for ID generation.
+    ///
+    /// Defaults to [`UuidVersion::V7`] if not specified.
+    #[darling(default)]
+    uuid: UuidVersion
 }
 
 /// Returns the default schema name.
@@ -267,6 +326,9 @@ pub struct EntityDef {
 
     /// Database dialect for code generation.
     pub dialect: DatabaseDialect,
+
+    /// UUID version for ID generation.
+    pub uuid: UuidVersion,
 
     /// All field definitions from the struct.
     pub fields: Vec<FieldDef>
@@ -337,6 +399,7 @@ impl EntityDef {
             schema: attrs.schema,
             sql: attrs.sql,
             dialect: attrs.dialect,
+            uuid: attrs.uuid,
             fields
         })
     }
@@ -447,24 +510,6 @@ impl EntityDef {
     /// ```
     pub fn name_str(&self) -> String {
         self.ident.to_string()
-    }
-
-    /// Get the entity name in snake_case.
-    ///
-    /// Useful for generating function names, variable names, etc.
-    ///
-    /// # Returns
-    ///
-    /// Snake case version of the entity name.
-    ///
-    /// # Example
-    ///
-    /// ```rust,ignore
-    /// entity.snake_name() // "user", "user_profile", "order_item"
-    /// ```
-    #[allow(dead_code)]
-    pub fn snake_name(&self) -> String {
-        self.name_str().to_case(Case::Snake)
     }
 
     /// Get the fully qualified table name with schema.
@@ -754,5 +799,55 @@ fn parse_field_attr(
             }
             Ok(())
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn uuid_version_default_is_v7() {
+        assert_eq!(UuidVersion::default(), UuidVersion::V7);
+    }
+
+    #[test]
+    fn uuid_version_from_meta_v7() {
+        assert_eq!(UuidVersion::from_string("v7").unwrap(), UuidVersion::V7);
+        assert_eq!(UuidVersion::from_string("7").unwrap(), UuidVersion::V7);
+        assert_eq!(UuidVersion::from_string("V7").unwrap(), UuidVersion::V7);
+    }
+
+    #[test]
+    fn uuid_version_from_meta_v4() {
+        assert_eq!(UuidVersion::from_string("v4").unwrap(), UuidVersion::V4);
+        assert_eq!(UuidVersion::from_string("4").unwrap(), UuidVersion::V4);
+        assert_eq!(UuidVersion::from_string("V4").unwrap(), UuidVersion::V4);
+    }
+
+    #[test]
+    fn uuid_version_from_meta_invalid() {
+        assert!(UuidVersion::from_string("v1").is_err());
+        assert!(UuidVersion::from_string("v5").is_err());
+        assert!(UuidVersion::from_string("uuid7").is_err());
+    }
+
+    #[test]
+    fn sql_level_default_is_full() {
+        assert_eq!(SqlLevel::default(), SqlLevel::Full);
+    }
+
+    #[test]
+    fn sql_level_from_meta() {
+        assert_eq!(SqlLevel::from_string("full").unwrap(), SqlLevel::Full);
+        assert_eq!(SqlLevel::from_string("FULL").unwrap(), SqlLevel::Full);
+        assert_eq!(SqlLevel::from_string("trait").unwrap(), SqlLevel::Trait);
+        assert_eq!(SqlLevel::from_string("none").unwrap(), SqlLevel::None);
+    }
+
+    #[test]
+    fn sql_level_from_meta_invalid() {
+        assert!(SqlLevel::from_string("partial").is_err());
+        assert!(SqlLevel::from_string("all").is_err());
     }
 }

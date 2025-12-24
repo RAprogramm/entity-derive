@@ -182,6 +182,13 @@ mod tests {
     }
 
     #[test]
+    fn set_clause_mongodb() {
+        let d = DatabaseDialect::MongoDB;
+        let fields = ["name", "email"];
+        assert_eq!(d.set_clause(&fields), "name, email");
+    }
+
+    #[test]
     fn client_types() {
         assert_eq!(DatabaseDialect::Postgres.client_type(), "sqlx::PgPool");
         assert_eq!(

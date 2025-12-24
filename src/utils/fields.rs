@@ -7,7 +7,7 @@ use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::Ident;
 
-use crate::entity::parse::FieldDef;
+use crate::entity::parse::{FieldDef, UuidVersion};
 
 /// Generate `name: source.name` assignments.
 pub fn assigns(fields: &[FieldDef], source: &str) -> Vec<TokenStream> {
@@ -58,7 +58,11 @@ pub fn assigns_clone_from_refs(fields: &[&FieldDef], source: &str) -> Vec<TokenS
 }
 
 /// Generate field assignments for `From<CreateRequest>`.
-pub fn create_assigns(all_fields: &[FieldDef], create_fields: &[&FieldDef]) -> Vec<TokenStream> {
+pub fn create_assigns(
+    all_fields: &[FieldDef],
+    create_fields: &[&FieldDef],
+    uuid_version: UuidVersion
+) -> Vec<TokenStream> {
     all_fields
         .iter()
         .map(|f: &FieldDef| {
@@ -68,7 +72,10 @@ pub fn create_assigns(all_fields: &[FieldDef], create_fields: &[&FieldDef]) -> V
             if is_in_create {
                 quote! { #name: dto.#name }
             } else if f.is_id {
-                quote! { #name: uuid::Uuid::now_v7() }
+                match uuid_version {
+                    UuidVersion::V7 => quote! { #name: uuid::Uuid::now_v7() },
+                    UuidVersion::V4 => quote! { #name: uuid::Uuid::new_v4() }
+                }
             } else {
                 quote! { #name: Default::default() }
             }

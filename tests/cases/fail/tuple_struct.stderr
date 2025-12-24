@@ -1,0 +1,7 @@
+error: Unsupported shape `unnamed fields`. Expected named fields.
+ --> tests/cases/fail/tuple_struct.rs:7:10
+  |
+7 | #[derive(Entity)]
+  |          ^^^^^^
+  |
+  = note: this error originates in the derive macro `Entity` (in Nightly builds, run with -Z macro-backtrace for more info)

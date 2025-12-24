@@ -103,7 +103,7 @@ fn generate_create_to_entity(entity: &EntityDef) -> TokenStream {
 
     let entity_name = entity.name();
     let create_name = entity.ident_with("Create", "Request");
-    let assigns = fields::create_assigns(entity.all_fields(), &create_fields);
+    let assigns = fields::create_assigns(entity.all_fields(), &create_fields, entity.uuid);
 
     quote! {
         impl From<#create_name> for #entity_name {
