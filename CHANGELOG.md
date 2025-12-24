@@ -11,7 +11,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.1.2...HEAD)
+## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.1.3...HEAD)
+
+### 🐛 Bug Fixes
+
+- **ci:** Simplify codecov upload to match working configuration ([af65596](https://github.com/RAprogramm/entity-derive/commit/af65596760b6074f606f6011bcde1fab113bced0)) by [@RAprogramm](https://github.com/RAprogramm)
+
+## [0.1.3](https://github.com/RAprogramm/entity-derive/releases/tag/v0.1.3) — 2025-12-24
 
 ### ♻️ Refactor
 
@@ -23,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Remove deprecated doc_auto_cfg feature (merged into doc_cfg in 1.92) ([88f10d8](https://github.com/RAprogramm/entity-derive/commit/88f10d835137463d3c5345a7b2f9bd628d18b758)) by [@RAprogramm](https://github.com/RAprogramm)
 - **ci:** Extract release notes from CHANGELOG.md correctly ([5e56b1e](https://github.com/RAprogramm/entity-derive/commit/5e56b1eb6e5b9b68d578f051fa05029410585279)) by [@RAprogramm](https://github.com/RAprogramm)
 
+**Full Changelog**: [`v0.1.2...v0.1.3`](https://github.com/RAprogramm/entity-derive/compare/v0.1.2...v0.1.3)
 ## [0.1.2](https://github.com/RAprogramm/entity-derive/releases/tag/v0.1.2) — 2025-12-24
 
 ### 🐛 Bug Fixes
