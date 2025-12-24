@@ -442,7 +442,8 @@ jobs:
           NOTES=""
           if [ -f CHANGELOG.md ]; then
             # Extract section between current version header and next version header
-            NOTES=$(sed -n "/^## \[${VERSION}\]/,/^## \[/p" CHANGELOG.md | sed '1d;$d')
+            # Pattern matches: ## [0.1.3](...) or ## [0.1.3]
+            NOTES=$(awk "/^## \\[${VERSION}\\]/{found=1; next} /^## \\[/{found=0} found" CHANGELOG.md)
           fi
 
           # Fallback
