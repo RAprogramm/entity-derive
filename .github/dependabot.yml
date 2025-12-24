@@ -4,21 +4,54 @@
 
 version: 2
 
+registries:
+  crates-io:
+    type: cargo-registry
+    url: https://crates.io
+    index: https://index.crates.io
+
 updates:
   # Rust dependencies
   - package-ecosystem: "cargo"
     directory: "/"
+    registries:
+      - crates-io
     schedule:
       interval: "weekly"
       day: "monday"
+      time: "06:00"
+      timezone: "Europe/Moscow"
     commit-message:
       prefix: "chore(deps)"
+      include: "scope"
     labels:
       - "dependencies"
       - "rust"
+    reviewers:
+      - "RAprogramm"
     open-pull-requests-limit: 10
     groups:
-      rust-minor:
+      # Group all minor and patch updates together
+      rust-dependencies:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+      # Separate group for proc-macro related crates
+      proc-macro:
+        patterns:
+          - "syn"
+          - "quote"
+          - "proc-macro2"
+          - "darling*"
+        update-types:
+          - "major"
+          - "minor"
+          - "patch"
+      # Development dependencies
+      dev-dependencies:
+        dependency-type: "development"
         patterns:
           - "*"
         update-types:
@@ -31,9 +64,23 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
+      time: "06:00"
+      timezone: "Europe/Moscow"
     commit-message:
       prefix: "ci(deps)"
+      include: "scope"
     labels:
       - "dependencies"
       - "ci"
+    reviewers:
+      - "RAprogramm"
     open-pull-requests-limit: 5
+    groups:
+      # Group all actions together
+      github-actions:
+        patterns:
+          - "*"
+        update-types:
+          - "major"
+          - "minor"
+          - "patch"
