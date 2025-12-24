@@ -412,6 +412,36 @@ jobs:
             fi
           fi
 
+      - name: Install git-cliff
+        if: steps.publish.outputs.published == 'true'
+        uses: taiki-e/install-action@v2
+        with:
+          tool: git-cliff
+
+      - name: Generate release notes
+        id: notes
+        if: steps.publish.outputs.published == 'true'
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+
+          # Fetch all tags for accurate comparison
+          git fetch --tags --force
+
+          # Generate notes BEFORE tag is created
+          NOTES=$(git cliff --config cliff.toml \
+            --unreleased \
+            --strip header \
+            --tag "$TAG" \
+            2>/dev/null || echo "")
+
+          # Fallback
+          if [ -z "$NOTES" ]; then
+            NOTES="Release ${{ steps.version.outputs.version }}"
+          fi
+
+          # Save to file (multiline output)
+          echo "$NOTES" > /tmp/release_notes.md
+
       - name: Create git tag
         if: steps.publish.outputs.published == 'true'
         run: |
@@ -427,12 +457,6 @@ jobs:
             echo "Created tag $TAG"
           fi
 
-      - name: Install git-cliff
-        if: steps.publish.outputs.published == 'true'
-        uses: taiki-e/install-action@v2
-        with:
-          tool: git-cliff
-
       - name: Create GitHub Release
         if: steps.publish.outputs.published == 'true'
         env:
@@ -441,25 +465,10 @@ jobs:
           TAG="${{ steps.version.outputs.tag }}"
           VERSION="${{ steps.version.outputs.version }}"
 
-          # Ensure all tags are fetched for accurate changelog generation
-          git fetch --tags --force
-
-          # Generate release notes directly with git-cliff (same config as changelog job)
-          NOTES=$(git cliff --config cliff.toml \
-            --unreleased \
-            --strip header \
-            --tag "$TAG" \
-            2>/dev/null || echo "")
-
-          # Fallback if git-cliff fails
-          if [ -z "$NOTES" ]; then
-            NOTES="Release $VERSION"
-          fi
-
-          # Create release with notes
+          # Create release with pre-generated notes
           gh release create "$TAG" \
             --title "🚀 Release $VERSION" \
-            --notes "$NOTES" \
+            --notes-file /tmp/release_notes.md \
             --verify-tag || echo "Release already exists or creation failed"
 
       - name: Summary
