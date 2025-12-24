@@ -412,33 +412,3 @@ Hierarchical view: top = entire project, descending through folders to individua
 </p>
 
 <div align="right"><a href="#top">⬆ back to top</a></div>
-
-## Documentation
-
-- [**API Reference**](https://docs.rs/entity-derive) — Full API documentation
-- [**Wiki**](https://github.com/RAprogramm/entity-derive/wiki) — Guides and examples:
-  - [All Attributes Explained](https://github.com/RAprogramm/entity-derive/wiki/Attributes)
-  - [Real-World Examples](https://github.com/RAprogramm/entity-derive/wiki/Examples)
-  - [Custom SQL Queries](https://github.com/RAprogramm/entity-derive/wiki/Custom-SQL)
-  - [Integration with Axum/Actix](https://github.com/RAprogramm/entity-derive/wiki/Web-Frameworks)
-  - [Best Practices](https://github.com/RAprogramm/entity-derive/wiki/Best-Practices)
-
-<div align="right"><a href="#top">⬆ back to top</a></div>
-
-## MSRV
-
-Minimum Supported Rust Version: **1.92** (Edition 2024)
-
-<div align="right"><a href="#top">⬆ back to top</a></div>
-
-## License
-
-Licensed under the [MIT License](https://github.com/RAprogramm/entity-derive/blob/main/LICENSES/MIT.txt).
-
-<div align="right"><a href="#top">⬆ back to top</a></div>
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-<div align="right"><a href="#top">⬆ back to top</a></div>
