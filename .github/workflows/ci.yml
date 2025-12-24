@@ -167,6 +167,7 @@ jobs:
 
       - name: Cache
         uses: Swatinem/rust-cache@v2
+        continue-on-error: true
         with:
           shared-key: test
           save-if: ${{ github.ref == 'refs/heads/main' }}
@@ -214,6 +215,7 @@ jobs:
 
       - name: Cache
         uses: Swatinem/rust-cache@v2
+        continue-on-error: true
         with:
           shared-key: coverage
           save-if: ${{ github.ref == 'refs/heads/main' }}
