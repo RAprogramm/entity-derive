@@ -11,25 +11,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.1.0...HEAD)
+## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.1.1...HEAD)
 
 ### 🐛 Bug Fixes
 
+- **ci:** Simplify fallback release notes ([02b0533](https://github.com/RAprogramm/entity-derive/commit/02b053312a1a625b2efc570cbd4418158ca19e90)) by [@RAprogramm](https://github.com/RAprogramm)
+- **ci:** Require all checks to pass before release ([d5bbd2a](https://github.com/RAprogramm/entity-derive/commit/d5bbd2a10bc375b8e2dd7a78f00488cd35129213)) by [@RAprogramm](https://github.com/RAprogramm)
+- **ci:** Ignore RUSTSEC-2023-0071 (rsa timing side-channel) ([d05b283](https://github.com/RAprogramm/entity-derive/commit/d05b283e06353c80edb3a2618526c4dfdb9c1980)) by [@RAprogramm](https://github.com/RAprogramm)
+
+## [0.1.1](https://github.com/RAprogramm/entity-derive/releases/tag/v0.1.1) — 2025-12-24
+
+### 🐛 Bug Fixes
+
+- Mark architecture diagram as text, fix LICENSE link ([05bd3da](https://github.com/RAprogramm/entity-derive/commit/05bd3da7fb829e76c8531b340c5a6149bd65408d)) by [@RAprogramm](https://github.com/RAprogramm)
 - Handle already published version gracefully with semver guide ([3965c6a](https://github.com/RAprogramm/entity-derive/commit/3965c6a7e2087d384fc873d0b2b6418f359a3d37)) by [@RAprogramm](https://github.com/RAprogramm)
 
 
 ### 📚 Documentation
 
+- Improve changelog formatting with emojis and links ([76e3d04](https://github.com/RAprogramm/entity-derive/commit/76e3d04af57a0d0c51c457001a512ca1990449f1)) by [@RAprogramm](https://github.com/RAprogramm)
 - Comprehensive docs.rs documentation ([c71c50a](https://github.com/RAprogramm/entity-derive/commit/c71c50ad6bd287a8aa1e8890594c7d45913ecec2)) by [@RAprogramm](https://github.com/RAprogramm)
 - Add CHANGELOG.md ([34f12f0](https://github.com/RAprogramm/entity-derive/commit/34f12f0a5b9b1ca3066e7ecc5be78bce6e74c3c2)) by [@RAprogramm](https://github.com/RAprogramm)
 
 
 ### 🔧 Miscellaneous
 
+- Configure publish exclude/include for crates.io ([67bc341](https://github.com/RAprogramm/entity-derive/commit/67bc3413029ed72f253503b354b4b47e0360a79b)) by [@RAprogramm](https://github.com/RAprogramm)
 - Add REUSE header to CHANGELOG.md ([5d141ae](https://github.com/RAprogramm/entity-derive/commit/5d141ae5e017ab15471f0d905af27eac882f6488)) by [@RAprogramm](https://github.com/RAprogramm)
 - Upload test results to Codecov ([581f595](https://github.com/RAprogramm/entity-derive/commit/581f5952f0b15cbcdffa0668a0b4bc5f237f676b)) by [@RAprogramm](https://github.com/RAprogramm)
 - **deps:** Bump actions/checkout from 5 to 6 ([620b8f8](https://github.com/RAprogramm/entity-derive/commit/620b8f8e1f60ad9c5fc018df2161946992016c37)) by [@dependabot[bot]](https://github.com/dependabot[bot])
 - **deps:** Bump actions/upload-artifact from 4 to 6 ([fe5bed5](https://github.com/RAprogramm/entity-derive/commit/fe5bed534ab1b1cb4251c7373794ef36247cdf3a)) by [@dependabot[bot]](https://github.com/dependabot[bot])
+
+
+### 🧪 Testing
+
+- Add comprehensive tests with 95%+ coverage ([2ec3701](https://github.com/RAprogramm/entity-derive/commit/2ec37011aaafe51ee9ace07d7071ebc1a4ae6d8b)) by [@RAprogramm](https://github.com/RAprogramm)
 
 
 ### 👋 New Contributors
@@ -37,6 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [@github-actions[bot]](https://github.com/github-actions[bot]) made their first contribution
 - [@dependabot[bot]](https://github.com/dependabot[bot]) made their first contribution
 
+**Full Changelog**: [`v0.1.0...v0.1.1`](https://github.com/RAprogramm/entity-derive/compare/v0.1.0...v0.1.1)
 ## [0.1.0](https://github.com/RAprogramm/entity-derive/releases/tag/v0.1.0) — 2025-12-24
 
 ### ✨ Features
