@@ -56,3 +56,28 @@ pub fn update_bindings(fields: &[&FieldDef]) -> Vec<TokenStream> {
         })
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_placeholders_empty() {
+        assert_eq!(placeholders(0), "");
+    }
+
+    #[test]
+    fn test_placeholders_one() {
+        assert_eq!(placeholders(1), "$1");
+    }
+
+    #[test]
+    fn test_placeholders_three() {
+        assert_eq!(placeholders(3), "$1, $2, $3");
+    }
+
+    #[test]
+    fn test_placeholders_ten() {
+        assert_eq!(placeholders(10), "$1, $2, $3, $4, $5, $6, $7, $8, $9, $10");
+    }
+}

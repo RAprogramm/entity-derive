@@ -56,7 +56,7 @@
 
 Building a typical CRUD application requires writing the same boilerplate over and over:
 
-```rust
+```rust,ignore
 // 1. Your domain entity
 pub struct User {
     pub id: Uuid,
@@ -110,7 +110,7 @@ impl From<User> for UserResponse { /* ... */ }
 
 ## The Solution
 
-```rust
+```rust,ignore
 use entity_derive::Entity;
 
 #[derive(Entity)]
@@ -171,7 +171,7 @@ sqlx = { version = "0.8", features = ["runtime-tokio", "postgres"] }
 
 ## Quick Start
 
-```rust
+```rust,ignore
 use entity_derive::Entity;
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
@@ -250,7 +250,7 @@ For a `User` entity, the macro generates:
 
 ### DTOs
 
-```rust
+```rust,ignore
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateUserRequest {
     pub name: String,
@@ -274,7 +274,7 @@ pub struct UserResponse {
 
 ### Repository Trait
 
-```rust
+```rust,ignore
 #[async_trait]
 pub trait UserRepository: Send + Sync {
     type Error: std::error::Error + Send + Sync;
@@ -289,7 +289,7 @@ pub trait UserRepository: Send + Sync {
 
 ### SQL Implementation
 
-```rust
+```rust,ignore
 #[async_trait]
 impl UserRepository for sqlx::PgPool {
     type Error = sqlx::Error;
@@ -317,7 +317,7 @@ impl UserRepository for sqlx::PgPool {
 
 ### Mappers
 
-```rust
+```rust,ignore
 impl From<UserRow> for User { /* ... */ }
 impl From<CreateUserRequest> for User { /* ... */ }
 impl From<User> for UserResponse { /* ... */ }

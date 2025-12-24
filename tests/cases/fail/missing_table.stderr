@@ -1,0 +1,7 @@
+error: Missing field `table`
+ --> tests/cases/fail/missing_table.rs:7:10
+  |
+7 | #[derive(Entity)]
+  |          ^^^^^^
+  |
+  = note: this error originates in the derive macro `Entity` (in Nightly builds, run with -Z macro-backtrace for more info)
