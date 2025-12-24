@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🐛 Bug Fixes
 
+- **ci:** Add continue-on-error to cache steps for trybuild compatibility ([18ae752](https://github.com/RAprogramm/entity-derive/commit/18ae7529637c225126c964c6d66b705fd98bfa47)) by [@RAprogramm](https://github.com/RAprogramm)
 - **ci:** Update deprecated codecov test-results-action to v5 ([c1dea6e](https://github.com/RAprogramm/entity-derive/commit/c1dea6e06ba570ac7ef3f0518e737eb84a88e6b1)) by [@RAprogramm](https://github.com/RAprogramm)
 - **ci:** Simplify fallback release notes ([02b0533](https://github.com/RAprogramm/entity-derive/commit/02b053312a1a625b2efc570cbd4418158ca19e90)) by [@RAprogramm](https://github.com/RAprogramm)
 - **ci:** Require all checks to pass before release ([d5bbd2a](https://github.com/RAprogramm/entity-derive/commit/d5bbd2a10bc375b8e2dd7a78f00488cd35129213)) by [@RAprogramm](https://github.com/RAprogramm)
