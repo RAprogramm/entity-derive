@@ -29,7 +29,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/RAprogramm/entity-derive/blob/main/LICENSE">
+  <a href="https://github.com/RAprogramm/entity-derive/blob/main/LICENSES/MIT.txt">
     <img src="https://img.shields.io/badge/license-MIT-blue.svg?style=for-the-badge" alt="License: MIT"/>
   </a>
   <a href="https://api.reuse.software/info/github.com/RAprogramm/entity-derive">
@@ -433,7 +433,7 @@ Minimum Supported Rust Version: **1.92** (Edition 2024)
 
 ## License
 
-Licensed under the [MIT License](https://github.com/RAprogramm/entity-derive/blob/main/LICENSE).
+Licensed under the [MIT License](https://github.com/RAprogramm/entity-derive/blob/main/LICENSES/MIT.txt).
 
 <div align="right"><a href="#top">⬆ back to top</a></div>
 
