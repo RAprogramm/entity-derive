@@ -456,14 +456,7 @@ jobs:
 
           # Final fallback
           if [ -z "$NOTES" ]; then
-            NOTES=$(cat <<FALLBACK
-## What's Changed
-
-See [CHANGELOG.md](https://github.com/RAprogramm/entity-derive/blob/main/CHANGELOG.md) for details.
-
-**Full Changelog**: https://github.com/RAprogramm/entity-derive/compare/${PREV_TAG}...${TAG}
-FALLBACK
-)
+            NOTES="See [CHANGELOG.md](https://github.com/RAprogramm/entity-derive/blob/main/CHANGELOG.md) for details."
           fi
 
           # Create release with notes
