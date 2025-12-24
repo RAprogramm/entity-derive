@@ -3,22 +3,40 @@
 
 //! SQL implementation generation for the Entity derive macro.
 //!
-//! Generates `impl {Entity}Repository for sqlx::PgPool` with CRUD queries.
+//! Generates database-specific repository implementations based on dialect.
+//!
+//! # Supported Dialects
+//!
+//! | Dialect | Feature | Client | Status |
+//! |---------|---------|--------|--------|
+//! | PostgreSQL | `postgres` | `sqlx::PgPool` | Stable |
+//! | ClickHouse | `clickhouse` | `clickhouse::Client` | Planned |
+//! | MongoDB | `mongodb` | `mongodb::Client` | Planned |
 
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
-use super::parse::{EntityDef, SqlLevel};
-use crate::utils::sql;
+use super::parse::{DatabaseDialect, EntityDef, SqlLevel};
 
-/// Generate SQL implementation for `PgPool`.
+/// Generate SQL implementation based on entity dialect.
 pub fn generate(entity: &EntityDef) -> TokenStream {
     if entity.sql != SqlLevel::Full {
         return TokenStream::new();
     }
 
-    let ctx = SqlContext::new(entity);
+    match entity.dialect {
+        DatabaseDialect::Postgres => generate_postgres(entity),
+        DatabaseDialect::ClickHouse => generate_clickhouse(entity),
+        DatabaseDialect::MongoDB => generate_mongodb(entity)
+    }
+}
+
+/// Generate PostgreSQL implementation for `sqlx::PgPool`.
+fn generate_postgres(entity: &EntityDef) -> TokenStream {
+    let ctx = PostgresContext::new(entity);
     let trait_name = &ctx.trait_name;
+    let feature = entity.dialect.feature_flag();
+
     let create_impl = ctx.create_method();
     let find_impl = ctx.find_by_id_method();
     let update_impl = ctx.update_method();
@@ -26,7 +44,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     let list_impl = ctx.list_method();
 
     quote! {
-        #[cfg(feature = "db")]
+        #[cfg(feature = #feature)]
         #[async_trait::async_trait]
         impl #trait_name for sqlx::PgPool {
             type Error = sqlx::Error;
@@ -39,8 +57,34 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     }
 }
 
-struct SqlContext<'a> {
+/// Generate ClickHouse implementation (placeholder).
+fn generate_clickhouse(entity: &EntityDef) -> TokenStream {
+    let _trait_name = format_ident!("{}Repository", entity.name());
+    let feature = entity.dialect.feature_flag();
+
+    // ClickHouse implementation will be added later
+    // For now, generate a compile error if someone tries to use it
+    quote! {
+        #[cfg(feature = #feature)]
+        compile_error!("ClickHouse support is not yet implemented. Use dialect = \"postgres\" or sql = \"trait\" to implement manually.");
+    }
+}
+
+/// Generate MongoDB implementation (placeholder).
+fn generate_mongodb(entity: &EntityDef) -> TokenStream {
+    let _trait_name = format_ident!("{}Repository", entity.name());
+    let feature = entity.dialect.feature_flag();
+
+    // MongoDB implementation will be added later
+    quote! {
+        #[cfg(feature = #feature)]
+        compile_error!("MongoDB support is not yet implemented. Use dialect = \"postgres\" or sql = \"trait\" to implement manually.");
+    }
+}
+
+struct PostgresContext<'a> {
     entity:           &'a EntityDef,
+    dialect:          DatabaseDialect,
     trait_name:       syn::Ident,
     entity_name:      &'a syn::Ident,
     row_name:         syn::Ident,
@@ -54,13 +98,15 @@ struct SqlContext<'a> {
     placeholders_str: String
 }
 
-impl<'a> SqlContext<'a> {
+impl<'a> PostgresContext<'a> {
     fn new(entity: &'a EntityDef) -> Self {
         let id_field = entity.id_field().expect("Entity must have #[id] field");
         let fields = entity.all_fields();
+        let dialect = entity.dialect;
 
         Self {
             entity,
+            dialect,
             trait_name: format_ident!("{}Repository", entity.name()),
             entity_name: entity.name(),
             row_name: entity.ident_with("", "Row"),
@@ -70,8 +116,8 @@ impl<'a> SqlContext<'a> {
             table: entity.full_table_name(),
             id_name: id_field.name(),
             id_type: id_field.ty(),
-            columns_str: sql::join_columns(fields),
-            placeholders_str: sql::placeholders(fields.len())
+            columns_str: join_columns(fields),
+            placeholders_str: dialect.placeholders(fields.len())
         }
     }
 
@@ -90,7 +136,7 @@ impl<'a> SqlContext<'a> {
             entity,
             ..
         } = self;
-        let bindings = sql::insert_bindings(entity.all_fields());
+        let bindings = insert_bindings(entity.all_fields());
 
         quote! {
             async fn create(&self, dto: #create_dto) -> Result<#entity_name, Self::Error> {
@@ -112,13 +158,15 @@ impl<'a> SqlContext<'a> {
             columns_str,
             id_name,
             id_type,
+            dialect,
             ..
         } = self;
+        let placeholder = dialect.placeholder(1);
 
         quote! {
             async fn find_by_id(&self, id: #id_type) -> Result<Option<#entity_name>, Self::Error> {
                 let row: Option<#row_name> = sqlx::query_as(
-                    &format!("SELECT {} FROM {} WHERE {} = $1", #columns_str, #table, stringify!(#id_name))
+                    &format!("SELECT {} FROM {} WHERE {} = {}", #columns_str, #table, stringify!(#id_name), #placeholder)
                 ).bind(&id).fetch_optional(self).await?;
                 Ok(row.map(#entity_name::from))
             }
@@ -137,15 +185,21 @@ impl<'a> SqlContext<'a> {
             table,
             id_name,
             id_type,
+            dialect,
             ..
         } = self;
-        let set_clause = sql::set_clause(&update_fields);
-        let where_idx = update_fields.len() + 1;
-        let bindings = sql::update_bindings(&update_fields);
+
+        let field_names: Vec<&str> = update_fields
+            .iter()
+            .map(|f| f.name_str().leak() as &str)
+            .collect();
+        let set_clause = dialect.set_clause(&field_names);
+        let where_placeholder = dialect.placeholder(update_fields.len() + 1);
+        let bindings = update_bindings(&update_fields);
 
         quote! {
             async fn update(&self, id: #id_type, dto: #update_dto) -> Result<#entity_name, Self::Error> {
-                sqlx::query(&format!("UPDATE {} SET {} WHERE {} = ${}", #table, #set_clause, stringify!(#id_name), #where_idx))
+                sqlx::query(&format!("UPDATE {} SET {} WHERE {} = {}", #table, #set_clause, stringify!(#id_name), #where_placeholder))
                     #(#bindings)*
                     .bind(&id)
                     .execute(self).await?;
@@ -159,12 +213,14 @@ impl<'a> SqlContext<'a> {
             table,
             id_name,
             id_type,
+            dialect,
             ..
         } = self;
+        let placeholder = dialect.placeholder(1);
 
         quote! {
             async fn delete(&self, id: #id_type) -> Result<bool, Self::Error> {
-                let result = sqlx::query(&format!("DELETE FROM {} WHERE {} = $1", #table, stringify!(#id_name)))
+                let result = sqlx::query(&format!("DELETE FROM {} WHERE {} = {}", #table, stringify!(#id_name), #placeholder))
                     .bind(&id).execute(self).await?;
                 Ok(result.rows_affected() > 0)
             }
@@ -178,16 +234,55 @@ impl<'a> SqlContext<'a> {
             table,
             columns_str,
             id_name,
+            dialect,
             ..
         } = self;
+        let limit_placeholder = dialect.placeholder(1);
+        let offset_placeholder = dialect.placeholder(2);
 
         quote! {
             async fn list(&self, limit: i64, offset: i64) -> Result<Vec<#entity_name>, Self::Error> {
                 let rows: Vec<#row_name> = sqlx::query_as(
-                    &format!("SELECT {} FROM {} ORDER BY {} DESC LIMIT $1 OFFSET $2", #columns_str, #table, stringify!(#id_name))
+                    &format!("SELECT {} FROM {} ORDER BY {} DESC LIMIT {} OFFSET {}",
+                        #columns_str, #table, stringify!(#id_name), #limit_placeholder, #offset_placeholder)
                 ).bind(limit).bind(offset).fetch_all(self).await?;
                 Ok(rows.into_iter().map(#entity_name::from).collect())
             }
         }
     }
+}
+
+// Helper functions moved from utils/sql.rs to avoid circular dependency
+
+use super::parse::FieldDef;
+
+/// Join field names with comma separator.
+fn join_columns(fields: &[FieldDef]) -> String {
+    fields
+        .iter()
+        .map(|f| f.name_str())
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// Build `.bind(insertable.field)` chain.
+fn insert_bindings(fields: &[FieldDef]) -> Vec<TokenStream> {
+    fields
+        .iter()
+        .map(|f| {
+            let name = f.name();
+            quote! { .bind(insertable.#name) }
+        })
+        .collect()
+}
+
+/// Build `.bind(dto.field)` chain for UPDATE.
+fn update_bindings(fields: &[&FieldDef]) -> Vec<TokenStream> {
+    fields
+        .iter()
+        .map(|f| {
+            let name = f.name();
+            quote! { .bind(dto.#name) }
+        })
+        .collect()
 }

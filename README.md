@@ -160,17 +160,27 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-entity-derive = "0.1"
+entity-derive = { version = "0.2", features = ["postgres"] }
 
 # Required peer dependencies
-uuid = { version = "1", features = ["v7"] }
+uuid = { version = "1", features = ["v4", "v7"] }
 chrono = { version = "0.4", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 async-trait = "0.1"
 
-# For database support
+# For PostgreSQL support
 sqlx = { version = "0.8", features = ["runtime-tokio", "postgres"] }
 ```
+
+### Available Features
+
+| Feature | Description |
+|---------|-------------|
+| `postgres` | PostgreSQL support via sqlx (stable) |
+| `clickhouse` | ClickHouse support (planned) |
+| `mongodb` | MongoDB support (planned) |
+| `api` | OpenAPI schema generation via utoipa |
+| `validate` | Validation derives via validator |
 
 <div align="right"><a href="#top">⬆ back to top</a></div>
 
@@ -225,6 +235,23 @@ pub struct Post {
 | `table` | Yes | — | Database table name |
 | `schema` | No | `"public"` | Database schema |
 | `sql` | No | `"full"` | SQL generation level |
+| `dialect` | No | `"postgres"` | Database dialect |
+| `uuid` | No | `"v7"` | UUID version for ID generation |
+
+#### Database Dialects
+
+| Dialect | Alias | Client | Status |
+|---------|-------|--------|--------|
+| `postgres` | `pg`, `postgresql` | `sqlx::PgPool` | Stable |
+| `clickhouse` | `ch` | `clickhouse::Client` | Planned |
+| `mongodb` | `mongo` | `mongodb::Client` | Planned |
+
+#### UUID Versions
+
+| Version | Method | Properties |
+|---------|--------|------------|
+| `v7` | `Uuid::now_v7()` | Time-ordered, sortable (recommended for databases) |
+| `v4` | `Uuid::new_v4()` | Random, widely compatible |
 
 #### SQL Levels
 
@@ -238,7 +265,7 @@ pub struct Post {
 
 | Attribute | Effect |
 |-----------|--------|
-| `#[id]` | Primary key, auto-generated UUID (v7), always in response |
+| `#[id]` | Primary key, auto-generated UUID (v7 by default, configurable with `uuid` attribute), always in response |
 | `#[auto]` | Auto-generated field (timestamps), excluded from create/update |
 | `#[field(create)]` | Include in `CreateRequest` |
 | `#[field(update)]` | Include in `UpdateRequest` (wrapped in `Option` if not already) |
@@ -246,6 +273,24 @@ pub struct Post {
 | `#[field(skip)]` | Exclude from all DTOs (for sensitive data) |
 
 Combine multiple: `#[field(create, update, response)]`
+
+### Example with All Options
+
+```rust,ignore
+#[derive(Entity)]
+#[entity(
+    table = "sessions",
+    schema = "auth",
+    sql = "full",
+    dialect = "postgres",
+    uuid = "v4"  // Use random UUID instead of time-ordered
+)]
+pub struct Session {
+    #[id]
+    pub id: Uuid,
+    // ...
+}
+```
 
 <div align="right"><a href="#top">⬆ back to top</a></div>
 

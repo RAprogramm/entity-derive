@@ -1,6 +1,6 @@
 [package]
 name = "entity-derive"
-version = "0.1.6"
+version = "0.2.0"
 edition = "2024"
 rust-version = "1.92"
 authors = ["RAprogramm <andrey.rozanov.vl@gmail.com>"]
@@ -26,6 +26,17 @@ include = ["src/**/*", "Cargo.toml", "README.md", "LICENSE", "LICENSES/**/*"]
 [lib]
 proc-macro = true
 
+[features]
+default = []
+# Database dialects - enables SQL implementation generation
+postgres = []      # PostgreSQL via sqlx::PgPool
+clickhouse = []    # ClickHouse (planned)
+mongodb = []       # MongoDB (planned)
+# OpenAPI schema generation
+api = []
+# Validation derive
+validate = []
+
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
@@ -39,9 +50,11 @@ convert_case = "0.10"
 
 [dev-dependencies]
 trybuild = "1"
-uuid = { version = "1", features = ["v7", "serde"] }
+uuid = { version = "1", features = ["v4", "v7", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 async-trait = "0.1"
-sqlx = { version = "0.8", features = ["runtime-tokio", "postgres"] }
+sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "uuid", "chrono"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+utoipa = { version = "5", features = ["chrono", "uuid"] }
+validator = { version = "0.20", features = ["derive"] }

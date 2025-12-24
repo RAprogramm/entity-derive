@@ -31,7 +31,9 @@
 //! #[entity(
 //!     table = "users",      // Required: database table name
 //!     schema = "public",    // Optional: database schema (default: "public")
-//!     sql = "full"          // Optional: "full" | "trait" | "none" (default: "full")
+//!     sql = "full",         // Optional: "full" | "trait" | "none" (default: "full")
+//!     dialect = "postgres", // Optional: "postgres" | "clickhouse" | "mongodb" (default: "postgres")
+//!     uuid = "v7"           // Optional: "v7" | "v4" (default: "v7")
 //! )]
 //! pub struct User { /* ... */ }
 //! ```
@@ -197,12 +199,14 @@ use proc_macro::TokenStream;
 /// | `table` | **Yes** | — | Database table name |
 /// | `schema` | No | `"public"` | Database schema name |
 /// | `sql` | No | `"full"` | SQL generation: `"full"`, `"trait"`, or `"none"` |
+/// | `dialect` | No | `"postgres"` | Database dialect: `"postgres"`, `"clickhouse"`, `"mongodb"` |
+/// | `uuid` | No | `"v7"` | UUID version for ID: `"v7"` (time-ordered) or `"v4"` (random) |
 ///
 /// # Field Attributes
 ///
 /// | Attribute | Description |
 /// |-----------|-------------|
-/// | `#[id]` | Primary key. Auto-generates UUID v7. Always included in `Response`. |
+/// | `#[id]` | Primary key. Auto-generates UUID (v7 by default, configurable with `uuid` attribute). Always included in `Response`. |
 /// | `#[auto]` | Auto-generated field (e.g., `created_at`). Excluded from `Create`/`Update`. |
 /// | `#[field(create)]` | Include in `CreateRequest`. |
 /// | `#[field(update)]` | Include in `UpdateRequest`. Wrapped in `Option<T>` if not already. |

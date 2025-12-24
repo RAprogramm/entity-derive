@@ -1,0 +1,7 @@
+error: ClickHouse support is not yet implemented. Use dialect = "postgres" or sql = "trait" to implement manually.
+ --> tests/cases/fail/clickhouse_not_implemented.rs:7:10
+  |
+7 | #[derive(Entity)]
+  |          ^^^^^^
+  |
+  = note: this error originates in the derive macro `Entity` (in Nightly builds, run with -Z macro-backtrace for more info)
