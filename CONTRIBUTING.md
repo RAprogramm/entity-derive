@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2025 RA <contact@revaprogramm.com>
+SPDX-License-Identifier: MIT
+-->
+
 # Contributing
 
 ## Workflow
