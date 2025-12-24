@@ -329,7 +329,7 @@ impl From<&User> for InsertableUser { /* ... */ }
 
 ## Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                     Your Code                               │
 │  #[derive(Entity)]                                          │
@@ -424,7 +424,7 @@ Minimum Supported Rust Version: **1.92** (Edition 2024)
 
 ## License
 
-Licensed under the [MIT License](LICENSE).
+Licensed under the [MIT License](https://github.com/RAprogramm/entity-derive/blob/main/LICENSE).
 
 <div align="right"><a href="#top">⬆ back to top</a></div>
 
