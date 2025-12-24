@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🐛 Bug Fixes
 
+- Remove deprecated doc_auto_cfg feature (merged into doc_cfg in 1.92) ([88f10d8](https://github.com/RAprogramm/entity-derive/commit/88f10d835137463d3c5345a7b2f9bd628d18b758)) by [@RAprogramm](https://github.com/RAprogramm)
 - **ci:** Extract release notes from CHANGELOG.md correctly ([5e56b1e](https://github.com/RAprogramm/entity-derive/commit/5e56b1eb6e5b9b68d578f051fa05029410585279)) by [@RAprogramm](https://github.com/RAprogramm)
 
 ## [0.1.2](https://github.com/RAprogramm/entity-derive/releases/tag/v0.1.2) — 2025-12-24
