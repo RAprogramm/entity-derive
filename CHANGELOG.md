@@ -17,6 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **ci:** Remove redundant tag trigger ([d99a837](https://github.com/RAprogramm/entity-derive/commit/d99a8375c273f44f338f7f318a465c0ba5750912)) by [@RAprogramm](https://github.com/RAprogramm)
 
+
+### 🐛 Bug Fixes
+
+- **ci:** Extract release notes from CHANGELOG.md correctly ([5e56b1e](https://github.com/RAprogramm/entity-derive/commit/5e56b1eb6e5b9b68d578f051fa05029410585279)) by [@RAprogramm](https://github.com/RAprogramm)
+
 ## [0.1.2](https://github.com/RAprogramm/entity-derive/releases/tag/v0.1.2) — 2025-12-24
 
 ### 🐛 Bug Fixes
