@@ -1,3 +1,5 @@
+<a id="top"></a>
+
 <p align="center">
   <h1 align="center">entity-derive</h1>
   <p align="center">
@@ -28,6 +30,25 @@
     <img src="https://api.reuse.software/badge/github.com/RAprogramm/entity-derive" alt="REUSE Compliant"/>
   </a>
 </p>
+
+---
+
+## Table of Contents
+
+- [The Problem](#the-problem)
+- [The Solution](#the-solution)
+- [Features](#features)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Attribute Reference](#attribute-reference)
+- [Generated Code](#generated-code)
+- [Architecture](#architecture)
+- [Comparison](#comparison)
+- [Code Coverage](#code-coverage)
+- [Documentation](#documentation)
+- [MSRV](#msrv)
+- [License](#license)
+- [Contributing](#contributing)
 
 ---
 
@@ -85,6 +106,8 @@ impl From<User> for UserResponse { /* ... */ }
 
 **That's 200+ lines of boilerplate for a single entity.**
 
+<div align="right"><a href="#top">⬆ back to top</a></div>
+
 ## The Solution
 
 ```rust
@@ -113,6 +136,8 @@ pub struct User {
 
 **Done.** The macro generates everything else.
 
+<div align="right"><a href="#top">⬆ back to top</a></div>
+
 ## Features
 
 - **Zero Runtime Cost** — All code generation happens at compile time
@@ -121,6 +146,8 @@ pub struct User {
 - **SQL Generation** — Complete CRUD operations for PostgreSQL (via sqlx)
 - **Partial Updates** — Non-optional fields automatically wrapped in `Option` for updates
 - **Security by Default** — `#[field(skip)]` ensures sensitive data never leaks to responses
+
+<div align="right"><a href="#top">⬆ back to top</a></div>
 
 ## Installation
 
@@ -139,6 +166,8 @@ async-trait = "0.1"
 # For database support
 sqlx = { version = "0.8", features = ["runtime-tokio", "postgres"] }
 ```
+
+<div align="right"><a href="#top">⬆ back to top</a></div>
 
 ## Quick Start
 
@@ -180,6 +209,8 @@ pub struct Post {
 // - impl PostRepository for sqlx::PgPool
 ```
 
+<div align="right"><a href="#top">⬆ back to top</a></div>
+
 ## Attribute Reference
 
 ### Entity-Level: `#[entity(...)]`
@@ -210,6 +241,8 @@ pub struct Post {
 | `#[field(skip)]` | Exclude from all DTOs (for sensitive data) |
 
 Combine multiple: `#[field(create, update, response)]`
+
+<div align="right"><a href="#top">⬆ back to top</a></div>
 
 ## Generated Code
 
@@ -292,6 +325,8 @@ impl From<&User> for InsertableUser { /* ... */ }
 // ... and more
 ```
 
+<div align="right"><a href="#top">⬆ back to top</a></div>
+
 ## Architecture
 
 ```
@@ -318,6 +353,8 @@ impl From<&User> for InsertableUser { /* ... */ }
 └─────────────────────────────────────────────────────────────┘
 ```
 
+<div align="right"><a href="#top">⬆ back to top</a></div>
+
 ## Comparison
 
 | Aspect | Without entity-derive | With entity-derive |
@@ -328,6 +365,8 @@ impl From<&User> for InsertableUser { /* ... */ }
 | Partial updates | Manual wrapping | Automatic |
 | SQL bindings | Error-prone | Always in sync |
 | Refactoring | Update 8+ places | Update 1 place |
+
+<div align="right"><a href="#top">⬆ back to top</a></div>
 
 ## Code Coverage
 
@@ -363,6 +402,8 @@ Hierarchical view: top = entire project, descending through folders to individua
   </a>
 </p>
 
+<div align="right"><a href="#top">⬆ back to top</a></div>
+
 ## Documentation
 
 - [**API Reference**](https://docs.rs/entity-derive) — Full API documentation
@@ -373,14 +414,22 @@ Hierarchical view: top = entire project, descending through folders to individua
   - [Integration with Axum/Actix](https://github.com/RAprogramm/entity-derive/wiki/Web-Frameworks)
   - [Best Practices](https://github.com/RAprogramm/entity-derive/wiki/Best-Practices)
 
+<div align="right"><a href="#top">⬆ back to top</a></div>
+
 ## MSRV
 
 Minimum Supported Rust Version: **1.92** (Edition 2024)
+
+<div align="right"><a href="#top">⬆ back to top</a></div>
 
 ## License
 
 Licensed under the [MIT License](LICENSE).
 
+<div align="right"><a href="#top">⬆ back to top</a></div>
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+<div align="right"><a href="#top">⬆ back to top</a></div>
