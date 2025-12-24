@@ -11,7 +11,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.1.1...HEAD)
+## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.1.2...HEAD)
+
+### ♻️ Refactor
+
+- **ci:** Remove redundant tag trigger ([d99a837](https://github.com/RAprogramm/entity-derive/commit/d99a8375c273f44f338f7f318a465c0ba5750912)) by [@RAprogramm](https://github.com/RAprogramm)
+
+## [0.1.2](https://github.com/RAprogramm/entity-derive/releases/tag/v0.1.2) — 2025-12-24
 
 ### 🐛 Bug Fixes
 
@@ -22,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ci:** Require all checks to pass before release ([d5bbd2a](https://github.com/RAprogramm/entity-derive/commit/d5bbd2a10bc375b8e2dd7a78f00488cd35129213)) by [@RAprogramm](https://github.com/RAprogramm)
 - **ci:** Ignore RUSTSEC-2023-0071 (rsa timing side-channel) ([d05b283](https://github.com/RAprogramm/entity-derive/commit/d05b283e06353c80edb3a2618526c4dfdb9c1980)) by [@RAprogramm](https://github.com/RAprogramm)
 
+**Full Changelog**: [`v0.1.1...v0.1.2`](https://github.com/RAprogramm/entity-derive/compare/v0.1.1...v0.1.2)
 ## [0.1.1](https://github.com/RAprogramm/entity-derive/releases/tag/v0.1.1) — 2025-12-24
 
 ### 🐛 Bug Fixes
