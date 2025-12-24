@@ -4,18 +4,10 @@
 
 version: 2
 
-registries:
-  crates-io:
-    type: cargo-registry
-    url: https://crates.io
-    index: https://index.crates.io
-
 updates:
   # Rust dependencies
   - package-ecosystem: "cargo"
     directory: "/"
-    registries:
-      - crates-io
     schedule:
       interval: "weekly"
       day: "monday"
