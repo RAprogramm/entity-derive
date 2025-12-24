@@ -427,6 +427,12 @@ jobs:
             echo "Created tag $TAG"
           fi
 
+      - name: Install git-cliff
+        if: steps.publish.outputs.published == 'true'
+        uses: taiki-e/install-action@v2
+        with:
+          tool: git-cliff
+
       - name: Create GitHub Release
         if: steps.publish.outputs.published == 'true'
         env:
@@ -435,20 +441,19 @@ jobs:
           TAG="${{ steps.version.outputs.tag }}"
           VERSION="${{ steps.version.outputs.version }}"
 
-          # Pull latest changelog (updated by changelog job)
-          git pull origin main --rebase 2>/dev/null || true
+          # Ensure all tags are fetched for accurate changelog generation
+          git fetch --tags --force
 
-          # Extract release notes from CHANGELOG.md
-          NOTES=""
-          if [ -f CHANGELOG.md ]; then
-            # Extract section between current version header and next version header
-            # Pattern matches: ## [0.1.3](...) or ## [0.1.3]
-            NOTES=$(awk "/^## \\[${VERSION}\\]/{found=1; next} /^## \\[/{found=0} found" CHANGELOG.md)
-          fi
+          # Generate release notes directly with git-cliff (same config as changelog job)
+          NOTES=$(git cliff --config cliff.toml \
+            --unreleased \
+            --strip header \
+            --tag "$TAG" \
+            2>/dev/null || echo "")
 
-          # Fallback
+          # Fallback if git-cliff fails
           if [ -z "$NOTES" ]; then
-            NOTES="See [CHANGELOG.md](https://github.com/RAprogramm/entity-derive/blob/main/CHANGELOG.md) for details."
+            NOTES="Release $VERSION"
           fi
 
           # Create release with notes
