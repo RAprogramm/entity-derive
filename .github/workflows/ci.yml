@@ -226,17 +226,15 @@ jobs:
 
       - name: Generate coverage
         run: |
-          cargo llvm-cov nextest --all-features --profile ci --lcov --output-path lcov.info --no-tests=pass
+          cargo llvm-cov nextest --all-features --profile ci --lcov --output-path lcov.info
           cargo llvm-cov report --html
 
-      - name: Upload coverage to Codecov
+      - name: Upload to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info
-          report_type: coverage
           fail_ci_if_error: false
-          verbose: true
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v6
