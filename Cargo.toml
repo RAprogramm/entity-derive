@@ -1,6 +1,6 @@
 [package]
 name = "entity-derive"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 rust-version = "1.92"
 authors = ["RAprogramm <andrey.rozanov.vl@gmail.com>"]
@@ -12,22 +12,16 @@ readme = "README.md"
 keywords = ["derive", "macro", "entity", "dto", "repository"]
 categories = ["development-tools::procedural-macro-helpers", "database"]
 exclude = [
-    "tests/",
-    ".github/",
-    ".config/",
-    "wip/",
-    "cliff.toml",
-    "deny.toml",
-    "codecov.yml",
-    "CHANGELOG.md",
+  "tests/",
+  ".github/",
+  ".config/",
+  "wip/",
+  "cliff.toml",
+  "deny.toml",
+  "codecov.yml",
+  "CHANGELOG.md",
 ]
-include = [
-    "src/**/*",
-    "Cargo.toml",
-    "README.md",
-    "LICENSE",
-    "LICENSES/**/*",
-]
+include = ["src/**/*", "Cargo.toml", "README.md", "LICENSE", "LICENSES/**/*"]
 
 [lib]
 proc-macro = true
