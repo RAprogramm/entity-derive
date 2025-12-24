@@ -12,22 +12,22 @@
 
 <p align="center">
   <a href="https://crates.io/crates/entity-derive">
-    <img src="https://img.shields.io/crates/v/entity-derive.svg" alt="Crates.io"/>
+    <img src="https://img.shields.io/crates/v/entity-derive.svg?style=for-the-badge" alt="Crates.io"/>
   </a>
   <a href="https://docs.rs/entity-derive">
-    <img src="https://docs.rs/entity-derive/badge.svg" alt="Documentation"/>
+    <img src="https://img.shields.io/docsrs/entity-derive?style=for-the-badge" alt="Documentation"/>
   </a>
   <a href="https://github.com/RAprogramm/entity-derive/actions">
-    <img src="https://github.com/RAprogramm/entity-derive/workflows/CI/badge.svg" alt="CI Status"/>
+    <img src="https://img.shields.io/github/actions/workflow/status/RAprogramm/entity-derive/ci.yml?style=for-the-badge" alt="CI Status"/>
   </a>
   <a href="https://codecov.io/gh/RAprogramm/entity-derive">
-    <img src="https://codecov.io/gh/RAprogramm/entity-derive/graph/badge.svg?token=HGuwZf0REV" alt="Coverage"/>
+    <img src="https://img.shields.io/codecov/c/github/RAprogramm/entity-derive?style=for-the-badge&token=HGuwZf0REV" alt="Coverage"/>
   </a>
   <a href="https://github.com/RAprogramm/entity-derive/blob/main/LICENSE">
-    <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"/>
+    <img src="https://img.shields.io/badge/license-MIT-blue.svg?style=for-the-badge" alt="License: MIT"/>
   </a>
   <a href="https://api.reuse.software/info/github.com/RAprogramm/entity-derive">
-    <img src="https://api.reuse.software/badge/github.com/RAprogramm/entity-derive" alt="REUSE Compliant"/>
+    <img src="https://img.shields.io/reuse/compliance/github.com%2FRAprogramm%2Fentity-derive?style=for-the-badge" alt="REUSE Compliant"/>
   </a>
 </p>
 
