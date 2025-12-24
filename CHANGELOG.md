@@ -11,13 +11,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.1.4...HEAD)
+## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.1.5...HEAD)
+
+### 🎨 Styling
+
+- Update badges to for-the-badge style ([51c78f7](https://github.com/RAprogramm/entity-derive/commit/51c78f7e8dcd051d0b6722684c1c320f2ccdb4b2)) by [@RAprogramm](https://github.com/RAprogramm)
+
+
+### 🐛 Bug Fixes
+
+- **ci:** Generate release notes before creating tag ([4c1b824](https://github.com/RAprogramm/entity-derive/commit/4c1b824a7c896014db6a90a3dc2cb0b94b862c4e)) by [@RAprogramm](https://github.com/RAprogramm)
+
+## [0.1.5](https://github.com/RAprogramm/entity-derive/releases/tag/v0.1.5) — 2025-12-24
 
 ### 🐛 Bug Fixes
 
 - **ci:** Generate release notes directly with git-cliff ([cafbbb9](https://github.com/RAprogramm/entity-derive/commit/cafbbb9e908042fef17aed2bcff14012836204b6)) by [@RAprogramm](https://github.com/RAprogramm)
 - **ci:** Fix changelog extraction pattern to handle URL in version header ([8e533f7](https://github.com/RAprogramm/entity-derive/commit/8e533f72bdc8be83f6655d88761e9384251d9b63)) by [@RAprogramm](https://github.com/RAprogramm)
 
+**Full Changelog**: [`v0.1.4...v0.1.5`](https://github.com/RAprogramm/entity-derive/compare/v0.1.4...v0.1.5)
 ## [0.1.4](https://github.com/RAprogramm/entity-derive/releases/tag/v0.1.4) — 2025-12-24
 
 ### 🐛 Bug Fixes
