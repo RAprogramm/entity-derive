@@ -11,14 +11,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.1.3...HEAD)
+## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.1.4...HEAD)
 
 ### 🐛 Bug Fixes
 
 - **ci:** Fix changelog extraction pattern to handle URL in version header ([8e533f7](https://github.com/RAprogramm/entity-derive/commit/8e533f72bdc8be83f6655d88761e9384251d9b63)) by [@RAprogramm](https://github.com/RAprogramm)
+
+## [0.1.4](https://github.com/RAprogramm/entity-derive/releases/tag/v0.1.4) — 2025-12-24
+
+### 🐛 Bug Fixes
+
 - **ci:** Simplify publish logic with proper exit code handling ([0b42664](https://github.com/RAprogramm/entity-derive/commit/0b42664aff525d6965e5f5a2840f4286ee498534)) by [@RAprogramm](https://github.com/RAprogramm)
 - **ci:** Simplify codecov upload to match working configuration ([af65596](https://github.com/RAprogramm/entity-derive/commit/af65596760b6074f606f6011bcde1fab113bced0)) by [@RAprogramm](https://github.com/RAprogramm)
 
+**Full Changelog**: [`v0.1.3...v0.1.4`](https://github.com/RAprogramm/entity-derive/compare/v0.1.3...v0.1.4)
 ## [0.1.3](https://github.com/RAprogramm/entity-derive/releases/tag/v0.1.3) — 2025-12-24
 
 ### ♻️ Refactor
