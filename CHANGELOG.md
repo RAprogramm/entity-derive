@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.1.6...HEAD)
 
+### ✨ Features
+
+- Add UUID version selection (v4/v7) ([dfff15b](https://github.com/RAprogramm/entity-derive/commit/dfff15b593872b231dbc8dc3d34314dc4ac28727)) by [@RAprogramm](https://github.com/RAprogramm)
+- Add multi-database dialect support ([d26b4be](https://github.com/RAprogramm/entity-derive/commit/d26b4be79f7bcf221b8616f7a1af85623f4c5f86)) by [@RAprogramm](https://github.com/RAprogramm)
+
+
 ### 📚 Documentation
 
 - Fix license link to LICENSES/MIT.txt ([19a33bb](https://github.com/RAprogramm/entity-derive/commit/19a33bb498471639ea6cd11f69916c45c416fb88)) by [@RAprogramm](https://github.com/RAprogramm)
