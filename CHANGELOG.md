@@ -11,7 +11,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.1.5...HEAD)
+## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.1.6...HEAD)
+
+### 📚 Documentation
+
+- Fix license link to LICENSES/MIT.txt ([19a33bb](https://github.com/RAprogramm/entity-derive/commit/19a33bb498471639ea6cd11f69916c45c416fb88)) by [@RAprogramm](https://github.com/RAprogramm)
+- Add Wiki badge and organize badges by category ([9824162](https://github.com/RAprogramm/entity-derive/commit/98241629475331c208fb69553d177adb44865e47)) by [@RAprogramm](https://github.com/RAprogramm)
+- Add SPDX license header to CONTRIBUTING.md ([f376485](https://github.com/RAprogramm/entity-derive/commit/f3764858e990bef8525d63a58b13fb85e2677058)) by [@RAprogramm](https://github.com/RAprogramm)
+
+## [0.1.6](https://github.com/RAprogramm/entity-derive/releases/tag/v0.1.6) — 2025-12-24
 
 ### 🎨 Styling
 
@@ -22,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **ci:** Generate release notes before creating tag ([4c1b824](https://github.com/RAprogramm/entity-derive/commit/4c1b824a7c896014db6a90a3dc2cb0b94b862c4e)) by [@RAprogramm](https://github.com/RAprogramm)
 
+**Full Changelog**: [`v0.1.5...v0.1.6`](https://github.com/RAprogramm/entity-derive/compare/v0.1.5...v0.1.6)
 ## [0.1.5](https://github.com/RAprogramm/entity-derive/releases/tag/v0.1.5) — 2025-12-24
 
 ### 🐛 Bug Fixes
