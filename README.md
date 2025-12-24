@@ -54,10 +54,6 @@
 - [Architecture](#architecture)
 - [Comparison](#comparison)
 - [Code Coverage](#code-coverage)
-- [Documentation](#documentation)
-- [MSRV](#msrv)
-- [License](#license)
-- [Contributing](#contributing)
 
 ---
 
