@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🐛 Bug Fixes
 
+- **ci:** Generate release notes directly with git-cliff ([cafbbb9](https://github.com/RAprogramm/entity-derive/commit/cafbbb9e908042fef17aed2bcff14012836204b6)) by [@RAprogramm](https://github.com/RAprogramm)
 - **ci:** Fix changelog extraction pattern to handle URL in version header ([8e533f7](https://github.com/RAprogramm/entity-derive/commit/8e533f72bdc8be83f6655d88761e9384251d9b63)) by [@RAprogramm](https://github.com/RAprogramm)
 
 ## [0.1.4](https://github.com/RAprogramm/entity-derive/releases/tag/v0.1.4) — 2025-12-24
