@@ -1,6 +1,6 @@
 [package]
 name = "entity-derive"
-version = "0.1.6"
+version = "0.2.0"
 edition = "2024"
 rust-version = "1.92"
 authors = ["RAprogramm <andrey.rozanov.vl@gmail.com>"]
@@ -25,6 +25,17 @@ include = ["src/**/*", "Cargo.toml", "README.md", "LICENSE", "LICENSES/**/*"]
 
 [lib]
 proc-macro = true
+
+[features]
+default = []
+# Database dialects - enables SQL implementation generation
+postgres = []      # PostgreSQL via sqlx::PgPool
+clickhouse = []    # ClickHouse (planned)
+mongodb = []       # MongoDB (planned)
+# OpenAPI schema generation
+api = []
+# Validation derive
+validate = []
 
 [package.metadata.docs.rs]
 all-features = true

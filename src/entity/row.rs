@@ -26,7 +26,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
 
     quote! {
         #[derive(Debug, Clone)]
-        #[cfg_attr(feature = "db", derive(sqlx::FromRow))]
+        #[cfg_attr(feature = "postgres", derive(sqlx::FromRow))]
         #vis struct #row_name { #(#field_defs),* }
     }
 }

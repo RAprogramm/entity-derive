@@ -86,8 +86,11 @@
 //! // }
 //! ```
 
+mod dialect;
+
 use convert_case::{Case, Casing};
 use darling::{FromDeriveInput, FromMeta};
+pub use dialect::DatabaseDialect;
 use proc_macro2::Span;
 use syn::{Attribute, DeriveInput, Field, Ident, Meta, Type, Visibility};
 
@@ -197,7 +200,13 @@ struct EntityAttrs {
     ///
     /// Defaults to [`SqlLevel::Full`] if not specified.
     #[darling(default)]
-    sql: SqlLevel
+    sql: SqlLevel,
+
+    /// Database dialect.
+    ///
+    /// Defaults to [`DatabaseDialect::Postgres`] if not specified.
+    #[darling(default)]
+    dialect: DatabaseDialect
 }
 
 /// Returns the default schema name.
@@ -255,6 +264,9 @@ pub struct EntityDef {
 
     /// SQL generation level controlling what code is generated.
     pub sql: SqlLevel,
+
+    /// Database dialect for code generation.
+    pub dialect: DatabaseDialect,
 
     /// All field definitions from the struct.
     pub fields: Vec<FieldDef>
@@ -324,6 +336,7 @@ impl EntityDef {
             table: attrs.table,
             schema: attrs.schema,
             sql: attrs.sql,
+            dialect: attrs.dialect,
             fields
         })
     }
