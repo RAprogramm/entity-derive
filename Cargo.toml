@@ -1,14 +1,16 @@
 [package]
-name = "revelation-macros"
+name = "entity-derive"
 version = "0.1.0"
 edition = "2024"
-authors = ["Revelation Team"]
-description = "Procedural macros for Revelation ecosystem - Entity, Repository, DTO generation"
+rust-version = "1.92"
+authors = ["RAprogramm <andrey.rozanov.vl@gmail.com>"]
+description = "Derive macro for generating DTOs, repositories, and SQL from a single entity definition"
 license = "MIT"
-repository = "https://github.com/Revelation-Path/revelation-macros"
+repository = "https://github.com/RAprogramm/entity-derive"
+documentation = "https://docs.rs/entity-derive"
 readme = "README.md"
-keywords = ["revelation", "macros", "proc-macro", "entity", "repository"]
-categories = ["development-tools::procedural-macro-helpers"]
+keywords = ["derive", "macro", "entity", "dto", "repository"]
+categories = ["development-tools::procedural-macro-helpers", "database"]
 
 [lib]
 proc-macro = true
