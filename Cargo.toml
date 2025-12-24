@@ -11,6 +11,23 @@ documentation = "https://docs.rs/entity-derive"
 readme = "README.md"
 keywords = ["derive", "macro", "entity", "dto", "repository"]
 categories = ["development-tools::procedural-macro-helpers", "database"]
+exclude = [
+    "tests/",
+    ".github/",
+    ".config/",
+    "wip/",
+    "cliff.toml",
+    "deny.toml",
+    "codecov.yml",
+    "CHANGELOG.md",
+]
+include = [
+    "src/**/*",
+    "Cargo.toml",
+    "README.md",
+    "LICENSE",
+    "LICENSES/**/*",
+]
 
 [lib]
 proc-macro = true
