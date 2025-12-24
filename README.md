@@ -17,17 +17,26 @@
   <a href="https://docs.rs/entity-derive">
     <img src="https://img.shields.io/docsrs/entity-derive?style=for-the-badge" alt="Documentation"/>
   </a>
+</p>
+
+<p align="center">
   <a href="https://github.com/RAprogramm/entity-derive/actions">
     <img src="https://img.shields.io/github/actions/workflow/status/RAprogramm/entity-derive/ci.yml?style=for-the-badge" alt="CI Status"/>
   </a>
   <a href="https://codecov.io/gh/RAprogramm/entity-derive">
     <img src="https://img.shields.io/codecov/c/github/RAprogramm/entity-derive?style=for-the-badge&token=HGuwZf0REV" alt="Coverage"/>
   </a>
+</p>
+
+<p align="center">
   <a href="https://github.com/RAprogramm/entity-derive/blob/main/LICENSE">
     <img src="https://img.shields.io/badge/license-MIT-blue.svg?style=for-the-badge" alt="License: MIT"/>
   </a>
   <a href="https://api.reuse.software/info/github.com/RAprogramm/entity-derive">
     <img src="https://img.shields.io/reuse/compliance/github.com%2FRAprogramm%2Fentity-derive?style=for-the-badge" alt="REUSE Compliant"/>
+  </a>
+  <a href="https://github.com/RAprogramm/entity-derive/wiki">
+    <img src="https://img.shields.io/badge/Wiki-Documentation-purple?style=for-the-badge&logo=github" alt="Wiki"/>
   </a>
 </p>
 
