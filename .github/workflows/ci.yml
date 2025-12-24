@@ -139,7 +139,9 @@ jobs:
         run: cargo deny check
 
       - name: Cargo audit
-        run: cargo audit
+        run: |
+          rm -rf ~/.cargo/advisory-db
+          cargo audit
 
   reuse:
     name: REUSE Compliance
