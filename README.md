@@ -19,7 +19,7 @@
     <img src="https://github.com/RAprogramm/entity-derive/workflows/CI/badge.svg" alt="CI Status"/>
   </a>
   <a href="https://codecov.io/gh/RAprogramm/entity-derive">
-    <img src="https://codecov.io/gh/RAprogramm/entity-derive/branch/main/graph/badge.svg" alt="Coverage"/>
+    <img src="https://codecov.io/gh/RAprogramm/entity-derive/graph/badge.svg?token=HGuwZf0REV" alt="Coverage"/>
   </a>
   <a href="https://github.com/RAprogramm/entity-derive/blob/main/LICENSE">
     <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"/>
@@ -328,6 +328,50 @@ impl From<&User> for InsertableUser { /* ... */ }
 | Partial updates | Manual wrapping | Automatic |
 | SQL bindings | Error-prone | Always in sync |
 | Refactoring | Update 8+ places | Update 1 place |
+
+## Code Coverage
+
+We maintain high test coverage to ensure reliability. Below are visual representations of our codebase coverage:
+
+### Sunburst
+
+The inner circle represents the entire project. Moving outward: folders, then individual files. Size = number of statements, color = coverage percentage.
+
+<p align="center">
+  <a href="https://codecov.io/gh/RAprogramm/entity-derive">
+    <img src="https://codecov.io/gh/RAprogramm/entity-derive/graphs/sunburst.svg?token=HGuwZf0REV" alt="Coverage Sunburst"/>
+  </a>
+</p>
+
+### Grid
+
+Each block represents a file. Size = number of statements, color = coverage level (green = high, red = low).
+
+<p align="center">
+  <a href="https://codecov.io/gh/RAprogramm/entity-derive">
+    <img src="https://codecov.io/gh/RAprogramm/entity-derive/graphs/tree.svg?token=HGuwZf0REV" alt="Coverage Grid"/>
+  </a>
+</p>
+
+### Icicle
+
+Hierarchical view: top = entire project, descending through folders to individual files. Size and color represent statements and coverage.
+
+<p align="center">
+  <a href="https://codecov.io/gh/RAprogramm/entity-derive">
+    <img src="https://codecov.io/gh/RAprogramm/entity-derive/graphs/icicle.svg?token=HGuwZf0REV" alt="Coverage Icicle"/>
+  </a>
+</p>
+
+## Documentation
+
+- [**API Reference**](https://docs.rs/entity-derive) — Full API documentation
+- [**Wiki**](https://github.com/RAprogramm/entity-derive/wiki) — Guides and examples:
+  - [All Attributes Explained](https://github.com/RAprogramm/entity-derive/wiki/Attributes)
+  - [Real-World Examples](https://github.com/RAprogramm/entity-derive/wiki/Examples)
+  - [Custom SQL Queries](https://github.com/RAprogramm/entity-derive/wiki/Custom-SQL)
+  - [Integration with Axum/Actix](https://github.com/RAprogramm/entity-derive/wiki/Web-Frameworks)
+  - [Best Practices](https://github.com/RAprogramm/entity-derive/wiki/Best-Practices)
 
 ## MSRV
 
