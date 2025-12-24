@@ -6,7 +6,7 @@
     html_logo_url = "https://raw.githubusercontent.com/RAprogramm/entity-derive/main/assets/logo.svg",
     html_favicon_url = "https://raw.githubusercontent.com/RAprogramm/entity-derive/main/assets/favicon.ico"
 )]
-#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![warn(
     missing_docs,
     rustdoc::missing_crate_level_docs,
