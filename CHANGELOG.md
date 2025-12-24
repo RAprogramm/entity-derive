@@ -1,9 +1,3 @@
-<!--
-SPDX-FileCopyrightText: 2025 RAprogramm <andrey.rozanov.vl@gmail.com>
-
-SPDX-License-Identifier: MIT
--->
-
 # Changelog
 
 All notable changes to this project will be documented in this file.
@@ -12,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+### Bug Fixes
+
+- Handle already published version gracefully with semver guide by @RAprogramm
+
+### Documentation
+
+- Add CHANGELOG.md by @RAprogramm
+
+### Miscellaneous Tasks
+
+- **deps:** Bump actions/upload-artifact from 4 to 6 by @dependabot[bot]
+- **deps:** Bump actions/checkout from 5 to 6 by @dependabot[bot]
+- Upload test results to Codecov by @RAprogramm
+- Add REUSE header to CHANGELOG.md by @RAprogramm
+
+### New Contributors
+
+* @dependabot[bot] made their first contribution
+
+## [0.1.0] - 2025-12-24
 
 ### Features
 
@@ -22,7 +37,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Update deny.toml to v2 format by @RAprogramm
 - Clean advisory-db before cargo audit by @RAprogramm
 - Make GH_TOKEN optional with GITHUB_TOKEN fallback by @RAprogramm
-- Handle already published version gracefully with semver guide
 
 ### Documentation
 
@@ -37,14 +51,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add dependabot for dependency updates by @RAprogramm
 - Add dependabot with auto-merge and grouping by @RAprogramm
 - Run automerge only for dependabot PRs by @RAprogramm
-- **deps:** Bump actions/upload-artifact from 4 to 6 by @dependabot[bot]
-- **deps:** Bump actions/checkout from 5 to 6 by @dependabot[bot]
-- Upload test results to Codecov by @RAprogramm
 
 ### New Contributors
 
 * @RAprogramm made their first contribution
 
-* @dependabot[bot] made their first contribution
 
+**Full Changelog**: [...v0.1.0](https://github.com/RAprogramm/entity-derive/compare/...v0.1.0)
 
