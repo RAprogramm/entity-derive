@@ -342,7 +342,7 @@ impl From<&User> for InsertableUser { /* ... */ }
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
 │  │   Parser    │  │ Generators  │  │      Output         │  │
 │  │             │  │             │  │                     │  │
-│  │ EntityDef   │─▶│ dto.rs      │─▶│ CreateRequest       │  │
+│  │ EntityDef   │─>│ dto.rs      │─>│ CreateRequest       │  │
 │  │ FieldDef    │  │ row.rs      │  │ UpdateRequest       │  │
 │  │ SqlLevel    │  │ repository  │  │ Response            │  │
 │  │             │  │ sql.rs      │  │ Row, Insertable     │  │
