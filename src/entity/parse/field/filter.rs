@@ -81,16 +81,19 @@ impl FilterConfig {
     }
 
     /// Check if this is an exact match filter.
+    #[allow(dead_code)]
     pub fn is_eq(&self) -> bool {
         self.filter_type == FilterType::Eq
     }
 
     /// Check if this is a LIKE filter.
+    #[allow(dead_code)]
     pub fn is_like(&self) -> bool {
         self.filter_type == FilterType::Like
     }
 
     /// Check if this is a range filter.
+    #[allow(dead_code)]
     pub fn is_range(&self) -> bool {
         self.filter_type == FilterType::Range
     }
