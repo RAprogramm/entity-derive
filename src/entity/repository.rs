@@ -88,6 +88,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     let relation_methods = generate_relation_methods(entity, id_type);
     let projection_methods = generate_projection_methods(entity, id_type);
     let soft_delete_methods = generate_soft_delete_methods(entity, id_type);
+    let query_method = generate_query_method(entity);
     let marker = marker::generated();
 
     quote! {
@@ -120,6 +121,8 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             async fn delete(&self, id: #id_type) -> Result<bool, Self::Error>;
 
             async fn list(&self, limit: i64, offset: i64) -> Result<Vec<#entity_name>, Self::Error>;
+
+            #query_method
 
             #relation_methods
 
@@ -251,5 +254,27 @@ fn generate_soft_delete_methods(entity: &EntityDef, id_type: &syn::Type) -> Toke
         ///
         /// Unlike `list`, this does not filter out deleted records.
         async fn list_with_deleted(&self, limit: i64, offset: i64) -> Result<Vec<#entity_name>, Self::Error>;
+    }
+}
+
+/// Generate query method when entity has filter fields.
+///
+/// Generates:
+/// ```rust,ignore
+/// async fn query(&self, query: UserQuery) -> Result<Vec<User>, Self::Error>;
+/// ```
+fn generate_query_method(entity: &EntityDef) -> TokenStream {
+    if !entity.has_filters() {
+        return TokenStream::new();
+    }
+
+    let entity_name = entity.name();
+    let query_type = entity.ident_with("", "Query");
+
+    quote! {
+        /// Query entities with type-safe filters.
+        ///
+        /// Supports filtering by fields marked with `#[filter]`.
+        async fn query(&self, query: #query_type) -> Result<Vec<#entity_name>, Self::Error>;
     }
 }

@@ -59,6 +59,7 @@ mod insertable;
 mod mappers;
 pub mod parse;
 mod projection;
+mod query;
 mod repository;
 mod row;
 mod sql;
@@ -82,6 +83,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
 fn generate(entity: EntityDef) -> TokenStream {
     let dto = dto::generate(&entity);
     let projections = projection::generate(&entity);
+    let query_struct = query::generate(&entity);
     let repository = repository::generate(&entity);
     let row = row::generate(&entity);
     let insertable = insertable::generate(&entity);
@@ -91,6 +93,7 @@ fn generate(entity: EntityDef) -> TokenStream {
     let expanded = quote! {
         #dto
         #projections
+        #query_struct
         #repository
         #row
         #insertable

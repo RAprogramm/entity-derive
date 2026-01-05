@@ -52,6 +52,7 @@
 - [Attribute Reference](#attribute-reference)
   - [Soft Delete](#soft-delete)
   - [RETURNING Modes](#returning-modes)
+  - [Query Filtering](#query-filtering)
   - [Projections](#projections)
   - [Relations](#relations)
 - [Generated Code](#generated-code)
@@ -156,6 +157,7 @@ pub struct User {
 - **Partial Updates** — Non-optional fields automatically wrapped in `Option` for updates
 - **Security by Default** — `#[field(skip)]` ensures sensitive data never leaks to responses
 - **Soft Delete** — Optional `deleted_at` timestamp instead of hard delete
+- **Query Filtering** — Type-safe query objects with `#[filter]`, `#[filter(like)]`, `#[filter(range)]`
 - **Projections** — Partial entity views with optimized SELECT queries
 - **RETURNING Control** — Configure what data comes back from INSERT/UPDATE
 - **Relations** — `#[belongs_to]` and `#[has_many]` for entity relationships
@@ -314,6 +316,64 @@ Control what data is fetched back after INSERT/UPDATE:
 #[entity(table = "events", returning = "id, created_at")]  // Custom columns
 ```
 
+#### Query Filtering
+
+Generate type-safe query structs for filtering entities:
+
+```rust,ignore
+#[derive(Entity)]
+#[entity(table = "products")]
+pub struct Product {
+    #[id]
+    pub id: Uuid,
+
+    #[field(create, update, response)]
+    #[filter]                          // Exact match: WHERE name = $n
+    pub name: String,
+
+    #[field(create, update, response)]
+    #[filter(like)]                    // Pattern match: WHERE description ILIKE $n
+    pub description: String,
+
+    #[field(create, update, response)]
+    #[filter(range)]                   // Range: WHERE price >= $n AND price <= $m
+    pub price: i64,
+
+    #[field(response)]
+    #[auto]
+    #[filter(range)]                   // Date range filtering
+    pub created_at: DateTime<Utc>,
+}
+
+// Generated ProductQuery struct:
+// pub struct ProductQuery {
+//     pub name: Option<String>,
+//     pub description: Option<String>,
+//     pub price_from: Option<i64>,
+//     pub price_to: Option<i64>,
+//     pub created_at_from: Option<DateTime<Utc>>,
+//     pub created_at_to: Option<DateTime<Utc>>,
+//     pub limit: Option<i64>,
+//     pub offset: Option<i64>,
+// }
+
+// Usage:
+let query = ProductQuery {
+    name: Some("Widget".to_string()),
+    price_from: Some(100),
+    price_to: Some(500),
+    limit: Some(20),
+    ..Default::default()
+};
+let products = repo.query(query).await?;
+```
+
+| Filter Type | Attribute | SQL Generated |
+|-------------|-----------|---------------|
+| Exact match | `#[filter]` or `#[filter(eq)]` | `WHERE field = $n` |
+| Pattern match | `#[filter(like)]` | `WHERE field ILIKE $n` |
+| Range | `#[filter(range)]` | `WHERE field >= $n AND field <= $m` |
+
 ### Field-Level Attributes
 
 | Attribute | Effect |
@@ -327,6 +387,9 @@ Control what data is fetched back after INSERT/UPDATE:
 | `#[belongs_to(Entity)]` | Foreign key relation, generates `find_{entity}` method in repository |
 | `#[has_many(Entity)]` | One-to-many relation (entity-level), generates `find_{entities}` method |
 | `#[projection(Name: fields)]` | Generate partial view struct (entity-level) |
+| `#[filter]` | Exact match filter, generates field in Query struct |
+| `#[filter(like)]` | ILIKE pattern filter for text search |
+| `#[filter(range)]` | Range filter, generates `field_from` and `field_to` fields |
 
 Combine multiple: `#[field(create, update, response)]`
 

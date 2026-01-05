@@ -44,7 +44,7 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
 use crate::{
-    entity::parse::{DatabaseDialect, EntityDef, FieldDef, ReturningMode},
+    entity::parse::{DatabaseDialect, EntityDef, FieldDef, FilterType, ReturningMode},
     utils::marker
 };
 
@@ -62,6 +62,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     let update_impl = ctx.update_method();
     let delete_impl = ctx.delete_method();
     let list_impl = ctx.list_method();
+    let query_impl = ctx.query_method();
     let relation_impls = ctx.relation_methods();
     let projection_impls = ctx.projection_methods();
     let soft_delete_impls = ctx.soft_delete_methods();
@@ -84,6 +85,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             #update_impl
             #delete_impl
             #list_impl
+            #query_impl
             #relation_impls
             #projection_impls
             #soft_delete_impls
@@ -370,6 +372,59 @@ impl<'a> Context<'a> {
         }
     }
 
+    fn query_method(&self) -> TokenStream {
+        if !self.entity.has_filters() {
+            return TokenStream::new();
+        }
+
+        let Self {
+            entity_name,
+            row_name,
+            table,
+            columns_str,
+            id_name,
+            soft_delete,
+            ..
+        } = self;
+
+        let query_type = self.entity.ident_with("", "Query");
+        let filter_fields = self.entity.filter_fields();
+
+        let where_conditions = generate_where_conditions(&filter_fields, *soft_delete);
+        let bindings = generate_query_bindings(&filter_fields);
+
+        quote! {
+            async fn query(&self, query: #query_type) -> Result<Vec<#entity_name>, Self::Error> {
+                let mut conditions: Vec<String> = Vec::new();
+                let mut param_idx: usize = 1;
+
+                #where_conditions
+
+                let where_clause = if conditions.is_empty() {
+                    String::new()
+                } else {
+                    format!("WHERE {}", conditions.join(" AND "))
+                };
+
+                let limit_idx = param_idx;
+                param_idx += 1;
+                let offset_idx = param_idx;
+
+                let sql = format!(
+                    "SELECT {} FROM {} {} ORDER BY {} DESC LIMIT ${} OFFSET ${}",
+                    #columns_str, #table, where_clause, stringify!(#id_name), limit_idx, offset_idx
+                );
+
+                let mut q = sqlx::query_as::<_, #row_name>(&sql);
+                #bindings
+                q = q.bind(query.limit.unwrap_or(100)).bind(query.offset.unwrap_or(0));
+
+                let rows = q.fetch_all(self).await?;
+                Ok(rows.into_iter().map(#entity_name::from).collect())
+            }
+        }
+    }
+
     fn relation_methods(&self) -> TokenStream {
         let belongs_to_methods: Vec<TokenStream> = self
             .entity
@@ -613,4 +668,114 @@ fn update_bindings(fields: &[&FieldDef]) -> Vec<TokenStream> {
             quote! { .bind(dto.#name) }
         })
         .collect()
+}
+
+/// Generate WHERE condition building code for query method.
+fn generate_where_conditions(fields: &[&FieldDef], soft_delete: bool) -> TokenStream {
+    let conditions: Vec<TokenStream> = fields
+        .iter()
+        .flat_map(|f| {
+            let name = f.name();
+            let name_str = f.name_str();
+            let filter = f.filter();
+
+            match filter.filter_type {
+                FilterType::Eq => {
+                    vec![quote! {
+                        if query.#name.is_some() {
+                            conditions.push(format!("{} = ${}", #name_str, param_idx));
+                            param_idx += 1;
+                        }
+                    }]
+                }
+                FilterType::Like => {
+                    vec![quote! {
+                        if query.#name.is_some() {
+                            conditions.push(format!("{} ILIKE ${}", #name_str, param_idx));
+                            param_idx += 1;
+                        }
+                    }]
+                }
+                FilterType::Range => {
+                    let from_name = format_ident!("{}_from", name);
+                    let to_name = format_ident!("{}_to", name);
+                    vec![
+                        quote! {
+                            if query.#from_name.is_some() {
+                                conditions.push(format!("{} >= ${}", #name_str, param_idx));
+                                param_idx += 1;
+                            }
+                        },
+                        quote! {
+                            if query.#to_name.is_some() {
+                                conditions.push(format!("{} <= ${}", #name_str, param_idx));
+                                param_idx += 1;
+                            }
+                        },
+                    ]
+                }
+                FilterType::None => vec![]
+            }
+        })
+        .collect();
+
+    let soft_delete_condition = if soft_delete {
+        quote! {
+            conditions.push("deleted_at IS NULL".to_string());
+        }
+    } else {
+        TokenStream::new()
+    };
+
+    quote! {
+        #soft_delete_condition
+        #(#conditions)*
+    }
+}
+
+/// Generate query parameter binding code.
+fn generate_query_bindings(fields: &[&FieldDef]) -> TokenStream {
+    let bindings: Vec<TokenStream> = fields
+        .iter()
+        .flat_map(|f| {
+            let name = f.name();
+            let filter = f.filter();
+
+            match filter.filter_type {
+                FilterType::Eq => {
+                    vec![quote! {
+                        if let Some(ref v) = query.#name {
+                            q = q.bind(v);
+                        }
+                    }]
+                }
+                FilterType::Like => {
+                    vec![quote! {
+                        if let Some(ref v) = query.#name {
+                            q = q.bind(format!("%{}%", v));
+                        }
+                    }]
+                }
+                FilterType::Range => {
+                    let from_name = format_ident!("{}_from", name);
+                    let to_name = format_ident!("{}_to", name);
+                    vec![
+                        quote! {
+                            if let Some(ref v) = query.#from_name {
+                                q = q.bind(v);
+                            }
+                        },
+                        quote! {
+                            if let Some(ref v) = query.#to_name {
+                                q = q.bind(v);
+                            }
+                        },
+                    ]
+                }
+                FilterType::None => vec![]
+            }
+        })
+        .collect();
+
+    quote! { #(#bindings)* }
 }

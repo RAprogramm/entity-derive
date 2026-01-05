@@ -421,6 +421,27 @@ impl EntityDef {
         self.fields.iter().filter(|f| f.is_relation()).collect()
     }
 
+    /// Get fields with `#[filter]` attribute.
+    ///
+    /// Returns fields that can be used in query filtering.
+    /// Used to generate the Query struct and query method.
+    ///
+    /// # Returns
+    ///
+    /// Vector of field references with filter configuration.
+    pub fn filter_fields(&self) -> Vec<&FieldDef> {
+        self.fields.iter().filter(|f| f.has_filter()).collect()
+    }
+
+    /// Check if this entity has any filterable fields.
+    ///
+    /// # Returns
+    ///
+    /// `true` if any field has `#[filter]` attribute.
+    pub fn has_filters(&self) -> bool {
+        self.fields.iter().any(|f| f.has_filter())
+    }
+
     /// Get has-many relations defined via `#[has_many(Entity)]`.
     ///
     /// Returns entity identifiers for one-to-many relationships.
