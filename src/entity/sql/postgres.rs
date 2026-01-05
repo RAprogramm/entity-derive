@@ -17,6 +17,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     let ctx = Context::new(entity);
     let trait_name = &ctx.trait_name;
     let feature = entity.dialect.feature_flag();
+    let error_type = entity.error_type();
 
     let create_impl = ctx.create_method();
     let find_impl = ctx.find_by_id_method();
@@ -28,7 +29,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
         #[cfg(feature = #feature)]
         #[async_trait::async_trait]
         impl #trait_name for sqlx::PgPool {
-            type Error = sqlx::Error;
+            type Error = #error_type;
             #create_impl
             #find_impl
             #update_impl
@@ -162,7 +163,7 @@ impl<'a> Context<'a> {
                     #(#bindings)*
                     .bind(&id)
                     .execute(self).await?;
-                self.find_by_id(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)
+                self.find_by_id(id).await?.ok_or_else(|| sqlx::Error::RowNotFound.into())
             }
         }
     }
