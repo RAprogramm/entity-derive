@@ -2,30 +2,30 @@
 # SPDX-License-Identifier: MIT
 
 [package]
-name = "entity-derive"
-version = "0.3.0"
+name = "entity-derive-impl"
+version = "0.2.0"
 edition = "2024"
 rust-version = "1.92"
 authors = ["RAprogramm <andrey.rozanov.vl@gmail.com>"]
-description = "Derive macro for generating DTOs, repositories, and SQL from a single entity definition"
+description = "Internal proc-macro implementation for entity-derive. Use entity-derive instead."
 license = "MIT"
 repository = "https://github.com/RAprogramm/entity-derive"
 documentation = "https://docs.rs/entity-derive"
-readme = "../../../README.md"
-keywords = ["derive", "macro", "entity", "dto", "repository"]
-categories = ["development-tools::procedural-macro-helpers", "database"]
+keywords = ["derive", "macro", "entity", "internal"]
+categories = ["development-tools::procedural-macro-helpers"]
+
+[lib]
+proc-macro = true
 
 [features]
-default = ["postgres"]
-postgres = ["entity-core/postgres"]
-clickhouse = ["entity-core/clickhouse"]
-mongodb = ["entity-core/mongodb"]
-api = []
-validate = []
+default = []
 
 [dependencies]
-entity-core = { path = "../entity-core", version = "0.2.0" }
-entity-derive-impl = { path = "../entity-derive-impl", version = "0.2.0" }
+syn = { version = "2", features = ["full", "extra-traits", "parsing"] }
+quote = "1"
+proc-macro2 = "1"
+darling = "0.23"
+convert_case = "0.10"
 
 [dev-dependencies]
 trybuild = "1"
@@ -37,7 +37,4 @@ sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "uuid", "chro
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 utoipa = { version = "5", features = ["chrono", "uuid"] }
 validator = { version = "0.20", features = ["derive"] }
-
-[package.metadata.docs.rs]
-all-features = true
-rustdoc-args = ["--cfg", "docsrs"]
+entity-core = { path = "../entity-core" }

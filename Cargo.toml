@@ -15,7 +15,8 @@ repository = "https://github.com/RAprogramm/entity-derive"
 
 [workspace.dependencies]
 entity-core = { path = "crates/entity-core", version = "0.2.0" }
-entity-derive = { path = "crates/entity-derive", version = "0.2.0" }
+entity-derive = { path = "crates/entity-derive", version = "0.3.0" }
+entity-derive-impl = { path = "crates/entity-derive-impl", version = "0.2.0" }
 syn = { version = "2", features = ["full", "extra-traits", "parsing"] }
 quote = "1"
 proc-macro2 = "1"
