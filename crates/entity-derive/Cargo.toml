@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "entity-derive"
+version = "0.3.0"
+edition = "2024"
+rust-version = "1.92"
+authors = ["RAprogramm <andrey.rozanov.vl@gmail.com>"]
+description = "Derive macro for generating DTOs, repositories, and SQL from a single entity definition"
+license = "MIT"
+repository = "https://github.com/RAprogramm/entity-derive"
+documentation = "https://docs.rs/entity-derive"
+readme = "../../../README.md"
+keywords = ["derive", "macro", "entity", "dto", "repository"]
+categories = ["development-tools::procedural-macro-helpers", "database"]
+
+[features]
+default = ["postgres"]
+postgres = ["entity-core/postgres"]
+clickhouse = ["entity-core/clickhouse"]
+mongodb = ["entity-core/mongodb"]
+api = []
+validate = []
+
+[dependencies]
+entity-core = { path = "../entity-core", version = "0.2.0" }
+entity-derive-impl = { path = "../entity-derive-impl", version = "0.2.0" }
+
+[dev-dependencies]
+trybuild = "1"
+uuid = { version = "1", features = ["v4", "v7", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+async-trait = "0.1"
+sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "uuid", "chrono"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+utoipa = { version = "5", features = ["chrono", "uuid"] }
+validator = { version = "0.20", features = ["derive"] }
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

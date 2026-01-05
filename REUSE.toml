@@ -4,7 +4,7 @@ SPDX-PackageSupplier = "RAprogramm <andrey.rozanov.vl@gmail.com>"
 SPDX-PackageDownloadLocation = "https://github.com/RAprogramm/entity-derive"
 
 [[annotations]]
-path = ["README.md", ".gitignore", ".rustfmt.toml", "Cargo.lock", "Cargo.toml", "tests/**/*.stderr"]
+path = ["README.md", ".gitignore", ".rustfmt.toml", "Cargo.lock", "Cargo.toml", "crates/**/Cargo.toml", "crates/**/tests/**/*.stderr"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2025 RAprogramm <andrey.rozanov.vl@gmail.com>"
 SPDX-License-Identifier = "MIT"
