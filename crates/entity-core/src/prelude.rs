@@ -9,4 +9,4 @@
 //! use entity_core::prelude::*;
 //! ```
 
-pub use crate::{Pagination, Repository, SortDirection, async_trait};
+pub use crate::{EntityEvent, EventKind, Pagination, Repository, SortDirection, async_trait};

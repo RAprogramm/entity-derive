@@ -176,6 +176,62 @@ impl SortDirection {
     }
 }
 
+/// Kind of lifecycle event.
+///
+/// Used by generated event enums to categorize events.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum EventKind {
+    /// Entity was created.
+    Created,
+
+    /// Entity was updated.
+    Updated,
+
+    /// Entity was soft-deleted.
+    SoftDeleted,
+
+    /// Entity was hard-deleted (permanently removed).
+    HardDeleted,
+
+    /// Entity was restored from soft-delete.
+    Restored
+}
+
+impl EventKind {
+    /// Check if this is a delete event (soft or hard).
+    pub const fn is_delete(&self) -> bool {
+        matches!(self, Self::SoftDeleted | Self::HardDeleted)
+    }
+
+    /// Check if this is a mutation event (create, update, delete).
+    pub const fn is_mutation(&self) -> bool {
+        !matches!(self, Self::Restored)
+    }
+}
+
+/// Base trait for entity lifecycle events.
+///
+/// Generated event enums implement this trait, enabling generic
+/// event handling and dispatching.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// fn handle_event<E: EntityEvent>(event: &E) {
+///     println!("Event {:?} for entity {:?}", event.kind(), event.entity_id());
+/// }
+/// ```
+pub trait EntityEvent: Send + Sync + std::fmt::Debug {
+    /// Type of entity ID.
+    type Id;
+
+    /// Get the kind of event.
+    fn kind(&self) -> EventKind;
+
+    /// Get the entity ID associated with this event.
+    fn entity_id(&self) -> &Self::Id;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -210,5 +266,23 @@ mod tests {
     #[test]
     fn sort_direction_default() {
         assert_eq!(SortDirection::default(), SortDirection::Asc);
+    }
+
+    #[test]
+    fn event_kind_is_delete() {
+        assert!(!EventKind::Created.is_delete());
+        assert!(!EventKind::Updated.is_delete());
+        assert!(EventKind::SoftDeleted.is_delete());
+        assert!(EventKind::HardDeleted.is_delete());
+        assert!(!EventKind::Restored.is_delete());
+    }
+
+    #[test]
+    fn event_kind_is_mutation() {
+        assert!(EventKind::Created.is_mutation());
+        assert!(EventKind::Updated.is_mutation());
+        assert!(EventKind::SoftDeleted.is_mutation());
+        assert!(EventKind::HardDeleted.is_mutation());
+        assert!(!EventKind::Restored.is_mutation());
     }
 }

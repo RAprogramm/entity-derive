@@ -162,7 +162,13 @@ pub struct EntityDef {
     /// RETURNING clause mode for INSERT/UPDATE operations.
     ///
     /// Controls what data is fetched back from the database after writes.
-    pub returning: ReturningMode
+    pub returning: ReturningMode,
+
+    /// Whether to generate lifecycle events.
+    ///
+    /// When `true`, generates a `{Entity}Event` enum with variants for
+    /// Created, Updated, Deleted, etc.
+    pub events: bool
 }
 
 impl EntityDef {
@@ -239,7 +245,8 @@ impl EntityDef {
             has_many,
             projections,
             soft_delete: attrs.soft_delete,
-            returning: attrs.returning
+            returning: attrs.returning,
+            events: attrs.events
         })
     }
 
@@ -489,6 +496,15 @@ impl EntityDef {
     /// `true` if `#[entity(soft_delete)]` is present.
     pub fn is_soft_delete(&self) -> bool {
         self.soft_delete
+    }
+
+    /// Check if lifecycle events should be generated.
+    ///
+    /// # Returns
+    ///
+    /// `true` if `#[entity(events)]` is present.
+    pub fn has_events(&self) -> bool {
+        self.events
     }
 }
 
