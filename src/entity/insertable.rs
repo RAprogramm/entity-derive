@@ -60,6 +60,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 
 use super::parse::{EntityDef, SqlLevel};
+use crate::utils::marker;
 
 /// Generates the `Insertable{Name}` struct for INSERT operations.
 ///
@@ -78,7 +79,10 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
         quote! { pub #name: #ty }
     });
 
+    let marker = marker::generated();
+
     quote! {
+        #marker
         #[derive(Debug, Clone)]
         #vis struct #insertable_name { #(#field_defs),* }
     }

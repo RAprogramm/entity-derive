@@ -40,6 +40,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 
 use super::parse::EntityDef;
+use crate::utils::marker;
 
 /// Generates all DTO structs for the entity.
 ///
@@ -67,7 +68,10 @@ fn generate_create_dto(entity: &EntityDef) -> TokenStream {
         quote! { pub #n: #t }
     });
 
+    let marker = marker::generated();
+
     quote! {
+        #marker
         #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
         #[cfg_attr(feature = "api", derive(utoipa::ToSchema))]
         #[cfg_attr(feature = "validate", derive(validator::Validate))]
@@ -93,7 +97,10 @@ fn generate_update_dto(entity: &EntityDef) -> TokenStream {
         }
     });
 
+    let marker = marker::generated();
+
     quote! {
+        #marker
         #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
         #[cfg_attr(feature = "api", derive(utoipa::ToSchema))]
         #[cfg_attr(feature = "validate", derive(validator::Validate))]
@@ -115,7 +122,10 @@ fn generate_response_dto(entity: &EntityDef) -> TokenStream {
         quote! { pub #n: #t }
     });
 
+    let marker = marker::generated();
+
     quote! {
+        #marker
         #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
         #[cfg_attr(feature = "api", derive(utoipa::ToSchema))]
         #vis struct #name { #(#field_defs),* }

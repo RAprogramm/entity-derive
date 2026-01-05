@@ -8,7 +8,9 @@
 //! # Submodules
 //!
 //! - [`fields`] — Field assignment generation for `From` implementations
+//! - [`marker`] — Generated code marker comments
 //! - [`sql`] — SQL query building utilities (minimal, most SQL in dialect.rs)
 
 pub mod fields;
+pub mod marker;
 pub mod sql;

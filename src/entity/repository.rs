@@ -51,6 +51,7 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
 use super::parse::{EntityDef, SqlLevel};
+use crate::utils::marker;
 
 /// Generates the repository trait definition.
 ///
@@ -83,7 +84,10 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
         quote! { async fn update(&self, id: #id_type, dto: #update_dto) -> Result<#entity_name, Self::Error>; }
     };
 
+    let marker = marker::generated();
+
     quote! {
+        #marker
         #[async_trait::async_trait]
         #vis trait #trait_name: Send + Sync {
             /// Error type for repository operations.
