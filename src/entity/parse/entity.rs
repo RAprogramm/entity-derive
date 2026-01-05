@@ -11,7 +11,9 @@ use darling::FromDeriveInput;
 use proc_macro2::Span;
 use syn::{DeriveInput, Ident, Visibility};
 
-use super::{field::FieldDef, sql_level::SqlLevel};
+use super::{
+    dialect::DatabaseDialect, field::FieldDef, sql_level::SqlLevel, uuid_version::UuidVersion
+};
 
 /// Entity-level attributes parsed from `#[entity(...)]`.
 ///
@@ -43,7 +45,19 @@ struct EntityAttrs {
     ///
     /// Defaults to [`SqlLevel::Full`] if not specified.
     #[darling(default)]
-    sql: SqlLevel
+    sql: SqlLevel,
+
+    /// Database dialect.
+    ///
+    /// Defaults to [`DatabaseDialect::Postgres`] if not specified.
+    #[darling(default)]
+    dialect: DatabaseDialect,
+
+    /// UUID version for ID generation.
+    ///
+    /// Defaults to [`UuidVersion::V7`] if not specified.
+    #[darling(default)]
+    uuid: UuidVersion
 }
 
 /// Returns the default schema name.
@@ -101,6 +115,12 @@ pub struct EntityDef {
 
     /// SQL generation level controlling what code is generated.
     pub sql: SqlLevel,
+
+    /// Database dialect for code generation.
+    pub dialect: DatabaseDialect,
+
+    /// UUID version for ID generation.
+    pub uuid: UuidVersion,
 
     /// All field definitions from the struct.
     pub fields: Vec<FieldDef>
@@ -170,6 +190,8 @@ impl EntityDef {
             table: attrs.table,
             schema: attrs.schema,
             sql: attrs.sql,
+            dialect: attrs.dialect,
+            uuid: attrs.uuid,
             fields
         })
     }
@@ -186,7 +208,7 @@ impl EntityDef {
     /// panic if called without one. Consider validating this in
     /// `from_derive_input` for better error messages.
     pub fn id_field(&self) -> Option<&FieldDef> {
-        self.fields.iter().find(|f| f.is_id)
+        self.fields.iter().find(|f| f.is_id())
     }
 
     /// Get fields to include in `CreateRequest` DTO.
@@ -203,7 +225,7 @@ impl EntityDef {
     pub fn create_fields(&self) -> Vec<&FieldDef> {
         self.fields
             .iter()
-            .filter(|f| f.in_create() && !f.is_id && !f.is_auto)
+            .filter(|f| f.in_create() && !f.is_id() && !f.is_auto())
             .collect()
     }
 
@@ -221,7 +243,7 @@ impl EntityDef {
     pub fn update_fields(&self) -> Vec<&FieldDef> {
         self.fields
             .iter()
-            .filter(|f| f.in_update() && !f.is_id && !f.is_auto)
+            .filter(|f| f.in_update() && !f.is_id() && !f.is_auto())
             .collect()
     }
 
