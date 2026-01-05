@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "entity-core"
+version = "0.2.0"
+edition = "2024"
+rust-version = "1.92"
+authors = ["RAprogramm <andrey.rozanov.vl@gmail.com>"]
+description = "Core traits and types for entity-derive"
+license = "MIT"
+repository = "https://github.com/RAprogramm/entity-derive"
+documentation = "https://docs.rs/entity-core"
+readme = "README.md"
+keywords = ["entity", "repository", "traits", "database"]
+categories = ["database"]
+
+[features]
+default = []
+postgres = ["sqlx"]
+clickhouse = []
+mongodb = []
+
+[dependencies]
+async-trait = "0.1"
+sqlx = { version = "0.8", optional = true, default-features = false }
