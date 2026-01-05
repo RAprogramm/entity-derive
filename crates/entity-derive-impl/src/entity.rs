@@ -15,6 +15,7 @@
 //! ├── parse/         → Attribute parsing (EntityDef, FieldDef)
 //! │
 //! ├── dto.rs         → CreateRequest, UpdateRequest, Response
+//! ├── events.rs      → Lifecycle event enum (Created, Updated, etc.)
 //! ├── repository.rs  → Repository trait definition
 //! ├── row.rs         → Database row struct (sqlx::FromRow)
 //! ├── insertable.rs  → Insertable struct for INSERT operations
@@ -55,6 +56,7 @@
 //! | `impl UserRepository for PgPool` | PostgreSQL implementation |
 
 mod dto;
+mod events;
 mod insertable;
 mod mappers;
 pub mod parse;
@@ -84,6 +86,7 @@ fn generate(entity: EntityDef) -> TokenStream {
     let dto = dto::generate(&entity);
     let projections = projection::generate(&entity);
     let query_struct = query::generate(&entity);
+    let events = events::generate(&entity);
     let repository = repository::generate(&entity);
     let row = row::generate(&entity);
     let insertable = insertable::generate(&entity);
@@ -94,6 +97,7 @@ fn generate(entity: EntityDef) -> TokenStream {
         #dto
         #projections
         #query_struct
+        #events
         #repository
         #row
         #insertable

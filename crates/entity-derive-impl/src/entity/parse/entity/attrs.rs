@@ -19,6 +19,7 @@
 //! | `error` | No | `sqlx::Error` | Custom error type |
 //! | `soft_delete` | No | `false` | Enable soft delete |
 //! | `returning` | No | `Full` | RETURNING clause mode |
+//! | `events` | No | `false` | Generate lifecycle events |
 
 use darling::FromDeriveInput;
 use syn::{Ident, Visibility};
@@ -144,5 +145,26 @@ pub struct EntityAttrs {
     /// #[entity(table = "logs", returning = "none")]
     /// ```
     #[darling(default)]
-    pub returning: ReturningMode
+    pub returning: ReturningMode,
+
+    /// Generate lifecycle event enum.
+    ///
+    /// When enabled, generates a `{Entity}Event` enum with variants for
+    /// each lifecycle operation (Created, Updated, Deleted, etc.).
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// #[entity(table = "users", events)]
+    /// pub struct User { ... }
+    ///
+    /// // Generates:
+    /// pub enum UserEvent {
+    ///     Created(User),
+    ///     Updated { old: User, new: User },
+    ///     Deleted { id: Uuid },
+    /// }
+    /// ```
+    #[darling(default)]
+    pub events: bool
 }
