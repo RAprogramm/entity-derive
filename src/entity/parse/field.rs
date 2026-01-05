@@ -7,7 +7,7 @@
 //! specialized submodules for different concerns:
 //!
 //! - [`expose`] — DTO exposure (create, update, response, skip)
-//! - [`storage`] — Database storage (id, auto, future: index, relation)
+//! - [`storage`] — Database storage (id, auto, belongs_to)
 //!
 //! # Architecture
 //!
@@ -16,13 +16,29 @@
 //! ├── expose.rs   - DTO exposure configuration
 //! └── storage.rs  - Database storage configuration
 //! ```
+//!
+//! # Relations
+//!
+//! Foreign key relations are declared with `#[belongs_to(Entity)]`:
+//!
+//! ```rust,ignore
+//! #[belongs_to(User)]
+//! pub user_id: Uuid,
+//! ```
 
 mod expose;
 mod storage;
 
 pub use expose::ExposeConfig;
 pub use storage::StorageConfig;
-use syn::{Field, Ident, Type, Visibility};
+use syn::{Attribute, Field, Ident, Type, Visibility};
+
+/// Parse `#[belongs_to(EntityName)]` attribute.
+///
+/// Extracts the entity identifier from the attribute.
+fn parse_belongs_to(attr: &Attribute) -> Option<Ident> {
+    attr.parse_args::<Ident>().ok()
+}
 
 /// Field definition with all parsed attributes.
 ///
@@ -81,6 +97,8 @@ impl FieldDef {
                 storage.is_auto = true;
             } else if attr.path().is_ident("field") {
                 expose = ExposeConfig::from_attr(attr);
+            } else if attr.path().is_ident("belongs_to") {
+                storage.belongs_to = parse_belongs_to(attr);
             }
         }
 
@@ -156,5 +174,19 @@ impl FieldDef {
     #[must_use]
     pub fn in_response(&self) -> bool {
         !self.expose.skip && (self.expose.response || self.storage.is_id)
+    }
+
+    /// Get the related entity name if this is a foreign key.
+    ///
+    /// Returns `Some(Ident)` if `#[belongs_to(Entity)]` is present.
+    #[must_use]
+    pub fn belongs_to(&self) -> Option<&Ident> {
+        self.storage.belongs_to.as_ref()
+    }
+
+    /// Check if this field is a foreign key relation.
+    #[must_use]
+    pub fn is_relation(&self) -> bool {
+        self.storage.is_relation()
     }
 }

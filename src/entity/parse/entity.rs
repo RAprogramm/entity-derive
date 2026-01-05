@@ -9,11 +9,22 @@
 use convert_case::{Case, Casing};
 use darling::FromDeriveInput;
 use proc_macro2::Span;
-use syn::{DeriveInput, Ident, Visibility};
+use syn::{Attribute, DeriveInput, Ident, Visibility};
 
 use super::{
     dialect::DatabaseDialect, field::FieldDef, sql_level::SqlLevel, uuid_version::UuidVersion
 };
+
+/// Parse `#[has_many(Entity)]` attributes from struct attributes.
+///
+/// Returns a vector of related entity identifiers.
+fn parse_has_many_attrs(attrs: &[Attribute]) -> Vec<Ident> {
+    attrs
+        .iter()
+        .filter(|attr| attr.path().is_ident("has_many"))
+        .filter_map(|attr| attr.parse_args::<Ident>().ok())
+        .collect()
+}
 
 /// Default error type path for SQL implementations.
 ///
@@ -150,7 +161,12 @@ pub struct EntityDef {
     pub error: syn::Path,
 
     /// All field definitions from the struct.
-    pub fields: Vec<FieldDef>
+    pub fields: Vec<FieldDef>,
+
+    /// Has-many relations defined via `#[has_many(Entity)]`.
+    ///
+    /// Each entry is the related entity name.
+    pub has_many: Vec<Ident>
 }
 
 impl EntityDef {
@@ -211,6 +227,8 @@ impl EntityDef {
             }
         };
 
+        let has_many = parse_has_many_attrs(&input.attrs);
+
         Ok(Self {
             ident: attrs.ident,
             vis: attrs.vis,
@@ -220,7 +238,8 @@ impl EntityDef {
             dialect: attrs.dialect,
             uuid: attrs.uuid,
             error: attrs.error,
-            fields
+            fields,
+            has_many
         })
     }
 
@@ -299,6 +318,30 @@ impl EntityDef {
     /// Slice of all field definitions.
     pub fn all_fields(&self) -> &[FieldDef] {
         &self.fields
+    }
+
+    /// Get fields with `#[belongs_to]` relations.
+    ///
+    /// Returns fields that are foreign keys to other entities.
+    /// Used to generate relation methods in the repository.
+    ///
+    /// # Returns
+    ///
+    /// Vector of field references with belongs_to relations.
+    pub fn relation_fields(&self) -> Vec<&FieldDef> {
+        self.fields.iter().filter(|f| f.is_relation()).collect()
+    }
+
+    /// Get has-many relations defined via `#[has_many(Entity)]`.
+    ///
+    /// Returns entity identifiers for one-to-many relationships.
+    /// Used to generate collection methods in the repository.
+    ///
+    /// # Returns
+    ///
+    /// Slice of related entity identifiers.
+    pub fn has_many_relations(&self) -> &[Ident] {
+        &self.has_many
     }
 
     /// Get the entity name as an identifier.
