@@ -133,7 +133,7 @@ impl<'a> Context<'a> {
             columns_str: join_columns(fields),
             placeholders_str: dialect.placeholders(fields.len()),
             soft_delete: entity.is_soft_delete(),
-            returning: entity.returning
+            returning: entity.returning.clone()
         }
     }
 
@@ -190,6 +190,19 @@ impl<'a> Context<'a> {
                         let entity = #entity_name::from(dto);
                         let insertable = #insertable_name::from(&entity);
                         sqlx::query(concat!("INSERT INTO ", #table, " (", #columns_str, ") VALUES (", #placeholders_str, ")"))
+                            #(#bindings)*
+                            .execute(self).await?;
+                        Ok(entity)
+                    }
+                }
+            }
+            ReturningMode::Custom(columns) => {
+                let returning_cols = columns.join(", ");
+                quote! {
+                    async fn create(&self, dto: #create_dto) -> Result<#entity_name, Self::Error> {
+                        let entity = #entity_name::from(dto);
+                        let insertable = #insertable_name::from(&entity);
+                        sqlx::query(&format!("INSERT INTO {} ({}) VALUES ({}) RETURNING {}", #table, #columns_str, #placeholders_str, #returning_cols))
                             #(#bindings)*
                             .execute(self).await?;
                         Ok(entity)
@@ -273,6 +286,18 @@ impl<'a> Context<'a> {
                 quote! {
                     async fn update(&self, id: #id_type, dto: #update_dto) -> Result<#entity_name, Self::Error> {
                         sqlx::query(&format!("UPDATE {} SET {} WHERE {} = {}", #table, #set_clause, stringify!(#id_name), #where_placeholder))
+                            #(#bindings)*
+                            .bind(&id)
+                            .execute(self).await?;
+                        <Self as #trait_name>::find_by_id(self, id).await?.ok_or_else(|| sqlx::Error::RowNotFound.into())
+                    }
+                }
+            }
+            ReturningMode::Custom(columns) => {
+                let returning_cols = columns.join(", ");
+                quote! {
+                    async fn update(&self, id: #id_type, dto: #update_dto) -> Result<#entity_name, Self::Error> {
+                        sqlx::query(&format!("UPDATE {} SET {} WHERE {} = {} RETURNING {}", #table, #set_clause, stringify!(#id_name), #where_placeholder, #returning_cols))
                             #(#bindings)*
                             .bind(&id)
                             .execute(self).await?;

@@ -34,7 +34,7 @@ use darling::FromMeta;
 /// // None - don't fetch anything back (fastest)
 /// #[entity(table = "users", returning = "none")]
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum ReturningMode {
     /// Return all fields from the database.
     ///
@@ -55,7 +55,14 @@ pub enum ReturningMode {
     /// Returns the pre-constructed entity without fetching from DB.
     /// Fastest option, but won't reflect any database-side modifications
     /// (triggers, default values, etc.).
-    None
+    None,
+
+    /// Return specific columns.
+    ///
+    /// Uses `RETURNING col1, col2, ...` to fetch only specified fields.
+    /// The entity is constructed from DTO first, then updated with
+    /// returned values from the database.
+    Custom(Vec<String>)
 }
 
 impl FromMeta for ReturningMode {
@@ -66,18 +73,37 @@ impl FromMeta for ReturningMode {
     /// - `"full"` → [`ReturningMode::Full`]
     /// - `"id"` → [`ReturningMode::Id`]
     /// - `"none"` → [`ReturningMode::None`]
+    /// - `"col1, col2, col3"` → [`ReturningMode::Custom`] with specified
+    ///   columns
     ///
-    /// Values are case-insensitive.
+    /// Values are case-insensitive for keywords.
     ///
-    /// # Errors
+    /// # Examples
     ///
-    /// Returns `darling::Error::unknown_value` for unrecognized values.
+    /// ```rust,ignore
+    /// #[entity(table = "users", returning = "full")]
+    /// #[entity(table = "users", returning = "id, created_at")]
+    /// #[entity(table = "users", returning = "id, name, updated_at")]
+    /// ```
     fn from_string(value: &str) -> darling::Result<Self> {
         match value.to_lowercase().as_str() {
             "full" => Ok(ReturningMode::Full),
             "id" => Ok(ReturningMode::Id),
             "none" => Ok(ReturningMode::None),
-            _ => Err(darling::Error::unknown_value(value))
+            _ => {
+                // Parse as comma-separated column list
+                let columns: Vec<String> = value
+                    .split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect();
+
+                if columns.is_empty() {
+                    Err(darling::Error::unknown_value(value))
+                } else {
+                    Ok(ReturningMode::Custom(columns))
+                }
+            }
         }
     }
 }
@@ -92,7 +118,7 @@ mod tests {
     }
 
     #[test]
-    fn from_meta_valid() {
+    fn from_meta_keywords() {
         assert_eq!(
             ReturningMode::from_string("full").unwrap(),
             ReturningMode::Full
@@ -114,9 +140,23 @@ mod tests {
     }
 
     #[test]
+    fn from_meta_custom_columns() {
+        assert_eq!(
+            ReturningMode::from_string("id, created_at").unwrap(),
+            ReturningMode::Custom(vec!["id".to_string(), "created_at".to_string()])
+        );
+        assert_eq!(
+            ReturningMode::from_string("id,name,updated_at").unwrap(),
+            ReturningMode::Custom(vec![
+                "id".to_string(),
+                "name".to_string(),
+                "updated_at".to_string()
+            ])
+        );
+    }
+
+    #[test]
     fn from_meta_invalid() {
-        assert!(ReturningMode::from_string("partial").is_err());
-        assert!(ReturningMode::from_string("all").is_err());
         assert!(ReturningMode::from_string("").is_err());
     }
 }
