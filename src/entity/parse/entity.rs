@@ -15,6 +15,13 @@ use super::{
     dialect::DatabaseDialect, field::FieldDef, sql_level::SqlLevel, uuid_version::UuidVersion
 };
 
+/// Default error type path for SQL implementations.
+///
+/// Used when no custom error type is specified.
+fn default_error_type() -> syn::Path {
+    syn::parse_str("sqlx::Error").expect("valid path")
+}
+
 /// Entity-level attributes parsed from `#[entity(...)]`.
 ///
 /// This is an internal struct used by darling for parsing.
@@ -57,7 +64,21 @@ struct EntityAttrs {
     ///
     /// Defaults to [`UuidVersion::V7`] if not specified.
     #[darling(default)]
-    uuid: UuidVersion
+    uuid: UuidVersion,
+
+    /// Custom error type for repository implementation.
+    ///
+    /// Defaults to `sqlx::Error` if not specified.
+    /// The custom type must implement `From<sqlx::Error>`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// #[entity(table = "users", error = "AppError")]
+    /// #[entity(table = "users", error = "crate::errors::DbError")]
+    /// ```
+    #[darling(default = "default_error_type")]
+    error: syn::Path
 }
 
 /// Returns the default schema name.
@@ -121,6 +142,12 @@ pub struct EntityDef {
 
     /// UUID version for ID generation.
     pub uuid: UuidVersion,
+
+    /// Custom error type for repository implementation.
+    ///
+    /// Defaults to `sqlx::Error`. Custom types must implement
+    /// `From<sqlx::Error>` for the `?` operator to work.
+    pub error: syn::Path,
 
     /// All field definitions from the struct.
     pub fields: Vec<FieldDef>
@@ -192,6 +219,7 @@ impl EntityDef {
             sql: attrs.sql,
             dialect: attrs.dialect,
             uuid: attrs.uuid,
+            error: attrs.error,
             fields
         })
     }
@@ -366,5 +394,81 @@ impl EntityDef {
             &format!("{}{}{}", prefix, self.name_str(), suffix),
             Span::call_site()
         )
+    }
+
+    /// Get the error type for repository implementation.
+    ///
+    /// # Returns
+    ///
+    /// Reference to the error type path.
+    pub fn error_type(&self) -> &syn::Path {
+        &self.error
+    }
+
+    /// Check if a custom error type is specified.
+    ///
+    /// Returns `true` if the error type is not the default `sqlx::Error`.
+    ///
+    /// # Returns
+    ///
+    /// `true` if custom error type is used.
+    #[allow(dead_code)]
+    pub fn has_custom_error(&self) -> bool {
+        let default = default_error_type();
+        self.error != default
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_error_type_is_sqlx_error() {
+        let path = default_error_type();
+        let path_str = quote::quote!(#path).to_string();
+        assert!(path_str.contains("sqlx"));
+        assert!(path_str.contains("Error"));
+    }
+
+    #[test]
+    fn entity_def_error_type_accessor() {
+        let input: DeriveInput = syn::parse_quote! {
+            #[entity(table = "users")]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let error_path = entity.error_type();
+        let path_str = quote::quote!(#error_path).to_string();
+        assert!(path_str.contains("sqlx"));
+    }
+
+    #[test]
+    fn entity_def_default_has_no_custom_error() {
+        let input: DeriveInput = syn::parse_quote! {
+            #[entity(table = "users")]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        assert!(!entity.has_custom_error());
+    }
+
+    #[test]
+    fn entity_def_custom_error_detected() {
+        let input: DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", error = "MyError")]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        assert!(entity.has_custom_error());
     }
 }
