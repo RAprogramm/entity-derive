@@ -126,10 +126,6 @@ impl FieldDef {
         false
     }
 
-    // ─────────────────────────────────────────────────────────────────
-    // Backward-compatible accessors (delegate to expose/storage)
-    // ─────────────────────────────────────────────────────────────────
-
     /// Check if this is the primary key field.
     #[must_use]
     pub fn is_id(&self) -> bool {

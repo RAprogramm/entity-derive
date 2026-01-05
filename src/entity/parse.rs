@@ -103,7 +103,6 @@ mod field;
 mod sql_level;
 mod uuid_version;
 
-// Re-export public types
 pub use dialect::DatabaseDialect;
 pub use entity::EntityDef;
 pub use field::FieldDef;

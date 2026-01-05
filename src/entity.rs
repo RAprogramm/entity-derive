@@ -3,7 +3,56 @@
 
 //! Entity derive macro implementation.
 //!
-//! Contains all code generation logic for `#[derive(Entity)]`.
+//! This module contains all code generation logic for the `#[derive(Entity)]`
+//! macro. It orchestrates the parsing of entity definitions and delegates code
+//! generation to specialized submodules.
+//!
+//! # Architecture
+//!
+//! ```text
+//! entity.rs (orchestrator)
+//! │
+//! ├── parse/         → Attribute parsing (EntityDef, FieldDef)
+//! │
+//! ├── dto.rs         → CreateRequest, UpdateRequest, Response
+//! ├── repository.rs  → Repository trait definition
+//! ├── row.rs         → Database row struct (sqlx::FromRow)
+//! ├── insertable.rs  → Insertable struct for INSERT operations
+//! ├── mappers.rs     → From implementations between types
+//! │
+//! └── sql/           → Database-specific implementations
+//!     ├── postgres.rs   → PostgreSQL (sqlx::PgPool)
+//!     ├── clickhouse.rs → ClickHouse (planned)
+//!     └── mongodb.rs    → MongoDB (planned)
+//! ```
+//!
+//! # Generated Code
+//!
+//! For an entity like:
+//!
+//! ```rust,ignore
+//! #[derive(Entity)]
+//! #[entity(table = "users")]
+//! pub struct User {
+//!     #[id]
+//!     pub id: Uuid,
+//!     #[field(create, update, response)]
+//!     pub name: String,
+//! }
+//! ```
+//!
+//! The macro generates:
+//!
+//! | Type | Purpose |
+//! |------|---------|
+//! | `CreateUserRequest` | DTO for entity creation |
+//! | `UpdateUserRequest` | DTO for partial updates (all fields optional) |
+//! | `UserResponse` | DTO for API responses |
+//! | `UserRepository` | Async trait with CRUD operations |
+//! | `UserRow` | Database row mapping struct |
+//! | `InsertableUser` | Struct for INSERT operations |
+//! | `impl From<...>` | Conversions between types |
+//! | `impl UserRepository for PgPool` | PostgreSQL implementation |
 
 mod dto;
 mod insertable;
