@@ -1,7 +1,14 @@
 // SPDX-FileCopyrightText: 2025 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! Utility functions for code generation.
+//! Shared utilities for code generation.
+//!
+//! This module contains helper functions used across multiple generators.
+//!
+//! # Submodules
+//!
+//! - [`fields`] — Field assignment generation for `From` implementations
+//! - [`sql`] — SQL query building utilities (minimal, most SQL in dialect.rs)
 
 pub mod fields;
 pub mod sql;

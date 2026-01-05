@@ -1,16 +1,50 @@
 // SPDX-FileCopyrightText: 2025 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! DTO generation for the Entity derive macro.
+//! Data Transfer Object (DTO) generation.
 //!
-//! Generates CreateRequest, UpdateRequest, and Response structs.
+//! This module generates three DTO structs for API layer separation:
+//!
+//! | Struct | Purpose | Fields |
+//! |--------|---------|--------|
+//! | `Create{Name}Request` | Entity creation | `#[field(create)]` fields |
+//! | `Update{Name}Request` | Partial updates | `#[field(update)]` fields (wrapped in `Option`) |
+//! | `{Name}Response` | API responses | `#[field(response)]` + `#[id]` fields |
+//!
+//! # Derive Macros
+//!
+//! All DTOs automatically derive:
+//! - `Debug`, `Clone` — standard traits
+//! - `serde::Serialize`, `serde::Deserialize` — JSON serialization
+//!
+//! # Feature Flags
+//!
+//! - `api` — adds `utoipa::ToSchema` for OpenAPI documentation
+//! - `validate` — adds `validator::Validate` for input validation
+//!
+//! # Field Selection
+//!
+//! Fields are included based on attributes:
+//!
+//! ```rust,ignore
+//! #[field(create)]           // → CreateRequest only
+//! #[field(update)]           // → UpdateRequest only
+//! #[field(response)]         // → Response only
+//! #[field(create, response)] // → CreateRequest + Response
+//! #[field(skip)]             // → excluded from all DTOs
+//! #[id]                      // → always in Response
+//! #[auto]                    // → excluded from Create/Update
+//! ```
 
 use proc_macro2::TokenStream;
 use quote::quote;
 
 use super::parse::EntityDef;
 
-/// Generate all DTOs for the entity.
+/// Generates all DTO structs for the entity.
+///
+/// Returns a combined `TokenStream` containing `CreateRequest`,
+/// `UpdateRequest`, and `Response` struct definitions.
 pub fn generate(entity: &EntityDef) -> TokenStream {
     let create = generate_create_dto(entity);
     let update = generate_update_dto(entity);

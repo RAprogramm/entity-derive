@@ -1,9 +1,60 @@
 // SPDX-FileCopyrightText: 2025 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! Mapper generation for the Entity derive macro.
+//! Type mapper generation for entity conversions.
 //!
-//! Generates `From` implementations between Entity, DTOs, Row, and Insertable.
+//! Generates `From` trait implementations for converting between all generated
+//! types. These mappers enable seamless data flow through application layers.
+//!
+//! # Generated Implementations
+//!
+//! For an entity `User`, the following conversions are generated:
+//!
+//! | From | To | Purpose |
+//! |------|----|---------|
+//! | `UserRow` | `User` | DB query result → Domain entity |
+//! | `User` | `InsertableUser` | Domain entity → INSERT data |
+//! | `&User` | `InsertableUser` | Borrowed entity → INSERT (clones) |
+//! | `User` | `UserResponse` | Domain entity → API response |
+//! | `&User` | `UserResponse` | Borrowed entity → Response (clones) |
+//! | `CreateUserRequest` | `User` | Create DTO → New entity |
+//!
+//! # Data Flow
+//!
+//! ```text
+//! Create Flow:
+//!   CreateUserRequest → User → InsertableUser → DB INSERT
+//!                         ↓
+//!                    UserResponse → API
+//!
+//! Read Flow:
+//!   DB SELECT → UserRow → User → UserResponse → API
+//! ```
+//!
+//! # Field Handling
+//!
+//! Each conversion handles fields differently:
+//!
+//! ## `CreateUserRequest → User`
+//!
+//! - `#[field(create)]` fields: Copied from DTO
+//! - `#[id]` fields: Auto-generated UUID (v7 or v4)
+//! - `#[auto]` fields: `Default::default()`
+//! - Other fields: `Default::default()`
+//!
+//! ## `User → UserResponse`
+//!
+//! - Only `#[field(response)]` and `#[id]` fields are included
+//! - `#[field(skip)]` fields are excluded
+//!
+//! # Conditional Generation
+//!
+//! | Mapper | Condition |
+//! |--------|-----------|
+//! | `Row → Entity` | `sql != "none"` |
+//! | `Entity → Insertable` | `sql != "none"` |
+//! | `Entity → Response` | Has response fields |
+//! | `CreateRequest → Entity` | Has create fields |
 
 use proc_macro2::TokenStream;
 use quote::quote;
@@ -11,7 +62,9 @@ use quote::quote;
 use super::parse::{EntityDef, SqlLevel};
 use crate::utils::fields;
 
-/// Generate all `From` implementations.
+/// Generates all `From` implementations for the entity.
+///
+/// Combines all mapper generations into a single `TokenStream`.
 pub fn generate(entity: &EntityDef) -> TokenStream {
     let row_to_entity = generate_row_to_entity(entity);
     let entity_to_insertable = generate_entity_to_insertable(entity);

@@ -1,16 +1,60 @@
 // SPDX-FileCopyrightText: 2025 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! Repository trait generation for the Entity derive macro.
+//! Repository trait generation.
 //!
-//! Generates async Repository trait with CRUD operations.
+//! Generates an async repository trait with standard CRUD operations.
+//! The trait serves as a database abstraction layer, allowing different
+//! backend implementations (PostgreSQL, ClickHouse, MongoDB).
+//!
+//! # Generated Trait
+//!
+//! For an entity `User`, generates:
+//!
+//! ```rust,ignore
+//! #[async_trait]
+//! pub trait UserRepository: Send + Sync {
+//!     type Error: std::error::Error + Send + Sync;
+//!     type Pool;
+//!
+//!     fn pool(&self) -> &Self::Pool;
+//!     async fn create(&self, dto: CreateUserRequest) -> Result<User, Self::Error>;
+//!     async fn find_by_id(&self, id: Uuid) -> Result<Option<User>, Self::Error>;
+//!     async fn update(&self, id: Uuid, dto: UpdateUserRequest) -> Result<User, Self::Error>;
+//!     async fn delete(&self, id: Uuid) -> Result<bool, Self::Error>;
+//!     async fn list(&self, limit: i64, offset: i64) -> Result<Vec<User>, Self::Error>;
+//! }
+//! ```
+//!
+//! # Associated Types
+//!
+//! - `Error` — custom error type (default: `sqlx::Error`)
+//! - `Pool` — database pool type for transaction support
+//!
+//! # Conditional Generation
+//!
+//! Methods are generated based on entity configuration:
+//!
+//! | Method | Condition |
+//! |--------|-----------|
+//! | `create` | Entity has `#[field(create)]` fields |
+//! | `update` | Entity has `#[field(update)]` fields |
+//! | `find_by_id`, `delete`, `list` | Always generated |
+//!
+//! # SQL Level Control
+//!
+//! - `sql = "full"` — generates trait + implementation
+//! - `sql = "trait"` — generates trait only (implement manually)
+//! - `sql = "none"` — no repository generation
 
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
 use super::parse::{EntityDef, SqlLevel};
 
-/// Generate Repository trait for the entity.
+/// Generates the repository trait definition.
+///
+/// Returns an empty `TokenStream` if `sql = "none"` is specified.
 pub fn generate(entity: &EntityDef) -> TokenStream {
     if entity.sql == SqlLevel::None {
         return TokenStream::new();

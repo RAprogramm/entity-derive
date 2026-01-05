@@ -1,9 +1,43 @@
 // SPDX-FileCopyrightText: 2025 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! PostgreSQL implementation for repository code generation.
+//! PostgreSQL repository implementation generator.
 //!
-//! Generates `impl Repository for sqlx::PgPool` with complete CRUD operations.
+//! Generates `impl {Name}Repository for sqlx::PgPool` with complete CRUD
+//! operations. This is the primary database backend, providing full SQL support
+//! via sqlx.
+//!
+//! # Generated Implementation
+//!
+//! ```rust,ignore
+//! #[cfg(feature = "postgres")]
+//! #[async_trait]
+//! impl UserRepository for sqlx::PgPool {
+//!     type Error = sqlx::Error;  // or custom error type
+//!     type Pool = sqlx::PgPool;
+//!
+//!     fn pool(&self) -> &Self::Pool { self }
+//!     async fn create(&self, dto: CreateUserRequest) -> Result<User, Self::Error> { ... }
+//!     async fn find_by_id(&self, id: Uuid) -> Result<Option<User>, Self::Error> { ... }
+//!     async fn update(&self, id: Uuid, dto: UpdateUserRequest) -> Result<User, Self::Error> { ... }
+//!     async fn delete(&self, id: Uuid) -> Result<bool, Self::Error> { ... }
+//!     async fn list(&self, limit: i64, offset: i64) -> Result<Vec<User>, Self::Error> { ... }
+//! }
+//! ```
+//!
+//! # SQL Queries
+//!
+//! | Method | Query Pattern |
+//! |--------|---------------|
+//! | `create` | `INSERT INTO schema.table (...) VALUES ($1, $2, ...)` |
+//! | `find_by_id` | `SELECT ... FROM schema.table WHERE id = $1` |
+//! | `update` | `UPDATE schema.table SET ... WHERE id = $n` |
+//! | `delete` | `DELETE FROM schema.table WHERE id = $1` |
+//! | `list` | `SELECT ... FROM schema.table ORDER BY id DESC LIMIT $1 OFFSET $2` |
+//!
+//! # Feature Flag
+//!
+//! Generated code is gated behind `#[cfg(feature = "postgres")]`.
 
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
