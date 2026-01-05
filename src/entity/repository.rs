@@ -47,10 +47,11 @@
 //! - `sql = "trait"` — generates trait only (implement manually)
 //! - `sql = "none"` — no repository generation
 
+use convert_case::{Case, Casing};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
-use super::parse::{EntityDef, SqlLevel};
+use super::parse::{EntityDef, FieldDef, SqlLevel};
 use crate::utils::marker;
 
 /// Generates the repository trait definition.
@@ -84,6 +85,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
         quote! { async fn update(&self, id: #id_type, dto: #update_dto) -> Result<#entity_name, Self::Error>; }
     };
 
+    let relation_methods = generate_relation_methods(entity, id_type);
     let marker = marker::generated();
 
     quote! {
@@ -116,6 +118,68 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             async fn delete(&self, id: #id_type) -> Result<bool, Self::Error>;
 
             async fn list(&self, limit: i64, offset: i64) -> Result<Vec<#entity_name>, Self::Error>;
+
+            #relation_methods
         }
+    }
+}
+
+/// Generate relation methods for `#[belongs_to]` and `#[has_many]`.
+///
+/// For `#[belongs_to(Entity)]`, generates:
+/// ```rust,ignore
+/// async fn find_{entity_snake}(&self, id: IdType) -> Result<Option<Entity>, Self::Error>;
+/// ```
+///
+/// For `#[has_many(Entity)]`, generates:
+/// ```rust,ignore
+/// async fn find_{entity_snake_plural}(&self, id: IdType) -> Result<Vec<Entity>, Self::Error>;
+/// ```
+fn generate_relation_methods(entity: &EntityDef, id_type: &syn::Type) -> TokenStream {
+    let belongs_to_methods: Vec<TokenStream> = entity
+        .relation_fields()
+        .iter()
+        .filter_map(|field| generate_belongs_to_method(field, id_type))
+        .collect();
+
+    let has_many_methods: Vec<TokenStream> = entity
+        .has_many_relations()
+        .iter()
+        .map(|related| generate_has_many_method(entity, related, id_type))
+        .collect();
+
+    quote! {
+        #(#belongs_to_methods)*
+        #(#has_many_methods)*
+    }
+}
+
+/// Generate a single `find_{entity}` method for a belongs_to relation.
+fn generate_belongs_to_method(field: &FieldDef, id_type: &syn::Type) -> Option<TokenStream> {
+    let related_entity = field.belongs_to()?;
+    let method_name = format_ident!("find_{}", related_entity.to_string().to_case(Case::Snake));
+
+    Some(quote! {
+        /// Find the related entity for this foreign key.
+        async fn #method_name(&self, id: #id_type) -> Result<Option<#related_entity>, Self::Error>;
+    })
+}
+
+/// Generate a `find_{entities}` method for a has_many relation.
+fn generate_has_many_method(
+    entity: &EntityDef,
+    related: &syn::Ident,
+    id_type: &syn::Type
+) -> TokenStream {
+    let related_snake = related.to_string().to_case(Case::Snake);
+    let method_name = format_ident!("find_{}s", related_snake);
+    let entity_snake = entity.name_str().to_case(Case::Snake);
+    let fk_field = format_ident!("{}_id", entity_snake);
+
+    quote! {
+        /// Find all related entities for this parent.
+        ///
+        /// The foreign key field is assumed to be `{parent}_id`.
+        async fn #method_name(&self, #fk_field: #id_type) -> Result<Vec<#related>, Self::Error>;
     }
 }

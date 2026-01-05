@@ -57,6 +57,9 @@
 //!     #[field(response)]
 //!     #[auto]                         // Auto-generated (excluded from create/update)
 //!     pub created_at: DateTime<Utc>,
+//!
+//!     #[belongs_to(Organization)]     // Foreign key relation
+//!     pub org_id: Uuid,
 //! }
 //! ```
 //!
@@ -212,6 +215,8 @@ use proc_macro::TokenStream;
 /// | `#[field(update)]` | Include in `UpdateRequest`. Wrapped in `Option<T>` if not already. |
 /// | `#[field(response)]` | Include in `Response`. |
 /// | `#[field(skip)]` | Exclude from ALL DTOs. Use for sensitive data. |
+/// | `#[belongs_to(Entity)]` | Foreign key relation. Generates `find_{entity}` method in repository. |
+/// | `#[has_many(Entity)]` | One-to-many relation (entity-level). Generates `find_{entities}` method. |
 ///
 /// Multiple attributes can be combined: `#[field(create, update, response)]`
 ///
@@ -334,7 +339,10 @@ use proc_macro::TokenStream;
 /// -- LIST
 /// SELECT * FROM schema.table ORDER BY created_at DESC LIMIT $1 OFFSET $2
 /// ```
-#[proc_macro_derive(Entity, attributes(entity, field, id, auto, validate))]
+#[proc_macro_derive(
+    Entity,
+    attributes(entity, field, id, auto, validate, belongs_to, has_many)
+)]
 pub fn derive_entity(input: TokenStream) -> TokenStream {
     entity::derive(input)
 }

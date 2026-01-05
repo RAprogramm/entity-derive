@@ -50,6 +50,7 @@
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Attribute Reference](#attribute-reference)
+  - [Relations](#relations)
 - [Generated Code](#generated-code)
 - [Architecture](#architecture)
 - [Comparison](#comparison)
@@ -271,6 +272,8 @@ pub struct Post {
 | `#[field(update)]` | Include in `UpdateRequest` (wrapped in `Option` if not already) |
 | `#[field(response)]` | Include in `Response` |
 | `#[field(skip)]` | Exclude from all DTOs (for sensitive data) |
+| `#[belongs_to(Entity)]` | Foreign key relation, generates `find_{entity}` method in repository |
+| `#[has_many(Entity)]` | One-to-many relation (entity-level), generates `find_{entities}` method |
 
 Combine multiple: `#[field(create, update, response)]`
 
@@ -290,6 +293,44 @@ pub struct Session {
     pub id: Uuid,
     // ...
 }
+```
+
+### Relations
+
+Use `#[belongs_to]` for foreign keys and `#[has_many]` for one-to-many relations:
+
+```rust,ignore
+// Parent entity with has_many
+#[derive(Entity)]
+#[entity(table = "users")]
+#[has_many(Post)]  // One-to-many: User has many Posts
+pub struct User {
+    #[id]
+    pub id: Uuid,
+
+    #[field(create, response)]
+    pub name: String,
+}
+
+// Child entity with belongs_to
+#[derive(Entity)]
+#[entity(table = "posts")]
+pub struct Post {
+    #[id]
+    pub id: Uuid,
+
+    #[belongs_to(User)]  // Foreign key to User
+    pub user_id: Uuid,
+
+    #[field(create, update, response)]
+    pub title: String,
+}
+
+// Generated UserRepository includes:
+// async fn find_posts(&self, user_id: Uuid) -> Result<Vec<Post>, Self::Error>;
+
+// Generated PostRepository includes:
+// async fn find_user(&self, id: Uuid) -> Result<Option<User>, Self::Error>;
 ```
 
 <div align="right"><a href="#top">⬆ back to top</a></div>
