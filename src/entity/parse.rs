@@ -106,7 +106,7 @@ mod uuid_version;
 
 pub use dialect::DatabaseDialect;
 pub use entity::{EntityDef, ProjectionDef};
-pub use field::FieldDef;
+pub use field::{FieldDef, FilterType};
 pub use returning::ReturningMode;
 pub use sql_level::SqlLevel;
 pub use uuid_version::UuidVersion;

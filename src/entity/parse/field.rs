@@ -27,9 +27,11 @@
 //! ```
 
 mod expose;
+mod filter;
 mod storage;
 
 pub use expose::ExposeConfig;
+pub use filter::{FilterConfig, FilterType};
 pub use storage::StorageConfig;
 use syn::{Attribute, Field, Ident, Type, Visibility};
 
@@ -74,7 +76,10 @@ pub struct FieldDef {
     pub expose: ExposeConfig,
 
     /// Database storage configuration.
-    pub storage: StorageConfig
+    pub storage: StorageConfig,
+
+    /// Query filter configuration.
+    pub filter: FilterConfig
 }
 
 impl FieldDef {
@@ -89,6 +94,7 @@ impl FieldDef {
 
         let mut expose = ExposeConfig::default();
         let mut storage = StorageConfig::default();
+        let mut filter = FilterConfig::default();
 
         for attr in &field.attrs {
             if attr.path().is_ident("id") {
@@ -99,6 +105,8 @@ impl FieldDef {
                 expose = ExposeConfig::from_attr(attr);
             } else if attr.path().is_ident("belongs_to") {
                 storage.belongs_to = parse_belongs_to(attr);
+            } else if attr.path().is_ident("filter") {
+                filter = FilterConfig::from_attr(attr);
             }
         }
 
@@ -107,7 +115,8 @@ impl FieldDef {
             ty,
             vis,
             expose,
-            storage
+            storage,
+            filter
         }
     }
 
@@ -188,5 +197,17 @@ impl FieldDef {
     #[must_use]
     pub fn is_relation(&self) -> bool {
         self.storage.is_relation()
+    }
+
+    /// Check if this field has a filter configured.
+    #[must_use]
+    pub fn has_filter(&self) -> bool {
+        self.filter.has_filter()
+    }
+
+    /// Get the filter configuration.
+    #[must_use]
+    pub fn filter(&self) -> &FilterConfig {
+        &self.filter
     }
 }

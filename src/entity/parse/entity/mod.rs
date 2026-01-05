@@ -5,10 +5,40 @@
 //!
 //! This module handles parsing of entity-level attributes using darling,
 //! and provides the main [`EntityDef`] structure used by all code generators.
+//!
+//! # Module Structure
+//!
+//! ```text
+//! entity/
+//! ├── mod.rs        — Main EntityDef definition and parsing
+//! ├── attrs.rs      — EntityAttrs (darling parsing struct)
+//! └── projection.rs — Projection definition and parsing
+//! ```
+//!
+//! # Usage
+//!
+//! ```rust,ignore
+//! use crate::entity::parse::EntityDef;
+//!
+//! let entity = EntityDef::from_derive_input(&input)?;
+//!
+//! // Access entity metadata
+//! let table = entity.full_table_name();
+//! let id_field = entity.id_field();
+//!
+//! // Access field categories
+//! let create_fields = entity.create_fields();
+//! let update_fields = entity.update_fields();
+//! ```
 
+mod attrs;
+mod projection;
+
+pub use attrs::{EntityAttrs, default_error_type};
 use convert_case::{Case, Casing};
 use darling::FromDeriveInput;
 use proc_macro2::Span;
+pub use projection::{ProjectionDef, parse_projection_attrs};
 use syn::{Attribute, DeriveInput, Ident, Visibility};
 
 use super::{
@@ -18,153 +48,34 @@ use super::{
 
 /// Parse `#[has_many(Entity)]` attributes from struct attributes.
 ///
-/// Returns a vector of related entity identifiers.
+/// Extracts all has-many relation definitions from the struct's attributes.
+/// Each attribute specifies a related entity type for one-to-many
+/// relationships.
+///
+/// # Arguments
+///
+/// * `attrs` - Slice of syn Attributes from the struct
+///
+/// # Returns
+///
+/// Vector of related entity identifiers.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// // For a User entity with posts and comments:
+/// #[has_many(Post)]
+/// #[has_many(Comment)]
+/// struct User { ... }
+///
+/// // Returns: vec![Ident("Post"), Ident("Comment")]
+/// ```
 fn parse_has_many_attrs(attrs: &[Attribute]) -> Vec<Ident> {
     attrs
         .iter()
         .filter(|attr| attr.path().is_ident("has_many"))
         .filter_map(|attr| attr.parse_args::<Ident>().ok())
         .collect()
-}
-
-/// A projection definition parsed from `#[projection(Name: field1, field2)]`.
-#[derive(Debug, Clone)]
-pub struct ProjectionDef {
-    /// Projection name (e.g., `Public`, `Admin`).
-    pub name:   Ident,
-    /// List of field names to include.
-    pub fields: Vec<Ident>
-}
-
-/// Parse `#[projection(Name: field1, field2, ...)]` attributes.
-///
-/// Returns a vector of projection definitions.
-fn parse_projection_attrs(attrs: &[Attribute]) -> Vec<ProjectionDef> {
-    attrs
-        .iter()
-        .filter(|attr| attr.path().is_ident("projection"))
-        .filter_map(|attr| {
-            attr.parse_args_with(|input: syn::parse::ParseStream<'_>| {
-                let name: Ident = input.parse()?;
-                let _: syn::Token![:] = input.parse()?;
-                let fields =
-                    syn::punctuated::Punctuated::<Ident, syn::Token![,]>::parse_terminated(input)?;
-                Ok(ProjectionDef {
-                    name,
-                    fields: fields.into_iter().collect()
-                })
-            })
-            .ok()
-        })
-        .collect()
-}
-
-/// Default error type path for SQL implementations.
-///
-/// Used when no custom error type is specified.
-fn default_error_type() -> syn::Path {
-    syn::parse_str("sqlx::Error").expect("valid path")
-}
-
-/// Entity-level attributes parsed from `#[entity(...)]`.
-///
-/// This is an internal struct used by darling for parsing.
-/// The public API uses [`EntityDef`] which combines these
-/// attributes with parsed field definitions.
-#[derive(Debug, FromDeriveInput)]
-#[darling(attributes(entity), supports(struct_named))]
-struct EntityAttrs {
-    /// Struct identifier (e.g., `User`).
-    ident: Ident,
-
-    /// Struct visibility (e.g., `pub`, `pub(crate)`).
-    vis: Visibility,
-
-    /// Database table name.
-    ///
-    /// This is a required attribute with no default value.
-    /// The macro will fail with a clear error if not provided.
-    table: String,
-
-    /// Database schema name.
-    ///
-    /// Defaults to `"public"` if not specified.
-    #[darling(default = "default_schema")]
-    schema: String,
-
-    /// SQL generation level.
-    ///
-    /// Defaults to [`SqlLevel::Full`] if not specified.
-    #[darling(default)]
-    sql: SqlLevel,
-
-    /// Database dialect.
-    ///
-    /// Defaults to [`DatabaseDialect::Postgres`] if not specified.
-    #[darling(default)]
-    dialect: DatabaseDialect,
-
-    /// UUID version for ID generation.
-    ///
-    /// Defaults to [`UuidVersion::V7`] if not specified.
-    #[darling(default)]
-    uuid: UuidVersion,
-
-    /// Custom error type for repository implementation.
-    ///
-    /// Defaults to `sqlx::Error` if not specified.
-    /// The custom type must implement `From<sqlx::Error>`.
-    ///
-    /// # Examples
-    ///
-    /// ```rust,ignore
-    /// #[entity(table = "users", error = "AppError")]
-    /// #[entity(table = "users", error = "crate::errors::DbError")]
-    /// ```
-    #[darling(default = "default_error_type")]
-    error: syn::Path,
-
-    /// Enable soft delete for this entity.
-    ///
-    /// When enabled, the entity must have a `deleted_at: Option<DateTime<Utc>>`
-    /// field. The `delete` method will set this timestamp instead of removing
-    /// the row, and all queries will automatically filter out deleted records.
-    ///
-    /// # Example
-    ///
-    /// ```rust,ignore
-    /// #[entity(table = "users", soft_delete)]
-    /// pub struct User {
-    ///     #[id]
-    ///     pub id: Uuid,
-    ///     pub deleted_at: Option<DateTime<Utc>>,
-    /// }
-    /// ```
-    #[darling(default)]
-    soft_delete: bool,
-
-    /// RETURNING clause mode for INSERT/UPDATE operations.
-    ///
-    /// Controls what data is fetched back from the database:
-    /// - `full` (default): Use `RETURNING *` to get all fields
-    /// - `id`: Use `RETURNING id` to get only the primary key
-    /// - `none`: No RETURNING clause, return pre-built entity
-    ///
-    /// # Example
-    ///
-    /// ```rust,ignore
-    /// #[entity(table = "users", returning = "full")]
-    /// #[entity(table = "logs", returning = "none")]
-    /// ```
-    #[darling(default)]
-    returning: ReturningMode
-}
-
-/// Returns the default schema name.
-///
-/// Used by darling for the `schema` attribute default.
-fn default_schema() -> String {
-    "public".to_string()
 }
 
 /// Complete parsed entity definition.
@@ -419,6 +330,27 @@ impl EntityDef {
     /// Vector of field references with belongs_to relations.
     pub fn relation_fields(&self) -> Vec<&FieldDef> {
         self.fields.iter().filter(|f| f.is_relation()).collect()
+    }
+
+    /// Get fields with `#[filter]` attribute.
+    ///
+    /// Returns fields that can be used in query filtering.
+    /// Used to generate the Query struct and query method.
+    ///
+    /// # Returns
+    ///
+    /// Vector of field references with filter configuration.
+    pub fn filter_fields(&self) -> Vec<&FieldDef> {
+        self.fields.iter().filter(|f| f.has_filter()).collect()
+    }
+
+    /// Check if this entity has any filterable fields.
+    ///
+    /// # Returns
+    ///
+    /// `true` if any field has `#[filter]` attribute.
+    pub fn has_filters(&self) -> bool {
+        self.fields.iter().any(|f| f.has_filter())
     }
 
     /// Get has-many relations defined via `#[has_many(Entity)]`.

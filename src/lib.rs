@@ -60,6 +60,15 @@
 //!
 //!     #[belongs_to(Organization)]     // Foreign key relation
 //!     pub org_id: Uuid,
+//!
+//!     #[filter]                        // Exact match filter in Query struct
+//!     pub status: String,
+//!
+//!     #[filter(like)]                  // ILIKE pattern filter
+//!     pub name: String,
+//!
+//!     #[filter(range)]                 // Range filter (generates from/to fields)
+//!     pub created_at: DateTime<Utc>,
 //! }
 //!
 //! // Projections - partial views of the entity
@@ -78,6 +87,7 @@
 //! | `UserResponse` | DTO for API responses |
 //! | `UserRow` | Database row mapping (for `sqlx::FromRow`) |
 //! | `InsertableUser` | Struct for `INSERT` statements |
+//! | `UserQuery` | Query struct for type-safe filtering (if `#[filter]` used) |
 //! | `UserRepository` | Async trait with CRUD methods |
 //! | `impl UserRepository for PgPool` | PostgreSQL implementation |
 //! | `User{Projection}` | Projection structs (e.g., `UserPublic`, `UserAdmin`) |
@@ -114,6 +124,9 @@
 //!
 //!     /// List entities with pagination
 //!     async fn list(&self, limit: i64, offset: i64) -> Result<Vec<User>, Self::Error>;
+//!
+//!     /// Query entities with type-safe filters (if #[filter] used)
+//!     async fn query(&self, query: UserQuery) -> Result<Vec<User>, Self::Error>;
 //!
 //!     // For each projection, generates optimized SELECT method
 //!     async fn find_by_id_public(&self, id: Uuid) -> Result<Option<UserPublic>, Self::Error>;
@@ -256,6 +269,9 @@ use proc_macro::TokenStream;
 /// | `#[belongs_to(Entity)]` | Foreign key relation. Generates `find_{entity}` method in repository. |
 /// | `#[has_many(Entity)]` | One-to-many relation (entity-level). Generates `find_{entities}` method. |
 /// | `#[projection(Name: f1, f2)]` | Entity-level. Defines a projection struct with specified fields. |
+/// | `#[filter]` | Exact match filter. Generates field in Query struct with `=` comparison. |
+/// | `#[filter(like)]` | ILIKE pattern filter. Generates field for text pattern matching. |
+/// | `#[filter(range)]` | Range filter. Generates `field_from` and `field_to` fields. |
 ///
 /// Multiple attributes can be combined: `#[field(create, update, response)]`
 ///
@@ -380,7 +396,9 @@ use proc_macro::TokenStream;
 /// ```
 #[proc_macro_derive(
     Entity,
-    attributes(entity, field, id, auto, validate, belongs_to, has_many, projection)
+    attributes(
+        entity, field, id, auto, validate, belongs_to, has_many, projection, filter
+    )
 )]
 pub fn derive_entity(input: TokenStream) -> TokenStream {
     entity::derive(input)
