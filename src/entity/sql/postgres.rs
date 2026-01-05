@@ -64,6 +64,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     let list_impl = ctx.list_method();
     let relation_impls = ctx.relation_methods();
     let projection_impls = ctx.projection_methods();
+    let soft_delete_impls = ctx.soft_delete_methods();
     let marker = marker::generated();
 
     quote! {
@@ -85,6 +86,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             #list_impl
             #relation_impls
             #projection_impls
+            #soft_delete_impls
         }
     }
 }
@@ -105,7 +107,8 @@ struct Context<'a> {
     id_name:          &'a syn::Ident,
     id_type:          &'a syn::Type,
     columns_str:      String,
-    placeholders_str: String
+    placeholders_str: String,
+    soft_delete:      bool
 }
 
 impl<'a> Context<'a> {
@@ -127,7 +130,8 @@ impl<'a> Context<'a> {
             id_name: id_field.name(),
             id_type: id_field.ty(),
             columns_str: join_columns(fields),
-            placeholders_str: dialect.placeholders(fields.len())
+            placeholders_str: dialect.placeholders(fields.len()),
+            soft_delete: entity.is_soft_delete()
         }
     }
 
@@ -169,14 +173,20 @@ impl<'a> Context<'a> {
             id_name,
             id_type,
             dialect,
+            soft_delete,
             ..
         } = self;
         let placeholder = dialect.placeholder(1);
+        let deleted_filter = if *soft_delete {
+            " AND deleted_at IS NULL"
+        } else {
+            ""
+        };
 
         quote! {
             async fn find_by_id(&self, id: #id_type) -> Result<Option<#entity_name>, Self::Error> {
                 let row: Option<#row_name> = sqlx::query_as(
-                    &format!("SELECT {} FROM {} WHERE {} = {}", #columns_str, #table, stringify!(#id_name), #placeholder)
+                    &format!("SELECT {} FROM {} WHERE {} = {}{}", #columns_str, #table, stringify!(#id_name), #placeholder, #deleted_filter)
                 ).bind(&id).fetch_optional(self).await?;
                 Ok(row.map(#entity_name::from))
             }
@@ -225,15 +235,28 @@ impl<'a> Context<'a> {
             id_name,
             id_type,
             dialect,
+            soft_delete,
             ..
         } = self;
         let placeholder = dialect.placeholder(1);
 
-        quote! {
-            async fn delete(&self, id: #id_type) -> Result<bool, Self::Error> {
-                let result = sqlx::query(&format!("DELETE FROM {} WHERE {} = {}", #table, stringify!(#id_name), #placeholder))
-                    .bind(&id).execute(self).await?;
-                Ok(result.rows_affected() > 0)
+        if *soft_delete {
+            quote! {
+                async fn delete(&self, id: #id_type) -> Result<bool, Self::Error> {
+                    let result = sqlx::query(&format!(
+                        "UPDATE {} SET deleted_at = NOW() WHERE {} = {} AND deleted_at IS NULL",
+                        #table, stringify!(#id_name), #placeholder
+                    )).bind(&id).execute(self).await?;
+                    Ok(result.rows_affected() > 0)
+                }
+            }
+        } else {
+            quote! {
+                async fn delete(&self, id: #id_type) -> Result<bool, Self::Error> {
+                    let result = sqlx::query(&format!("DELETE FROM {} WHERE {} = {}", #table, stringify!(#id_name), #placeholder))
+                        .bind(&id).execute(self).await?;
+                    Ok(result.rows_affected() > 0)
+                }
             }
         }
     }
@@ -246,16 +269,22 @@ impl<'a> Context<'a> {
             columns_str,
             id_name,
             dialect,
+            soft_delete,
             ..
         } = self;
         let limit_placeholder = dialect.placeholder(1);
         let offset_placeholder = dialect.placeholder(2);
+        let where_clause = if *soft_delete {
+            "WHERE deleted_at IS NULL "
+        } else {
+            ""
+        };
 
         quote! {
             async fn list(&self, limit: i64, offset: i64) -> Result<Vec<#entity_name>, Self::Error> {
                 let rows: Vec<#row_name> = sqlx::query_as(
-                    &format!("SELECT {} FROM {} ORDER BY {} DESC LIMIT {} OFFSET {}",
-                        #columns_str, #table, stringify!(#id_name), #limit_placeholder, #offset_placeholder)
+                    &format!("SELECT {} FROM {} {}ORDER BY {} DESC LIMIT {} OFFSET {}",
+                        #columns_str, #table, #where_clause, stringify!(#id_name), #limit_placeholder, #offset_placeholder)
                 ).bind(limit).bind(offset).fetch_all(self).await?;
                 Ok(rows.into_iter().map(#entity_name::from).collect())
             }
@@ -364,6 +393,113 @@ impl<'a> Context<'a> {
                     &format!("SELECT {} FROM {} WHERE {} = {}", #columns_str, #table, stringify!(#id_name), #placeholder)
                 ).bind(&id).fetch_optional(self).await?;
                 Ok(row)
+            }
+        }
+    }
+
+    fn soft_delete_methods(&self) -> TokenStream {
+        if !self.soft_delete {
+            return TokenStream::new();
+        }
+
+        let hard_delete = self.hard_delete_method();
+        let restore = self.restore_method();
+        let find_with_deleted = self.find_by_id_with_deleted_method();
+        let list_with_deleted = self.list_with_deleted_method();
+
+        quote! {
+            #hard_delete
+            #restore
+            #find_with_deleted
+            #list_with_deleted
+        }
+    }
+
+    fn hard_delete_method(&self) -> TokenStream {
+        let Self {
+            table,
+            id_name,
+            id_type,
+            dialect,
+            ..
+        } = self;
+        let placeholder = dialect.placeholder(1);
+
+        quote! {
+            async fn hard_delete(&self, id: #id_type) -> Result<bool, Self::Error> {
+                let result = sqlx::query(&format!(
+                    "DELETE FROM {} WHERE {} = {}",
+                    #table, stringify!(#id_name), #placeholder
+                )).bind(&id).execute(self).await?;
+                Ok(result.rows_affected() > 0)
+            }
+        }
+    }
+
+    fn restore_method(&self) -> TokenStream {
+        let Self {
+            table,
+            id_name,
+            id_type,
+            dialect,
+            ..
+        } = self;
+        let placeholder = dialect.placeholder(1);
+
+        quote! {
+            async fn restore(&self, id: #id_type) -> Result<bool, Self::Error> {
+                let result = sqlx::query(&format!(
+                    "UPDATE {} SET deleted_at = NULL WHERE {} = {} AND deleted_at IS NOT NULL",
+                    #table, stringify!(#id_name), #placeholder
+                )).bind(&id).execute(self).await?;
+                Ok(result.rows_affected() > 0)
+            }
+        }
+    }
+
+    fn find_by_id_with_deleted_method(&self) -> TokenStream {
+        let Self {
+            entity_name,
+            row_name,
+            table,
+            columns_str,
+            id_name,
+            id_type,
+            dialect,
+            ..
+        } = self;
+        let placeholder = dialect.placeholder(1);
+
+        quote! {
+            async fn find_by_id_with_deleted(&self, id: #id_type) -> Result<Option<#entity_name>, Self::Error> {
+                let row: Option<#row_name> = sqlx::query_as(
+                    &format!("SELECT {} FROM {} WHERE {} = {}", #columns_str, #table, stringify!(#id_name), #placeholder)
+                ).bind(&id).fetch_optional(self).await?;
+                Ok(row.map(#entity_name::from))
+            }
+        }
+    }
+
+    fn list_with_deleted_method(&self) -> TokenStream {
+        let Self {
+            entity_name,
+            row_name,
+            table,
+            columns_str,
+            id_name,
+            dialect,
+            ..
+        } = self;
+        let limit_placeholder = dialect.placeholder(1);
+        let offset_placeholder = dialect.placeholder(2);
+
+        quote! {
+            async fn list_with_deleted(&self, limit: i64, offset: i64) -> Result<Vec<#entity_name>, Self::Error> {
+                let rows: Vec<#row_name> = sqlx::query_as(
+                    &format!("SELECT {} FROM {} ORDER BY {} DESC LIMIT {} OFFSET {}",
+                        #columns_str, #table, stringify!(#id_name), #limit_placeholder, #offset_placeholder)
+                ).bind(limit).bind(offset).fetch_all(self).await?;
+                Ok(rows.into_iter().map(#entity_name::from).collect())
             }
         }
     }

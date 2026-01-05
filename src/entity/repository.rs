@@ -87,6 +87,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
 
     let relation_methods = generate_relation_methods(entity, id_type);
     let projection_methods = generate_projection_methods(entity, id_type);
+    let soft_delete_methods = generate_soft_delete_methods(entity, id_type);
     let marker = marker::generated();
 
     quote! {
@@ -123,6 +124,8 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             #relation_methods
 
             #projection_methods
+
+            #soft_delete_methods
         }
     }
 }
@@ -212,4 +215,41 @@ fn generate_projection_methods(entity: &EntityDef, id_type: &syn::Type) -> Token
         .collect();
 
     quote! { #(#methods)* }
+}
+
+/// Generate soft delete methods when `#[entity(soft_delete)]` is enabled.
+///
+/// Generates:
+/// - `hard_delete` — actual DELETE from database
+/// - `restore` — set `deleted_at = NULL` to undelete
+/// - `find_by_id_with_deleted` — find without filtering deleted records
+/// - `list_with_deleted` — list without filtering deleted records
+fn generate_soft_delete_methods(entity: &EntityDef, id_type: &syn::Type) -> TokenStream {
+    if !entity.is_soft_delete() {
+        return TokenStream::new();
+    }
+
+    let entity_name = entity.name();
+
+    quote! {
+        /// Permanently remove entity from database.
+        ///
+        /// Unlike `delete`, this actually removes the row.
+        async fn hard_delete(&self, id: #id_type) -> Result<bool, Self::Error>;
+
+        /// Restore a soft-deleted entity.
+        ///
+        /// Sets `deleted_at = NULL` to make the entity visible again.
+        async fn restore(&self, id: #id_type) -> Result<bool, Self::Error>;
+
+        /// Find entity by ID including soft-deleted records.
+        ///
+        /// Unlike `find_by_id`, this does not filter out deleted records.
+        async fn find_by_id_with_deleted(&self, id: #id_type) -> Result<Option<#entity_name>, Self::Error>;
+
+        /// List entities including soft-deleted records.
+        ///
+        /// Unlike `list`, this does not filter out deleted records.
+        async fn list_with_deleted(&self, limit: i64, offset: i64) -> Result<Vec<#entity_name>, Self::Error>;
+    }
 }
