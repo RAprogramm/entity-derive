@@ -418,3 +418,57 @@ impl EntityDef {
         self.error != default
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_error_type_is_sqlx_error() {
+        let path = default_error_type();
+        let path_str = quote::quote!(#path).to_string();
+        assert!(path_str.contains("sqlx"));
+        assert!(path_str.contains("Error"));
+    }
+
+    #[test]
+    fn entity_def_error_type_accessor() {
+        let input: DeriveInput = syn::parse_quote! {
+            #[entity(table = "users")]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let error_path = entity.error_type();
+        let path_str = quote::quote!(#error_path).to_string();
+        assert!(path_str.contains("sqlx"));
+    }
+
+    #[test]
+    fn entity_def_default_has_no_custom_error() {
+        let input: DeriveInput = syn::parse_quote! {
+            #[entity(table = "users")]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        assert!(!entity.has_custom_error());
+    }
+
+    #[test]
+    fn entity_def_custom_error_detected() {
+        let input: DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", error = "MyError")]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        assert!(entity.has_custom_error());
+    }
+}
