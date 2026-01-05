@@ -83,3 +83,30 @@ impl FromMeta for SqlLevel {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_is_full() {
+        assert_eq!(SqlLevel::default(), SqlLevel::Full);
+    }
+
+    #[test]
+    fn from_meta_valid() {
+        assert_eq!(SqlLevel::from_string("full").unwrap(), SqlLevel::Full);
+        assert_eq!(SqlLevel::from_string("FULL").unwrap(), SqlLevel::Full);
+        assert_eq!(SqlLevel::from_string("trait").unwrap(), SqlLevel::Trait);
+        assert_eq!(SqlLevel::from_string("Trait").unwrap(), SqlLevel::Trait);
+        assert_eq!(SqlLevel::from_string("none").unwrap(), SqlLevel::None);
+        assert_eq!(SqlLevel::from_string("NONE").unwrap(), SqlLevel::None);
+    }
+
+    #[test]
+    fn from_meta_invalid() {
+        assert!(SqlLevel::from_string("partial").is_err());
+        assert!(SqlLevel::from_string("all").is_err());
+        assert!(SqlLevel::from_string("").is_err());
+    }
+}

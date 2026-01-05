@@ -71,7 +71,7 @@ pub fn create_assigns(
 
             if is_in_create {
                 quote! { #name: dto.#name }
-            } else if f.is_id {
+            } else if f.is_id() {
                 match uuid_version {
                     UuidVersion::V7 => quote! { #name: uuid::Uuid::now_v7() },
                     UuidVersion::V4 => quote! { #name: uuid::Uuid::new_v4() }
