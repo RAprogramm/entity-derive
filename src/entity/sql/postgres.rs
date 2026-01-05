@@ -63,6 +63,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     let delete_impl = ctx.delete_method();
     let list_impl = ctx.list_method();
     let relation_impls = ctx.relation_methods();
+    let projection_impls = ctx.projection_methods();
     let marker = marker::generated();
 
     quote! {
@@ -83,6 +84,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             #delete_impl
             #list_impl
             #relation_impls
+            #projection_impls
         }
     }
 }
@@ -324,6 +326,44 @@ impl<'a> Context<'a> {
                     &format!("SELECT * FROM {} WHERE {}_id = {}", #related_table, #entity_snake, #placeholder)
                 ).bind(&#fk_field).fetch_all(self).await?;
                 Ok(rows.into_iter().map(#related::from).collect())
+            }
+        }
+    }
+
+    fn projection_methods(&self) -> TokenStream {
+        let methods: Vec<TokenStream> = self
+            .entity
+            .projections
+            .iter()
+            .map(|proj| self.projection_method(proj))
+            .collect();
+
+        quote! { #(#methods)* }
+    }
+
+    fn projection_method(&self, proj: &crate::entity::parse::ProjectionDef) -> TokenStream {
+        let entity_name = self.entity_name;
+        let proj_snake = proj.name.to_string().to_case(Case::Snake);
+        let method_name = format_ident!("find_by_id_{}", proj_snake);
+        let proj_type = format_ident!("{}{}", entity_name, proj.name);
+        let id_name = self.id_name;
+        let id_type = self.id_type;
+        let table = &self.table;
+        let placeholder = self.dialect.placeholder(1);
+
+        let columns_str: String = proj
+            .fields
+            .iter()
+            .map(|f| f.to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        quote! {
+            async fn #method_name(&self, id: #id_type) -> Result<Option<#proj_type>, Self::Error> {
+                let row = sqlx::query_as::<_, #proj_type>(
+                    &format!("SELECT {} FROM {} WHERE {} = {}", #columns_str, #table, stringify!(#id_name), #placeholder)
+                ).bind(&id).fetch_optional(self).await?;
+                Ok(row)
             }
         }
     }

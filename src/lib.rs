@@ -61,6 +61,10 @@
 //!     #[belongs_to(Organization)]     // Foreign key relation
 //!     pub org_id: Uuid,
 //! }
+//!
+//! // Projections - partial views of the entity
+//! #[projection(Public: id, name)]           // UserPublic struct
+//! #[projection(Admin: id, name, email)]     // UserAdmin struct
 //! ```
 //!
 //! # Generated Code Overview
@@ -76,6 +80,7 @@
 //! | `InsertableUser` | Struct for `INSERT` statements |
 //! | `UserRepository` | Async trait with CRUD methods |
 //! | `impl UserRepository for PgPool` | PostgreSQL implementation |
+//! | `User{Projection}` | Projection structs (e.g., `UserPublic`, `UserAdmin`) |
 //! | `From<...>` impls | Type conversions between all structs |
 //!
 //! # SQL Generation Modes
@@ -109,7 +114,40 @@
 //!
 //!     /// List entities with pagination
 //!     async fn list(&self, limit: i64, offset: i64) -> Result<Vec<User>, Self::Error>;
+//!
+//!     // For each projection, generates optimized SELECT method
+//!     async fn find_by_id_public(&self, id: Uuid) -> Result<Option<UserPublic>, Self::Error>;
+//!     async fn find_by_id_admin(&self, id: Uuid) -> Result<Option<UserAdmin>, Self::Error>;
 //! }
+//! ```
+//!
+//! # Projections
+//!
+//! Define partial views of entities for optimized SELECT queries:
+//!
+//! ```rust,ignore
+//! #[derive(Entity)]
+//! #[entity(table = "users")]
+//! #[projection(Public: id, name, avatar)]    // Public profile
+//! #[projection(Admin: id, name, email, role)] // Admin view
+//! pub struct User {
+//!     #[id]
+//!     pub id: Uuid,
+//!     #[field(create, update, response)]
+//!     pub name: String,
+//!     #[field(create, response)]
+//!     pub email: String,
+//!     #[field(update, response)]
+//!     pub avatar: Option<String>,
+//!     #[field(response)]
+//!     pub role: String,
+//! }
+//!
+//! // Generated: UserPublic, UserAdmin structs
+//! // Generated: find_by_id_public, find_by_id_admin methods
+//!
+//! // SQL: SELECT id, name, avatar FROM public.users WHERE id = $1
+//! let public = repo.find_by_id_public(user_id).await?;
 //! ```
 //!
 //! # Error Handling
@@ -217,6 +255,7 @@ use proc_macro::TokenStream;
 /// | `#[field(skip)]` | Exclude from ALL DTOs. Use for sensitive data. |
 /// | `#[belongs_to(Entity)]` | Foreign key relation. Generates `find_{entity}` method in repository. |
 /// | `#[has_many(Entity)]` | One-to-many relation (entity-level). Generates `find_{entities}` method. |
+/// | `#[projection(Name: f1, f2)]` | Entity-level. Defines a projection struct with specified fields. |
 ///
 /// Multiple attributes can be combined: `#[field(create, update, response)]`
 ///
@@ -341,7 +380,7 @@ use proc_macro::TokenStream;
 /// ```
 #[proc_macro_derive(
     Entity,
-    attributes(entity, field, id, auto, validate, belongs_to, has_many)
+    attributes(entity, field, id, auto, validate, belongs_to, has_many, projection)
 )]
 pub fn derive_entity(input: TokenStream) -> TokenStream {
     entity::derive(input)

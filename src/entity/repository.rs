@@ -86,6 +86,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     };
 
     let relation_methods = generate_relation_methods(entity, id_type);
+    let projection_methods = generate_projection_methods(entity, id_type);
     let marker = marker::generated();
 
     quote! {
@@ -120,6 +121,8 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             async fn list(&self, limit: i64, offset: i64) -> Result<Vec<#entity_name>, Self::Error>;
 
             #relation_methods
+
+            #projection_methods
         }
     }
 }
@@ -182,4 +185,31 @@ fn generate_has_many_method(
         /// The foreign key field is assumed to be `{parent}_id`.
         async fn #method_name(&self, #fk_field: #id_type) -> Result<Vec<#related>, Self::Error>;
     }
+}
+
+/// Generate projection methods for `#[projection(Name: fields)]`.
+///
+/// For each projection, generates:
+/// ```rust,ignore
+/// async fn find_by_id_public(&self, id: Uuid) -> Result<Option<UserPublic>, Self::Error>;
+/// ```
+fn generate_projection_methods(entity: &EntityDef, id_type: &syn::Type) -> TokenStream {
+    let entity_name = entity.name();
+
+    let methods: Vec<TokenStream> = entity
+        .projections
+        .iter()
+        .map(|proj| {
+            let proj_snake = proj.name.to_string().to_case(Case::Snake);
+            let method_name = format_ident!("find_by_id_{}", proj_snake);
+            let proj_type = format_ident!("{}{}", entity_name, proj.name);
+
+            quote! {
+                /// Find entity by ID as projection (optimized SELECT).
+                async fn #method_name(&self, id: #id_type) -> Result<Option<#proj_type>, Self::Error>;
+            }
+        })
+        .collect();
+
+    quote! { #(#methods)* }
 }
