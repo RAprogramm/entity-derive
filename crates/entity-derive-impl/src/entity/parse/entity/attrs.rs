@@ -20,6 +20,7 @@
 //! | `soft_delete` | No | `false` | Enable soft delete |
 //! | `returning` | No | `Full` | RETURNING clause mode |
 //! | `events` | No | `false` | Generate lifecycle events |
+//! | `hooks` | No | `false` | Generate lifecycle hooks trait |
 
 use darling::FromDeriveInput;
 use syn::{Ident, Visibility};
@@ -166,5 +167,27 @@ pub struct EntityAttrs {
     /// }
     /// ```
     #[darling(default)]
-    pub events: bool
+    pub events: bool,
+
+    /// Generate lifecycle hooks trait.
+    ///
+    /// When enabled, generates a `{Entity}Hooks` trait with before/after
+    /// methods for each CRUD operation. Default implementations are no-ops.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// #[entity(table = "users", hooks)]
+    /// pub struct User { ... }
+    ///
+    /// // Implement hooks:
+    /// impl UserHooks for MyRepo {
+    ///     async fn before_create(&self, dto: &mut CreateUserRequest) -> Result<(), Error> {
+    ///         validate(&dto)?;
+    ///         Ok(())
+    ///     }
+    /// }
+    /// ```
+    #[darling(default)]
+    pub hooks: bool
 }

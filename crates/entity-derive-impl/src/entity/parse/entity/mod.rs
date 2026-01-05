@@ -168,7 +168,13 @@ pub struct EntityDef {
     ///
     /// When `true`, generates a `{Entity}Event` enum with variants for
     /// Created, Updated, Deleted, etc.
-    pub events: bool
+    pub events: bool,
+
+    /// Whether to generate lifecycle hooks trait.
+    ///
+    /// When `true`, generates a `{Entity}Hooks` trait with before/after
+    /// methods for CRUD operations.
+    pub hooks: bool
 }
 
 impl EntityDef {
@@ -246,7 +252,8 @@ impl EntityDef {
             projections,
             soft_delete: attrs.soft_delete,
             returning: attrs.returning,
-            events: attrs.events
+            events: attrs.events,
+            hooks: attrs.hooks
         })
     }
 
@@ -505,6 +512,15 @@ impl EntityDef {
     /// `true` if `#[entity(events)]` is present.
     pub fn has_events(&self) -> bool {
         self.events
+    }
+
+    /// Check if lifecycle hooks trait should be generated.
+    ///
+    /// # Returns
+    ///
+    /// `true` if `#[entity(hooks)]` is present.
+    pub fn has_hooks(&self) -> bool {
+        self.hooks
     }
 }
 
