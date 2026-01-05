@@ -194,6 +194,7 @@ impl<'a> Context<'a> {
             id_name,
             id_type,
             dialect,
+            trait_name,
             ..
         } = self;
 
@@ -211,7 +212,7 @@ impl<'a> Context<'a> {
                     #(#bindings)*
                     .bind(&id)
                     .execute(self).await?;
-                self.find_by_id(id).await?.ok_or_else(|| sqlx::Error::RowNotFound.into())
+                <Self as #trait_name>::find_by_id(self, id).await?.ok_or_else(|| sqlx::Error::RowNotFound.into())
             }
         }
     }
@@ -289,10 +290,11 @@ impl<'a> Context<'a> {
         let fk_name = field.name();
         let id_type = self.id_type;
         let placeholder = self.dialect.placeholder(1);
+        let trait_name = &self.trait_name;
 
         Some(quote! {
             async fn #method_name(&self, id: #id_type) -> Result<Option<#related_entity>, Self::Error> {
-                let entity = self.find_by_id(id).await?;
+                let entity = <Self as #trait_name>::find_by_id(self, id).await?;
                 match entity {
                     Some(e) => {
                         let row: Option<#related_row> = sqlx::query_as(
