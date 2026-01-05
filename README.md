@@ -50,6 +50,9 @@
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Attribute Reference](#attribute-reference)
+  - [Soft Delete](#soft-delete)
+  - [RETURNING Modes](#returning-modes)
+  - [Projections](#projections)
   - [Relations](#relations)
 - [Generated Code](#generated-code)
 - [Architecture](#architecture)
@@ -152,6 +155,10 @@ pub struct User {
 - **SQL Generation** — Complete CRUD operations for PostgreSQL (via sqlx)
 - **Partial Updates** — Non-optional fields automatically wrapped in `Option` for updates
 - **Security by Default** — `#[field(skip)]` ensures sensitive data never leaks to responses
+- **Soft Delete** — Optional `deleted_at` timestamp instead of hard delete
+- **Projections** — Partial entity views with optimized SELECT queries
+- **RETURNING Control** — Configure what data comes back from INSERT/UPDATE
+- **Relations** — `#[belongs_to]` and `#[has_many]` for entity relationships
 
 <div align="right"><a href="#top">⬆ back to top</a></div>
 
@@ -238,6 +245,8 @@ pub struct Post {
 | `sql` | No | `"full"` | SQL generation level |
 | `dialect` | No | `"postgres"` | Database dialect |
 | `uuid` | No | `"v7"` | UUID version for ID generation |
+| `soft_delete` | No | `false` | Enable soft delete (uses `deleted_at` timestamp) |
+| `returning` | No | `"full"` | RETURNING clause mode (`full`, `id`, `none`, or custom columns) |
 
 #### Database Dialects
 
@@ -262,6 +271,49 @@ pub struct Post {
 | `trait` | Yes | No | Custom queries (joins, CTEs, full-text search) |
 | `none` | No | No | DTOs only, no database layer |
 
+#### Soft Delete
+
+Enable soft delete to mark records as deleted instead of removing them:
+
+```rust,ignore
+#[derive(Entity)]
+#[entity(table = "documents", soft_delete)]
+pub struct Document {
+    #[id]
+    pub id: Uuid,
+
+    #[field(create, response)]
+    pub title: String,
+
+    #[field(skip)]
+    pub deleted_at: Option<DateTime<Utc>>,  // Required for soft delete
+}
+
+// Generated methods:
+// - delete() sets deleted_at = NOW() instead of DELETE
+// - find_by_id() and list() automatically filter deleted records
+// - hard_delete() permanently removes the record
+// - restore() sets deleted_at = NULL
+// - find_by_id_with_deleted() and list_with_deleted() include deleted records
+```
+
+#### RETURNING Modes
+
+Control what data is fetched back after INSERT/UPDATE:
+
+| Mode | Clause | Use Case |
+|------|--------|----------|
+| `full` | `RETURNING *` | Get all fields including DB-generated (default) |
+| `id` | `RETURNING id` | Confirm insert, return pre-built entity |
+| `none` | (no RETURNING) | Fire-and-forget, fastest option |
+| `"col1, col2"` | `RETURNING col1, col2` | Return specific columns |
+
+```rust,ignore
+#[entity(table = "logs", returning = "none")]      // Fastest
+#[entity(table = "users", returning = "full")]     // Get DB-generated values
+#[entity(table = "events", returning = "id, created_at")]  // Custom columns
+```
+
 ### Field-Level Attributes
 
 | Attribute | Effect |
@@ -274,8 +326,51 @@ pub struct Post {
 | `#[field(skip)]` | Exclude from all DTOs (for sensitive data) |
 | `#[belongs_to(Entity)]` | Foreign key relation, generates `find_{entity}` method in repository |
 | `#[has_many(Entity)]` | One-to-many relation (entity-level), generates `find_{entities}` method |
+| `#[projection(Name: fields)]` | Generate partial view struct (entity-level) |
 
 Combine multiple: `#[field(create, update, response)]`
+
+### Projections
+
+Define partial views of your entity for optimized queries:
+
+```rust,ignore
+#[derive(Entity)]
+#[entity(table = "users")]
+#[projection(Public: id, name, avatar)]
+#[projection(Admin: id, name, email, role, created_at)]
+pub struct User {
+    #[id]
+    pub id: Uuid,
+
+    #[field(create, update, response)]
+    pub name: String,
+
+    #[field(create, response)]
+    pub email: String,
+
+    #[field(update, response)]
+    pub avatar: Option<String>,
+
+    #[field(response)]
+    pub role: String,
+
+    #[field(skip)]
+    pub password_hash: String,
+
+    #[field(response)]
+    #[auto]
+    pub created_at: DateTime<Utc>,
+}
+
+// Generated:
+// - UserPublic { id, name, avatar }
+// - UserAdmin { id, name, email, role, created_at }
+// - From<User> for UserPublic
+// - From<User> for UserAdmin
+// - find_by_id_public() - optimized SELECT with only needed columns
+// - find_by_id_admin() - optimized SELECT with only needed columns
+```
 
 ### Example with All Options
 
