@@ -121,7 +121,26 @@ struct EntityAttrs {
     /// #[entity(table = "users", error = "crate::errors::DbError")]
     /// ```
     #[darling(default = "default_error_type")]
-    error: syn::Path
+    error: syn::Path,
+
+    /// Enable soft delete for this entity.
+    ///
+    /// When enabled, the entity must have a `deleted_at: Option<DateTime<Utc>>`
+    /// field. The `delete` method will set this timestamp instead of removing
+    /// the row, and all queries will automatically filter out deleted records.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// #[entity(table = "users", soft_delete)]
+    /// pub struct User {
+    ///     #[id]
+    ///     pub id: Uuid,
+    ///     pub deleted_at: Option<DateTime<Utc>>,
+    /// }
+    /// ```
+    #[darling(default)]
+    soft_delete: bool
 }
 
 /// Returns the default schema name.
@@ -203,7 +222,14 @@ pub struct EntityDef {
     /// Projections defined via `#[projection(Name: field1, field2)]`.
     ///
     /// Each projection defines a subset of fields for a specific view.
-    pub projections: Vec<ProjectionDef>
+    pub projections: Vec<ProjectionDef>,
+
+    /// Whether soft delete is enabled.
+    ///
+    /// When `true`, the `delete` method sets `deleted_at` instead of removing
+    /// the row, and all queries filter out records where `deleted_at IS NOT
+    /// NULL`.
+    pub soft_delete: bool
 }
 
 impl EntityDef {
@@ -278,7 +304,8 @@ impl EntityDef {
             error: attrs.error,
             fields,
             has_many,
-            projections
+            projections,
+            soft_delete: attrs.soft_delete
         })
     }
 
@@ -498,6 +525,15 @@ impl EntityDef {
     pub fn has_custom_error(&self) -> bool {
         let default = default_error_type();
         self.error != default
+    }
+
+    /// Check if soft delete is enabled for this entity.
+    ///
+    /// # Returns
+    ///
+    /// `true` if `#[entity(soft_delete)]` is present.
+    pub fn is_soft_delete(&self) -> bool {
+        self.soft_delete
     }
 }
 
