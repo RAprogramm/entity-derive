@@ -714,7 +714,8 @@ fn generate_where_conditions(fields: &[&FieldDef], soft_delete: bool) -> TokenSt
                         },
                     ]
                 }
-                FilterType::None => vec![]
+                // Unreachable: filter_fields() only returns fields with has_filter() == true
+                FilterType::None => unreachable!("FilterType::None should not be in filter_fields")
             }
         })
         .collect();
@@ -772,7 +773,8 @@ fn generate_query_bindings(fields: &[&FieldDef]) -> TokenStream {
                         },
                     ]
                 }
-                FilterType::None => vec![]
+                // Unreachable: filter_fields() only returns fields with has_filter() == true
+                FilterType::None => unreachable!("FilterType::None should not be in filter_fields")
             }
         })
         .collect();

@@ -81,19 +81,16 @@ impl FilterConfig {
     }
 
     /// Check if this is an exact match filter.
-    #[allow(dead_code)]
     pub fn is_eq(&self) -> bool {
         self.filter_type == FilterType::Eq
     }
 
     /// Check if this is a LIKE filter.
-    #[allow(dead_code)]
     pub fn is_like(&self) -> bool {
         self.filter_type == FilterType::Like
     }
 
     /// Check if this is a range filter.
-    #[allow(dead_code)]
     pub fn is_range(&self) -> bool {
         self.filter_type == FilterType::Range
     }
@@ -108,5 +105,40 @@ mod tests {
         let config = FilterConfig::default();
         assert_eq!(config.filter_type, FilterType::None);
         assert!(!config.has_filter());
+    }
+
+    #[test]
+    fn filter_type_checks() {
+        let eq = FilterConfig {
+            filter_type: FilterType::Eq
+        };
+        assert!(eq.is_eq());
+        assert!(!eq.is_like());
+        assert!(!eq.is_range());
+        assert!(eq.has_filter());
+
+        let like = FilterConfig {
+            filter_type: FilterType::Like
+        };
+        assert!(!like.is_eq());
+        assert!(like.is_like());
+        assert!(!like.is_range());
+        assert!(like.has_filter());
+
+        let range = FilterConfig {
+            filter_type: FilterType::Range
+        };
+        assert!(!range.is_eq());
+        assert!(!range.is_like());
+        assert!(range.is_range());
+        assert!(range.has_filter());
+
+        let none = FilterConfig {
+            filter_type: FilterType::None
+        };
+        assert!(!none.is_eq());
+        assert!(!none.is_like());
+        assert!(!none.is_range());
+        assert!(!none.has_filter());
     }
 }
