@@ -26,6 +26,38 @@ fn parse_has_many_attrs(attrs: &[Attribute]) -> Vec<Ident> {
         .collect()
 }
 
+/// A projection definition parsed from `#[projection(Name: field1, field2)]`.
+#[derive(Debug, Clone)]
+pub struct ProjectionDef {
+    /// Projection name (e.g., `Public`, `Admin`).
+    pub name:   Ident,
+    /// List of field names to include.
+    pub fields: Vec<Ident>
+}
+
+/// Parse `#[projection(Name: field1, field2, ...)]` attributes.
+///
+/// Returns a vector of projection definitions.
+fn parse_projection_attrs(attrs: &[Attribute]) -> Vec<ProjectionDef> {
+    attrs
+        .iter()
+        .filter(|attr| attr.path().is_ident("projection"))
+        .filter_map(|attr| {
+            attr.parse_args_with(|input: syn::parse::ParseStream<'_>| {
+                let name: Ident = input.parse()?;
+                let _: syn::Token![:] = input.parse()?;
+                let fields =
+                    syn::punctuated::Punctuated::<Ident, syn::Token![,]>::parse_terminated(input)?;
+                Ok(ProjectionDef {
+                    name,
+                    fields: fields.into_iter().collect()
+                })
+            })
+            .ok()
+        })
+        .collect()
+}
+
 /// Default error type path for SQL implementations.
 ///
 /// Used when no custom error type is specified.
@@ -166,7 +198,12 @@ pub struct EntityDef {
     /// Has-many relations defined via `#[has_many(Entity)]`.
     ///
     /// Each entry is the related entity name.
-    pub has_many: Vec<Ident>
+    pub has_many: Vec<Ident>,
+
+    /// Projections defined via `#[projection(Name: field1, field2)]`.
+    ///
+    /// Each projection defines a subset of fields for a specific view.
+    pub projections: Vec<ProjectionDef>
 }
 
 impl EntityDef {
@@ -228,6 +265,7 @@ impl EntityDef {
         };
 
         let has_many = parse_has_many_attrs(&input.attrs);
+        let projections = parse_projection_attrs(&input.attrs);
 
         Ok(Self {
             ident: attrs.ident,
@@ -239,7 +277,8 @@ impl EntityDef {
             uuid: attrs.uuid,
             error: attrs.error,
             fields,
-            has_many
+            has_many,
+            projections
         })
     }
 
