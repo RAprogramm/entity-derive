@@ -30,6 +30,12 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
         #[async_trait::async_trait]
         impl #trait_name for sqlx::PgPool {
             type Error = #error_type;
+            type Pool = sqlx::PgPool;
+
+            fn pool(&self) -> &Self::Pool {
+                self
+            }
+
             #create_impl
             #find_impl
             #update_impl

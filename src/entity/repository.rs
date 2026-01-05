@@ -42,7 +42,22 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     quote! {
         #[async_trait::async_trait]
         #vis trait #trait_name: Send + Sync {
+            /// Error type for repository operations.
             type Error: std::error::Error + Send + Sync;
+
+            /// Underlying database pool type.
+            type Pool;
+
+            /// Get reference to the underlying database pool.
+            ///
+            /// Enables transactions and custom queries:
+            /// ```ignore
+            /// let pool = repo.pool();
+            /// let mut tx = pool.begin().await?;
+            /// // ... custom operations
+            /// tx.commit().await?;
+            /// ```
+            fn pool(&self) -> &Self::Pool;
 
             #create_method
 
