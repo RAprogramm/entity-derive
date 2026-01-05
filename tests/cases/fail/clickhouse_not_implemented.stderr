@@ -1,4 +1,4 @@
-error: ClickHouse support is not yet implemented. Use dialect = "postgres" or sql = "trait" to implement manually.
+error: ClickHouse support is not yet implemented. Use `sql = "trait"` to generate only the trait, then implement it manually for `clickhouse::Client`.
  --> tests/cases/fail/clickhouse_not_implemented.rs:7:10
   |
 7 | #[derive(Entity)]

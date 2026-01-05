@@ -1,4 +1,4 @@
-error: MongoDB support is not yet implemented. Use dialect = "postgres" or sql = "trait" to implement manually.
+error: MongoDB support is not yet implemented. Use `sql = "trait"` to generate only the trait, then implement it manually for `mongodb::Client`.
  --> tests/cases/fail/mongodb_not_implemented.rs:7:10
   |
 7 | #[derive(Entity)]
