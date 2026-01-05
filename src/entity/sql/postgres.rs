@@ -42,7 +42,10 @@
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
-use crate::entity::parse::{DatabaseDialect, EntityDef, FieldDef};
+use crate::{
+    entity::parse::{DatabaseDialect, EntityDef, FieldDef},
+    utils::marker
+};
 
 /// Generate PostgreSQL repository implementation.
 ///
@@ -58,8 +61,10 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     let update_impl = ctx.update_method();
     let delete_impl = ctx.delete_method();
     let list_impl = ctx.list_method();
+    let marker = marker::generated();
 
     quote! {
+        #marker
         #[cfg(feature = #feature)]
         #[async_trait::async_trait]
         impl #trait_name for sqlx::PgPool {

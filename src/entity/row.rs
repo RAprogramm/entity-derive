@@ -50,6 +50,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 
 use super::parse::{EntityDef, SqlLevel};
+use crate::utils::marker;
 
 /// Generates the `{Name}Row` struct for database query results.
 ///
@@ -68,7 +69,10 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
         quote! { pub #name: #ty }
     });
 
+    let marker = marker::generated();
+
     quote! {
+        #marker
         #[derive(Debug, Clone)]
         #[cfg_attr(feature = "postgres", derive(sqlx::FromRow))]
         #vis struct #row_name { #(#field_defs),* }

@@ -60,7 +60,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 
 use super::parse::{EntityDef, SqlLevel};
-use crate::utils::fields;
+use crate::utils::{fields, marker};
 
 /// Generates all `From` implementations for the entity.
 ///
@@ -87,8 +87,10 @@ fn generate_row_to_entity(entity: &EntityDef) -> TokenStream {
     let entity_name = entity.name();
     let row_name = entity.ident_with("", "Row");
     let assigns = fields::assigns(entity.all_fields(), "row");
+    let marker = marker::generated();
 
     quote! {
+        #marker
         impl From<#row_name> for #entity_name {
             fn from(row: #row_name) -> Self {
                 Self { #(#assigns),* }
@@ -106,14 +108,17 @@ fn generate_entity_to_insertable(entity: &EntityDef) -> TokenStream {
     let insertable_name = entity.ident_with("Insertable", "");
     let assigns = fields::assigns(entity.all_fields(), "entity");
     let assigns_clone = fields::assigns_clone(entity.all_fields(), "entity");
+    let marker = marker::generated();
 
     quote! {
+        #marker
         impl From<#entity_name> for #insertable_name {
             fn from(entity: #entity_name) -> Self {
                 Self { #(#assigns),* }
             }
         }
 
+        #marker
         impl From<&#entity_name> for #insertable_name {
             fn from(entity: &#entity_name) -> Self {
                 Self { #(#assigns_clone),* }
@@ -132,14 +137,17 @@ fn generate_entity_to_response(entity: &EntityDef) -> TokenStream {
     let response_name = entity.ident_with("", "Response");
     let assigns = fields::assigns_from_refs(&response_fields, "entity");
     let assigns_clone = fields::assigns_clone_from_refs(&response_fields, "entity");
+    let marker = marker::generated();
 
     quote! {
+        #marker
         impl From<#entity_name> for #response_name {
             fn from(entity: #entity_name) -> Self {
                 Self { #(#assigns),* }
             }
         }
 
+        #marker
         impl From<&#entity_name> for #response_name {
             fn from(entity: &#entity_name) -> Self {
                 Self { #(#assigns_clone),* }
@@ -157,8 +165,10 @@ fn generate_create_to_entity(entity: &EntityDef) -> TokenStream {
     let entity_name = entity.name();
     let create_name = entity.ident_with("Create", "Request");
     let assigns = fields::create_assigns(entity.all_fields(), &create_fields, entity.uuid);
+    let marker = marker::generated();
 
     quote! {
+        #marker
         impl From<#create_name> for #entity_name {
             fn from(dto: #create_name) -> Self {
                 Self { #(#assigns),* }
