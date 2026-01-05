@@ -12,7 +12,8 @@ use proc_macro2::Span;
 use syn::{Attribute, DeriveInput, Ident, Visibility};
 
 use super::{
-    dialect::DatabaseDialect, field::FieldDef, sql_level::SqlLevel, uuid_version::UuidVersion
+    dialect::DatabaseDialect, field::FieldDef, returning::ReturningMode, sql_level::SqlLevel,
+    uuid_version::UuidVersion
 };
 
 /// Parse `#[has_many(Entity)]` attributes from struct attributes.
@@ -140,7 +141,23 @@ struct EntityAttrs {
     /// }
     /// ```
     #[darling(default)]
-    soft_delete: bool
+    soft_delete: bool,
+
+    /// RETURNING clause mode for INSERT/UPDATE operations.
+    ///
+    /// Controls what data is fetched back from the database:
+    /// - `full` (default): Use `RETURNING *` to get all fields
+    /// - `id`: Use `RETURNING id` to get only the primary key
+    /// - `none`: No RETURNING clause, return pre-built entity
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// #[entity(table = "users", returning = "full")]
+    /// #[entity(table = "logs", returning = "none")]
+    /// ```
+    #[darling(default)]
+    returning: ReturningMode
 }
 
 /// Returns the default schema name.
@@ -229,7 +246,12 @@ pub struct EntityDef {
     /// When `true`, the `delete` method sets `deleted_at` instead of removing
     /// the row, and all queries filter out records where `deleted_at IS NOT
     /// NULL`.
-    pub soft_delete: bool
+    pub soft_delete: bool,
+
+    /// RETURNING clause mode for INSERT/UPDATE operations.
+    ///
+    /// Controls what data is fetched back from the database after writes.
+    pub returning: ReturningMode
 }
 
 impl EntityDef {
@@ -305,7 +327,8 @@ impl EntityDef {
             fields,
             has_many,
             projections,
-            soft_delete: attrs.soft_delete
+            soft_delete: attrs.soft_delete,
+            returning: attrs.returning
         })
     }
 

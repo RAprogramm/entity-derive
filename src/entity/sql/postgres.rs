@@ -44,7 +44,7 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
 use crate::{
-    entity::parse::{DatabaseDialect, EntityDef, FieldDef},
+    entity::parse::{DatabaseDialect, EntityDef, FieldDef, ReturningMode},
     utils::marker
 };
 
@@ -108,7 +108,8 @@ struct Context<'a> {
     id_type:          &'a syn::Type,
     columns_str:      String,
     placeholders_str: String,
-    soft_delete:      bool
+    soft_delete:      bool,
+    returning:        ReturningMode
 }
 
 impl<'a> Context<'a> {
@@ -131,7 +132,8 @@ impl<'a> Context<'a> {
             id_type: id_field.ty(),
             columns_str: join_columns(fields),
             placeholders_str: dialect.placeholders(fields.len()),
-            soft_delete: entity.is_soft_delete()
+            soft_delete: entity.is_soft_delete(),
+            returning: entity.returning
         }
     }
 
@@ -142,24 +144,57 @@ impl<'a> Context<'a> {
 
         let Self {
             entity_name,
+            row_name,
             insertable_name,
             create_dto,
             table,
             columns_str,
             placeholders_str,
             entity,
+            returning,
             ..
         } = self;
         let bindings = insert_bindings(entity.all_fields());
 
-        quote! {
-            async fn create(&self, dto: #create_dto) -> Result<#entity_name, Self::Error> {
-                let entity = #entity_name::from(dto);
-                let insertable = #insertable_name::from(&entity);
-                sqlx::query(concat!("INSERT INTO ", #table, " (", #columns_str, ") VALUES (", #placeholders_str, ")"))
-                    #(#bindings)*
-                    .execute(self).await?;
-                Ok(entity)
+        match returning {
+            ReturningMode::Full => {
+                quote! {
+                    async fn create(&self, dto: #create_dto) -> Result<#entity_name, Self::Error> {
+                        let entity = #entity_name::from(dto);
+                        let insertable = #insertable_name::from(&entity);
+                        let row: #row_name = sqlx::query_as(
+                            concat!("INSERT INTO ", #table, " (", #columns_str, ") VALUES (", #placeholders_str, ") RETURNING *")
+                        )
+                            #(#bindings)*
+                            .fetch_one(self).await?;
+                        Ok(#entity_name::from(row))
+                    }
+                }
+            }
+            ReturningMode::Id => {
+                let id_name = self.id_name;
+                quote! {
+                    async fn create(&self, dto: #create_dto) -> Result<#entity_name, Self::Error> {
+                        let entity = #entity_name::from(dto);
+                        let insertable = #insertable_name::from(&entity);
+                        sqlx::query(concat!("INSERT INTO ", #table, " (", #columns_str, ") VALUES (", #placeholders_str, ") RETURNING ", stringify!(#id_name)))
+                            #(#bindings)*
+                            .execute(self).await?;
+                        Ok(entity)
+                    }
+                }
+            }
+            ReturningMode::None => {
+                quote! {
+                    async fn create(&self, dto: #create_dto) -> Result<#entity_name, Self::Error> {
+                        let entity = #entity_name::from(dto);
+                        let insertable = #insertable_name::from(&entity);
+                        sqlx::query(concat!("INSERT INTO ", #table, " (", #columns_str, ") VALUES (", #placeholders_str, ")"))
+                            #(#bindings)*
+                            .execute(self).await?;
+                        Ok(entity)
+                    }
+                }
             }
         }
     }
@@ -201,12 +236,14 @@ impl<'a> Context<'a> {
 
         let Self {
             entity_name,
+            row_name,
             update_dto,
             table,
             id_name,
             id_type,
             dialect,
             trait_name,
+            returning,
             ..
         } = self;
 
@@ -218,13 +255,30 @@ impl<'a> Context<'a> {
         let where_placeholder = dialect.placeholder(update_fields.len() + 1);
         let bindings = update_bindings(&update_fields);
 
-        quote! {
-            async fn update(&self, id: #id_type, dto: #update_dto) -> Result<#entity_name, Self::Error> {
-                sqlx::query(&format!("UPDATE {} SET {} WHERE {} = {}", #table, #set_clause, stringify!(#id_name), #where_placeholder))
-                    #(#bindings)*
-                    .bind(&id)
-                    .execute(self).await?;
-                <Self as #trait_name>::find_by_id(self, id).await?.ok_or_else(|| sqlx::Error::RowNotFound.into())
+        match returning {
+            ReturningMode::Full => {
+                quote! {
+                    async fn update(&self, id: #id_type, dto: #update_dto) -> Result<#entity_name, Self::Error> {
+                        let row: #row_name = sqlx::query_as(
+                            &format!("UPDATE {} SET {} WHERE {} = {} RETURNING *", #table, #set_clause, stringify!(#id_name), #where_placeholder)
+                        )
+                            #(#bindings)*
+                            .bind(&id)
+                            .fetch_one(self).await?;
+                        Ok(#entity_name::from(row))
+                    }
+                }
+            }
+            ReturningMode::Id | ReturningMode::None => {
+                quote! {
+                    async fn update(&self, id: #id_type, dto: #update_dto) -> Result<#entity_name, Self::Error> {
+                        sqlx::query(&format!("UPDATE {} SET {} WHERE {} = {}", #table, #set_clause, stringify!(#id_name), #where_placeholder))
+                            #(#bindings)*
+                            .bind(&id)
+                            .execute(self).await?;
+                        <Self as #trait_name>::find_by_id(self, id).await?.ok_or_else(|| sqlx::Error::RowNotFound.into())
+                    }
+                }
             }
         }
     }
