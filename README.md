@@ -161,8 +161,3 @@ entity-derive = { version = "0.3", features = ["postgres"] }
   </a>
 </p>
 
----
-
-## License
-
-MIT License - see [LICENSE](LICENSES/MIT.txt) for details.
