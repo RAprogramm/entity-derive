@@ -435,4 +435,124 @@ mod tests {
         let cmd = CommandDef::new(Ident::new("UpdateEmail", Span::call_site()));
         assert_eq!(cmd.handler_method_name().to_string(), "handle_update_email");
     }
+
+    #[test]
+    fn parse_source_update() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[command(Modify, source = "update")]
+            struct User {}
+        };
+        let cmds = parse_command_attrs(&input.attrs);
+        assert_eq!(cmds.len(), 1);
+        assert_eq!(cmds[0].source, CommandSource::Update);
+        assert!(cmds[0].requires_id);
+        assert_eq!(cmds[0].kind, CommandKindHint::Update);
+    }
+
+    #[test]
+    fn parse_source_none() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[command(Ping, source = "none")]
+            struct User {}
+        };
+        let cmds = parse_command_attrs(&input.attrs);
+        assert_eq!(cmds.len(), 1);
+        assert_eq!(cmds[0].source, CommandSource::None);
+    }
+
+    #[test]
+    fn parse_source_create_explicit() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[command(Register, source = "create")]
+            struct User {}
+        };
+        let cmds = parse_command_attrs(&input.attrs);
+        assert_eq!(cmds.len(), 1);
+        assert_eq!(cmds[0].source, CommandSource::Create);
+    }
+
+    #[test]
+    fn parse_kind_create() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[command(Register, kind = "create")]
+            struct User {}
+        };
+        let cmds = parse_command_attrs(&input.attrs);
+        assert_eq!(cmds.len(), 1);
+        assert_eq!(cmds[0].kind, CommandKindHint::Create);
+    }
+
+    #[test]
+    fn parse_kind_update() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[command(Modify, kind = "update")]
+            struct User {}
+        };
+        let cmds = parse_command_attrs(&input.attrs);
+        assert_eq!(cmds.len(), 1);
+        assert_eq!(cmds[0].kind, CommandKindHint::Update);
+    }
+
+    #[test]
+    fn parse_kind_custom() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[command(Process, kind = "custom")]
+            struct User {}
+        };
+        let cmds = parse_command_attrs(&input.attrs);
+        assert_eq!(cmds.len(), 1);
+        assert_eq!(cmds[0].kind, CommandKindHint::Custom);
+    }
+
+    #[test]
+    fn parse_trailing_comma() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[command(Register,)]
+            struct User {}
+        };
+        let cmds = parse_command_attrs(&input.attrs);
+        assert_eq!(cmds.len(), 1);
+        assert_eq!(cmds[0].name.to_string(), "Register");
+    }
+
+    #[test]
+    fn parse_invalid_source_returns_empty() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[command(Test, source = "invalid")]
+            struct User {}
+        };
+        let cmds = parse_command_attrs(&input.attrs);
+        assert!(cmds.is_empty());
+    }
+
+    #[test]
+    fn parse_invalid_kind_returns_empty() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[command(Test, kind = "invalid")]
+            struct User {}
+        };
+        let cmds = parse_command_attrs(&input.attrs);
+        assert!(cmds.is_empty());
+    }
+
+    #[test]
+    fn parse_unknown_option_returns_empty() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[command(Test, unknown_option)]
+            struct User {}
+        };
+        let cmds = parse_command_attrs(&input.attrs);
+        assert!(cmds.is_empty());
+    }
+
+    #[test]
+    fn ignores_non_command_attributes() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[derive(Debug)]
+            #[entity(table = "users")]
+            struct User {}
+        };
+        let cmds = parse_command_attrs(&input.attrs);
+        assert!(cmds.is_empty());
+    }
 }
