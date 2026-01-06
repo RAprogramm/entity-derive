@@ -224,9 +224,11 @@ impl EntityDef {
 
         let fields: Vec<FieldDef> = match &input.data {
             syn::Data::Struct(data) => match &data.fields {
-                syn::Fields::Named(named) => {
-                    named.named.iter().map(FieldDef::from_field).collect()
-                }
+                syn::Fields::Named(named) => named
+                    .named
+                    .iter()
+                    .map(FieldDef::from_field)
+                    .collect::<darling::Result<Vec<_>>>()?,
                 _ => {
                     return Err(darling::Error::custom("Entity requires named fields")
                         .with_span(&input.ident));
