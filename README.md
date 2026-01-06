@@ -98,61 +98,22 @@ entity-derive = { version = "0.3", features = ["postgres"] }
 
 ## Documentation
 
-<table>
-<tr>
-<td width="20%" align="center">
-
-**[English](https://github.com/RAprogramm/entity-derive/wiki/Home-en)**
-
-</td>
-<td width="20%" align="center">
-
-**[Русский](https://github.com/RAprogramm/entity-derive/wiki/Home-ru)**
-
-</td>
-<td width="20%" align="center">
-
-**[한국어](https://github.com/RAprogramm/entity-derive/wiki/Home-ko)**
-
-</td>
-<td width="20%" align="center">
-
-**[Español](https://github.com/RAprogramm/entity-derive/wiki/Home-es)**
-
-</td>
-<td width="20%" align="center">
-
-**[中文](https://github.com/RAprogramm/entity-derive/wiki/Home-zh)**
-
-</td>
-</tr>
-</table>
-
-### Getting Started
-
-| Topic | EN | RU | KO | ES | ZH |
-|-------|:--:|:--:|:--:|:--:|:--:|
-| Attributes | [📖](https://github.com/RAprogramm/entity-derive/wiki/Attributes-en) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Attributes-ru) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Attributes-ko) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Attributes-es) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Attributes-zh) |
-| Examples | [📖](https://github.com/RAprogramm/entity-derive/wiki/Examples-en) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Examples-ru) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Examples-ko) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Examples-es) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Examples-zh) |
-
-### Features
-
-| Topic | EN | RU | KO | ES | ZH |
-|-------|:--:|:--:|:--:|:--:|:--:|
-| Filtering | [📖](https://github.com/RAprogramm/entity-derive/wiki/Filtering-en) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Filtering-ru) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Filtering-ko) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Filtering-es) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Filtering-zh) |
-| Relations | [📖](https://github.com/RAprogramm/entity-derive/wiki/Relations-en) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Relations-ru) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Relations-ko) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Relations-es) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Relations-zh) |
-| Events | [📖](https://github.com/RAprogramm/entity-derive/wiki/Events-en) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Events-ru) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Events-ko) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Events-es) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Events-zh) |
-| Streams | [📖](https://github.com/RAprogramm/entity-derive/wiki/Streams-en) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Streams-ru) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Streams-ko) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Streams-es) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Streams-zh) |
-| Hooks | [📖](https://github.com/RAprogramm/entity-derive/wiki/Hooks-en) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Hooks-ru) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Hooks-ko) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Hooks-es) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Hooks-zh) |
-| Commands | [📖](https://github.com/RAprogramm/entity-derive/wiki/Commands-en) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Commands-ru) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Commands-ko) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Commands-es) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Commands-zh) |
-
-### Advanced
-
-| Topic | EN | RU | KO | ES | ZH |
-|-------|:--:|:--:|:--:|:--:|:--:|
-| Custom SQL | [📖](https://github.com/RAprogramm/entity-derive/wiki/Custom-SQL-en) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Custom-SQL-ru) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Custom-SQL-ko) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Custom-SQL-es) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Custom-SQL-zh) |
-| Web Frameworks | [📖](https://github.com/RAprogramm/entity-derive/wiki/Web-Frameworks-en) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Web-Frameworks-ru) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Web-Frameworks-ko) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Web-Frameworks-es) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Web-Frameworks-zh) |
-| Best Practices | [📖](https://github.com/RAprogramm/entity-derive/wiki/Best-Practices-en) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Best-Practices-ru) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Best-Practices-ko) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Best-Practices-es) | [📖](https://github.com/RAprogramm/entity-derive/wiki/Best-Practices-zh) |
+| Topic | Languages |
+|-------|:---------:|
+| **Getting Started** ||
+| Attributes | [🇬🇧](https://github.com/RAprogramm/entity-derive/wiki/Attributes-en) [🇷🇺](https://github.com/RAprogramm/entity-derive/wiki/Attributes-ru) [🇰🇷](https://github.com/RAprogramm/entity-derive/wiki/Attributes-ko) [🇪🇸](https://github.com/RAprogramm/entity-derive/wiki/Attributes-es) [🇨🇳](https://github.com/RAprogramm/entity-derive/wiki/Attributes-zh) |
+| Examples | [🇬🇧](https://github.com/RAprogramm/entity-derive/wiki/Examples-en) [🇷🇺](https://github.com/RAprogramm/entity-derive/wiki/Examples-ru) [🇰🇷](https://github.com/RAprogramm/entity-derive/wiki/Examples-ko) [🇪🇸](https://github.com/RAprogramm/entity-derive/wiki/Examples-es) [🇨🇳](https://github.com/RAprogramm/entity-derive/wiki/Examples-zh) |
+| **Features** ||
+| Filtering | [🇬🇧](https://github.com/RAprogramm/entity-derive/wiki/Filtering-en) [🇷🇺](https://github.com/RAprogramm/entity-derive/wiki/Filtering-ru) [🇰🇷](https://github.com/RAprogramm/entity-derive/wiki/Filtering-ko) [🇪🇸](https://github.com/RAprogramm/entity-derive/wiki/Filtering-es) [🇨🇳](https://github.com/RAprogramm/entity-derive/wiki/Filtering-zh) |
+| Relations | [🇬🇧](https://github.com/RAprogramm/entity-derive/wiki/Relations-en) [🇷🇺](https://github.com/RAprogramm/entity-derive/wiki/Relations-ru) [🇰🇷](https://github.com/RAprogramm/entity-derive/wiki/Relations-ko) [🇪🇸](https://github.com/RAprogramm/entity-derive/wiki/Relations-es) [🇨🇳](https://github.com/RAprogramm/entity-derive/wiki/Relations-zh) |
+| Events | [🇬🇧](https://github.com/RAprogramm/entity-derive/wiki/Events-en) [🇷🇺](https://github.com/RAprogramm/entity-derive/wiki/Events-ru) [🇰🇷](https://github.com/RAprogramm/entity-derive/wiki/Events-ko) [🇪🇸](https://github.com/RAprogramm/entity-derive/wiki/Events-es) [🇨🇳](https://github.com/RAprogramm/entity-derive/wiki/Events-zh) |
+| Streams | [🇬🇧](https://github.com/RAprogramm/entity-derive/wiki/Streams-en) [🇷🇺](https://github.com/RAprogramm/entity-derive/wiki/Streams-ru) [🇰🇷](https://github.com/RAprogramm/entity-derive/wiki/Streams-ko) [🇪🇸](https://github.com/RAprogramm/entity-derive/wiki/Streams-es) [🇨🇳](https://github.com/RAprogramm/entity-derive/wiki/Streams-zh) |
+| Hooks | [🇬🇧](https://github.com/RAprogramm/entity-derive/wiki/Hooks-en) [🇷🇺](https://github.com/RAprogramm/entity-derive/wiki/Hooks-ru) [🇰🇷](https://github.com/RAprogramm/entity-derive/wiki/Hooks-ko) [🇪🇸](https://github.com/RAprogramm/entity-derive/wiki/Hooks-es) [🇨🇳](https://github.com/RAprogramm/entity-derive/wiki/Hooks-zh) |
+| Commands | [🇬🇧](https://github.com/RAprogramm/entity-derive/wiki/Commands-en) [🇷🇺](https://github.com/RAprogramm/entity-derive/wiki/Commands-ru) [🇰🇷](https://github.com/RAprogramm/entity-derive/wiki/Commands-ko) [🇪🇸](https://github.com/RAprogramm/entity-derive/wiki/Commands-es) [🇨🇳](https://github.com/RAprogramm/entity-derive/wiki/Commands-zh) |
+| **Advanced** ||
+| Custom SQL | [🇬🇧](https://github.com/RAprogramm/entity-derive/wiki/Custom-SQL-en) [🇷🇺](https://github.com/RAprogramm/entity-derive/wiki/Custom-SQL-ru) [🇰🇷](https://github.com/RAprogramm/entity-derive/wiki/Custom-SQL-ko) [🇪🇸](https://github.com/RAprogramm/entity-derive/wiki/Custom-SQL-es) [🇨🇳](https://github.com/RAprogramm/entity-derive/wiki/Custom-SQL-zh) |
+| Web Frameworks | [🇬🇧](https://github.com/RAprogramm/entity-derive/wiki/Web-Frameworks-en) [🇷🇺](https://github.com/RAprogramm/entity-derive/wiki/Web-Frameworks-ru) [🇰🇷](https://github.com/RAprogramm/entity-derive/wiki/Web-Frameworks-ko) [🇪🇸](https://github.com/RAprogramm/entity-derive/wiki/Web-Frameworks-es) [🇨🇳](https://github.com/RAprogramm/entity-derive/wiki/Web-Frameworks-zh) |
+| Best Practices | [🇬🇧](https://github.com/RAprogramm/entity-derive/wiki/Best-Practices-en) [🇷🇺](https://github.com/RAprogramm/entity-derive/wiki/Best-Practices-ru) [🇰🇷](https://github.com/RAprogramm/entity-derive/wiki/Best-Practices-ko) [🇪🇸](https://github.com/RAprogramm/entity-derive/wiki/Best-Practices-es) [🇨🇳](https://github.com/RAprogramm/entity-derive/wiki/Best-Practices-zh) |
 
 ---
 
