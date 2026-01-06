@@ -74,3 +74,73 @@ impl PolicyOperation {
         !self.is_read_only()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::error::Error;
+
+    use super::*;
+
+    #[derive(Debug)]
+    struct TestError(&'static str);
+
+    impl fmt::Display for TestError {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            write!(f, "{}", self.0)
+        }
+    }
+
+    impl std::error::Error for TestError {}
+
+    #[test]
+    fn policy_error_is_policy() {
+        let err: PolicyError<TestError, TestError> = PolicyError::Policy(TestError("denied"));
+        assert!(err.is_policy());
+        assert!(!err.is_repository());
+    }
+
+    #[test]
+    fn policy_error_is_repository() {
+        let err: PolicyError<TestError, TestError> = PolicyError::Repository(TestError("db"));
+        assert!(err.is_repository());
+        assert!(!err.is_policy());
+    }
+
+    #[test]
+    fn policy_error_display() {
+        let policy: PolicyError<TestError, TestError> = PolicyError::Policy(TestError("denied"));
+        assert_eq!(format!("{}", policy), "authorization denied: denied");
+
+        let repo: PolicyError<TestError, TestError> = PolicyError::Repository(TestError("db"));
+        assert_eq!(format!("{}", repo), "repository error: db");
+    }
+
+    #[test]
+    fn policy_error_source() {
+        let policy: PolicyError<TestError, TestError> = PolicyError::Policy(TestError("denied"));
+        assert!(policy.source().is_some());
+
+        let repo: PolicyError<TestError, TestError> = PolicyError::Repository(TestError("db"));
+        assert!(repo.source().is_some());
+    }
+
+    #[test]
+    fn policy_operation_is_read_only() {
+        assert!(PolicyOperation::Read.is_read_only());
+        assert!(PolicyOperation::List.is_read_only());
+        assert!(!PolicyOperation::Create.is_read_only());
+        assert!(!PolicyOperation::Update.is_read_only());
+        assert!(!PolicyOperation::Delete.is_read_only());
+        assert!(!PolicyOperation::Command.is_read_only());
+    }
+
+    #[test]
+    fn policy_operation_is_mutation() {
+        assert!(!PolicyOperation::Read.is_mutation());
+        assert!(!PolicyOperation::List.is_mutation());
+        assert!(PolicyOperation::Create.is_mutation());
+        assert!(PolicyOperation::Update.is_mutation());
+        assert!(PolicyOperation::Delete.is_mutation());
+        assert!(PolicyOperation::Command.is_mutation());
+    }
+}
