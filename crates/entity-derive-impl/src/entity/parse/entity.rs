@@ -199,7 +199,12 @@ pub struct EntityDef {
     /// Whether to generate authorization policy trait.
     ///
     /// When `true`, generates `{Entity}Policy` trait and related types.
-    pub policy: bool
+    pub policy: bool,
+
+    /// Whether to enable real-time streaming.
+    ///
+    /// When `true`, generates `{Entity}Subscriber` and NOTIFY calls.
+    pub streams: bool
 }
 
 impl EntityDef {
@@ -290,7 +295,8 @@ impl EntityDef {
             hooks: attrs.hooks,
             commands: attrs.commands,
             command_defs,
-            policy: attrs.policy
+            policy: attrs.policy,
+            streams: attrs.streams
         })
     }
 
@@ -550,6 +556,15 @@ impl EntityDef {
     /// `true` if `#[entity(policy)]` is present.
     pub fn has_policy(&self) -> bool {
         self.policy
+    }
+
+    /// Check if real-time streaming should be enabled.
+    ///
+    /// # Returns
+    ///
+    /// `true` if `#[entity(streams)]` is present.
+    pub fn has_streams(&self) -> bool {
+        self.streams
     }
 }
 
