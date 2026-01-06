@@ -69,6 +69,9 @@ fn generate_variants(entity: &EntityDef, commands: &[CommandDef]) -> TokenStream
             let result_type = if let Some(ref custom_type) = cmd.result_type {
                 // Custom result type specified
                 Some(quote! { #custom_type })
+            } else if matches!(cmd.source, CommandSource::None) {
+                // No payload = void operation (e.g., Deactivate, Delete)
+                None
             } else {
                 // Infer from command kind
                 match cmd.kind {
@@ -115,6 +118,9 @@ pub fn command_result_type(entity: &EntityDef, cmd: &CommandDef) -> Option<Token
 
     if let Some(ref custom_type) = cmd.result_type {
         Some(quote! { #custom_type })
+    } else if matches!(cmd.source, CommandSource::None) {
+        // No payload = void operation (e.g., Deactivate, Delete)
+        None
     } else {
         match cmd.kind {
             CommandKindHint::Create | CommandKindHint::Update => Some(quote! { #entity_name }),

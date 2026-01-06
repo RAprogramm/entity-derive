@@ -143,6 +143,7 @@ fn generate_handler_method(entity: &EntityDef, cmd: &CommandDef) -> TokenStream 
 /// Generate dispatch match arms for handle() method.
 fn generate_dispatch_arms(entity: &EntityDef, commands: &[CommandDef]) -> TokenStream {
     let entity_name = entity.name();
+    let command_enum = format_ident!("{}Command", entity_name);
     let result_enum = format_ident!("{}CommandResult", entity_name);
 
     let arms: Vec<TokenStream> = commands
@@ -158,7 +159,7 @@ fn generate_dispatch_arms(entity: &EntityDef, commands: &[CommandDef]) -> TokenS
             };
 
             quote! {
-                #entity_name Command::#variant_name(payload) => {
+                #command_enum::#variant_name(payload) => {
                     let result = self.#method_name(payload, ctx).await?;
                     Ok(#result_wrap)
                 }
