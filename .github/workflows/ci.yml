@@ -480,39 +480,37 @@ jobs:
       - name: Generate release notes
         id: notes
         if: steps.publish.outputs.published == 'true'
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+          PUBLISHED_CRATES: ${{ steps.publish.outputs.published_crates }}
         run: |
-          TAG="${{ steps.version.outputs.tag }}"
-          VERSION="${{ steps.version.outputs.version }}"
           git fetch --tags --force
 
-          # Get the latest tag to compare against
+          # Generate changelog from last tag
           LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          echo "Latest tag: ${LATEST_TAG:-none}"
 
           if [ -n "$LATEST_TAG" ]; then
-            echo "Generating changelog from $LATEST_TAG to HEAD"
-            NOTES=$(git cliff --config cliff.toml \
-              --unreleased \
-              --strip header \
-              --tag "$TAG" \
-              2>/dev/null || echo "")
+            NOTES=$(git cliff --config cliff.toml --unreleased --strip header --tag "$TAG" 2>/dev/null || echo "")
           else
-            echo "No previous tags, generating initial changelog"
-            NOTES=$(git cliff --config cliff.toml \
-              --strip header \
-              --tag "$TAG" \
-              2>/dev/null || echo "")
+            NOTES=$(git cliff --config cliff.toml --strip header --tag "$TAG" 2>/dev/null || echo "")
           fi
 
-          if [ -z "$NOTES" ] || [ "$NOTES" = "" ]; then
-            NOTES="## Release $VERSION
+          # Fallback if changelog is empty
+          if [ -z "$NOTES" ]; then
+            cat > /tmp/release_notes.md << EOF
+          ## Release $VERSION
 
-Published crates:
-${{ steps.publish.outputs.published_crates }}"
+          Published crates: $PUBLISHED_CRATES
+          EOF
+          else
+            echo "$NOTES" > /tmp/release_notes.md
           fi
 
-          echo "$NOTES" > /tmp/release_notes.md
-          echo "Release notes:"
+          echo "::group::Release notes"
           cat /tmp/release_notes.md
+          echo "::endgroup::"
 
       - name: Create git tag
         if: steps.publish.outputs.published == 'true'
