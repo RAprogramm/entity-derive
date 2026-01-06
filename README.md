@@ -50,6 +50,7 @@
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Attribute Reference](#attribute-reference)
+  - [Custom Error Type](#custom-error-type)
   - [Soft Delete](#soft-delete)
   - [RETURNING Modes](#returning-modes)
   - [Query Filtering](#query-filtering)
@@ -176,7 +177,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-entity-derive = { version = "0.2", features = ["postgres"] }
+entity-derive = { version = "0.3", features = ["postgres"] }
 
 # Required peer dependencies
 uuid = { version = "1", features = ["v4", "v7"] }
@@ -255,6 +256,7 @@ pub struct Post {
 | `uuid` | No | `"v7"` | UUID version for ID generation |
 | `soft_delete` | No | `false` | Enable soft delete (uses `deleted_at` timestamp) |
 | `returning` | No | `"full"` | RETURNING clause mode (`full`, `id`, `none`, or custom columns) |
+| `error` | No | `sqlx::Error` | Custom error type for repository (must impl `From<sqlx::Error>`) |
 | `events` | No | `false` | Generate lifecycle events enum |
 | `hooks` | No | `false` | Generate lifecycle hooks trait |
 | `commands` | No | `false` | Enable CQRS command pattern (use with `#[command(...)]`) |
@@ -281,6 +283,43 @@ pub struct Post {
 | `full` | Yes | Yes | Simple entities with standard CRUD |
 | `trait` | Yes | No | Custom queries (joins, CTEs, full-text search) |
 | `none` | No | No | DTOs only, no database layer |
+
+#### Custom Error Type
+
+Use a custom error type instead of `sqlx::Error`:
+
+```rust,ignore
+#[derive(Debug)]
+pub enum AppError {
+    Database(sqlx::Error),
+    NotFound,
+    Validation(String),
+}
+
+impl std::error::Error for AppError {}
+impl std::fmt::Display for AppError { /* ... */ }
+
+// Required: convert from sqlx::Error
+impl From<sqlx::Error> for AppError {
+    fn from(err: sqlx::Error) -> Self {
+        AppError::Database(err)
+    }
+}
+
+#[derive(Entity)]
+#[entity(table = "users", error = "AppError")]
+pub struct User {
+    #[id]
+    pub id: Uuid,
+    // ...
+}
+
+// Generated repository uses AppError:
+// impl UserRepository for PgPool {
+//     type Error = AppError;
+//     ...
+// }
+```
 
 #### Soft Delete
 
@@ -671,10 +710,57 @@ pub trait UserCommandHandler: Send + Sync {
 | Command Syntax | Effect |
 |----------------|--------|
 | `#[command(Name)]` | Uses all `#[field(create)]` fields |
-| `#[command(Name: field1, field2)]` | Uses only specified fields |
+| `#[command(Name: field1, field2)]` | Uses only specified fields (adds `requires_id`) |
 | `#[command(Name, requires_id)]` | Adds ID field, no other fields |
+| `#[command(Name, source = "create")]` | Explicitly use create fields (default) |
+| `#[command(Name, source = "update")]` | Use update fields (optional, adds `requires_id`) |
+| `#[command(Name, source = "none")]` | No payload fields |
 | `#[command(Name, payload = "Type")]` | Uses custom payload struct |
 | `#[command(Name, result = "Type")]` | Uses custom result type |
+| `#[command(Name, kind = "create")]` | Hint: creates entity (default) |
+| `#[command(Name, kind = "update")]` | Hint: modifies entity |
+| `#[command(Name, kind = "delete")]` | Hint: removes entity (returns `()`) |
+| `#[command(Name, kind = "custom")]` | Hint: custom operation |
+
+#### EntityCommand Trait
+
+All command enums implement the `EntityCommand` trait:
+
+```rust,ignore
+use entity_derive::{EntityCommand, CommandKind};
+
+// Check command metadata
+let cmd = UserCommand::Register(register_data);
+assert_eq!(cmd.name(), "Register");
+assert!(matches!(cmd.kind(), CommandKind::Create));
+```
+
+#### Command Hooks
+
+When `commands` and `hooks` are both enabled, additional hooks are generated:
+
+```rust,ignore
+#[derive(Entity)]
+#[entity(table = "orders", commands, hooks)]
+#[command(Place)]
+#[command(Cancel, requires_id)]
+pub struct Order { ... }
+
+// Generated OrderHooks trait includes:
+#[async_trait]
+pub trait OrderHooks: Send + Sync {
+    type Error: std::error::Error + Send + Sync;
+
+    // Standard CRUD hooks...
+    async fn before_create(&self, dto: &mut CreateOrderRequest) -> Result<(), Self::Error>;
+    async fn after_create(&self, entity: &Order) -> Result<(), Self::Error>;
+    // ...
+
+    // Command-specific hooks
+    async fn before_command(&self, cmd: &OrderCommand) -> Result<(), Self::Error>;
+    async fn after_command(&self, cmd: &OrderCommand, result: &OrderCommandResult) -> Result<(), Self::Error>;
+}
+```
 
 Commands enable:
 - **Domain language** — `RegisterUser` instead of `CreateUserRequest`
