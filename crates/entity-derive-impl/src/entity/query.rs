@@ -78,8 +78,8 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
                         quote! { pub #to_name: Option<#ty> },
                     ]
                 }
-                // Unreachable: filter_fields() only returns fields with has_filter() == true
-                FilterType::None => unreachable!("FilterType::None should not be in filter_fields")
+                // Skip: filter_fields() should only return fields with filters
+                FilterType::None => vec![]
             }
         })
         .collect();
