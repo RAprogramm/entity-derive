@@ -114,7 +114,7 @@ mod returning;
 mod sql_level;
 mod uuid_version;
 
-pub use command::{CommandDef, CommandKindHint, CommandSource, parse_command_attrs};
+pub use command::{CommandDef, CommandKindHint, CommandSource};
 pub use dialect::DatabaseDialect;
 pub use entity::{EntityDef, ProjectionDef};
 pub use field::{FieldDef, FilterType};
