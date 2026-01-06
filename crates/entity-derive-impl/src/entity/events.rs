@@ -87,6 +87,13 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
 
     let marker = marker::generated();
 
+    // Add serde derives when streams is enabled
+    let serde_derives = if entity.has_streams() {
+        quote! { , ::serde::Serialize, ::serde::Deserialize }
+    } else {
+        TokenStream::new()
+    };
+
     quote! {
         #marker
         /// Lifecycle events for [`#entity_name`].
@@ -94,7 +101,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
         /// Emitted during CRUD operations when `events` is enabled.
         /// Use these events for audit logging, cache invalidation,
         /// notifications, or the outbox pattern.
-        #[derive(Debug, Clone)]
+        #[derive(Debug, Clone #serde_derives)]
         #vis enum #event_name {
             /// Entity was created.
             Created(#entity_name),

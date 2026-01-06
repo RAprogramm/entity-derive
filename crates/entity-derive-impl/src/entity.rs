@@ -74,6 +74,7 @@ mod query;
 mod repository;
 mod row;
 mod sql;
+mod streams;
 
 use proc_macro::TokenStream;
 use quote::quote;
@@ -99,6 +100,7 @@ fn generate(entity: EntityDef) -> TokenStream {
     let hooks = hooks::generate(&entity);
     let commands = commands::generate(&entity);
     let policy = policy::generate(&entity);
+    let streams = streams::generate(&entity);
     let repository = repository::generate(&entity);
     let row = row::generate(&entity);
     let insertable = insertable::generate(&entity);
@@ -113,6 +115,7 @@ fn generate(entity: EntityDef) -> TokenStream {
         #hooks
         #commands
         #policy
+        #streams
         #repository
         #row
         #insertable

@@ -62,6 +62,7 @@
 mod context;
 mod crud;
 mod helpers;
+mod notify;
 mod projections;
 mod query;
 mod relations;

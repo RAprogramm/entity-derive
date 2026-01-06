@@ -23,6 +23,7 @@
 //! | `hooks` | No | `false` | Generate lifecycle hooks trait |
 //! | `commands` | No | `false` | Generate CQRS command pattern |
 //! | `policy` | No | `false` | Generate authorization policy trait |
+//! | `streams` | No | `false` | Enable real-time streaming via LISTEN/NOTIFY |
 
 use darling::FromDeriveInput;
 use syn::{Ident, Visibility};
@@ -211,5 +212,14 @@ pub struct EntityAttrs {
     /// - `{Entity}AllowAllPolicy` default implementation
     /// - `{Entity}PolicyRepository` wrapper with authorization checks
     #[darling(default)]
-    pub policy: bool
+    pub policy: bool,
+
+    /// Enable real-time streaming via Postgres LISTEN/NOTIFY.
+    ///
+    /// When enabled (requires `events`), generates:
+    /// - `{Entity}Subscriber` for async event streaming
+    /// - NOTIFY calls in CRUD operations
+    /// - `CHANNEL` constant with notification channel name
+    #[darling(default)]
+    pub streams: bool
 }

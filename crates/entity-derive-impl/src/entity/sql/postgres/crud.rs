@@ -69,6 +69,7 @@ impl Context<'_> {
 
         match returning {
             ReturningMode::Full => {
+                let notify = self.notify_created();
                 quote! {
                     async fn create(&self, dto: #create_dto) -> Result<#entity_name, Self::Error> {
                         let entity = #entity_name::from(dto);
@@ -78,12 +79,15 @@ impl Context<'_> {
                         )
                             #(#bindings)*
                             .fetch_one(self).await?;
-                        Ok(#entity_name::from(row))
+                        let entity = #entity_name::from(row);
+                        #notify
+                        Ok(entity)
                     }
                 }
             }
             ReturningMode::Id => {
                 let id_name = self.id_name;
+                let notify = self.notify_created();
                 quote! {
                     async fn create(&self, dto: #create_dto) -> Result<#entity_name, Self::Error> {
                         let entity = #entity_name::from(dto);
@@ -91,11 +95,13 @@ impl Context<'_> {
                         sqlx::query(concat!("INSERT INTO ", #table, " (", #columns_str, ") VALUES (", #placeholders_str, ") RETURNING ", stringify!(#id_name)))
                             #(#bindings)*
                             .execute(self).await?;
+                        #notify
                         Ok(entity)
                     }
                 }
             }
             ReturningMode::None => {
+                let notify = self.notify_created();
                 quote! {
                     async fn create(&self, dto: #create_dto) -> Result<#entity_name, Self::Error> {
                         let entity = #entity_name::from(dto);
@@ -103,12 +109,14 @@ impl Context<'_> {
                         sqlx::query(concat!("INSERT INTO ", #table, " (", #columns_str, ") VALUES (", #placeholders_str, ")"))
                             #(#bindings)*
                             .execute(self).await?;
+                        #notify
                         Ok(entity)
                     }
                 }
             }
             ReturningMode::Custom(columns) => {
                 let returning_cols = columns.join(", ");
+                let notify = self.notify_created();
                 quote! {
                     async fn create(&self, dto: #create_dto) -> Result<#entity_name, Self::Error> {
                         let entity = #entity_name::from(dto);
@@ -116,6 +124,7 @@ impl Context<'_> {
                         sqlx::query(&format!("INSERT INTO {} ({}) VALUES ({}) RETURNING {}", #table, #columns_str, #placeholders_str, #returning_cols))
                             #(#bindings)*
                             .execute(self).await?;
+                        #notify
                         Ok(entity)
                     }
                 }
@@ -200,28 +209,37 @@ impl Context<'_> {
         let where_placeholder = dialect.placeholder(update_fields.len() + 1);
         let bindings = update_bindings(&update_fields);
 
+        let fetch_old = self.fetch_old_for_update();
+        let notify = self.notify_updated();
+
         match returning {
             ReturningMode::Full => {
                 quote! {
                     async fn update(&self, id: #id_type, dto: #update_dto) -> Result<#entity_name, Self::Error> {
+                        #fetch_old
                         let row: #row_name = sqlx::query_as(
                             &format!("UPDATE {} SET {} WHERE {} = {} RETURNING *", #table, #set_clause, stringify!(#id_name), #where_placeholder)
                         )
                             #(#bindings)*
                             .bind(&id)
                             .fetch_one(self).await?;
-                        Ok(#entity_name::from(row))
+                        let entity = #entity_name::from(row);
+                        #notify
+                        Ok(entity)
                     }
                 }
             }
             ReturningMode::Id | ReturningMode::None => {
                 quote! {
                     async fn update(&self, id: #id_type, dto: #update_dto) -> Result<#entity_name, Self::Error> {
+                        #fetch_old
                         sqlx::query(&format!("UPDATE {} SET {} WHERE {} = {}", #table, #set_clause, stringify!(#id_name), #where_placeholder))
                             #(#bindings)*
                             .bind(&id)
                             .execute(self).await?;
-                        <Self as #trait_name>::find_by_id(self, id).await?.ok_or_else(|| sqlx::Error::RowNotFound.into())
+                        let entity = <Self as #trait_name>::find_by_id(self, id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
+                        #notify
+                        Ok(entity)
                     }
                 }
             }
@@ -229,11 +247,14 @@ impl Context<'_> {
                 let returning_cols = columns.join(", ");
                 quote! {
                     async fn update(&self, id: #id_type, dto: #update_dto) -> Result<#entity_name, Self::Error> {
+                        #fetch_old
                         sqlx::query(&format!("UPDATE {} SET {} WHERE {} = {} RETURNING {}", #table, #set_clause, stringify!(#id_name), #where_placeholder, #returning_cols))
                             #(#bindings)*
                             .bind(&id)
                             .execute(self).await?;
-                        <Self as #trait_name>::find_by_id(self, id).await?.ok_or_else(|| sqlx::Error::RowNotFound.into())
+                        let entity = <Self as #trait_name>::find_by_id(self, id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
+                        #notify
+                        Ok(entity)
                     }
                 }
             }
@@ -266,21 +287,31 @@ impl Context<'_> {
         let placeholder = dialect.placeholder(1);
 
         if *soft_delete {
+            let notify = self.notify_soft_deleted();
             quote! {
                 async fn delete(&self, id: #id_type) -> Result<bool, Self::Error> {
                     let result = sqlx::query(&format!(
                         "UPDATE {} SET deleted_at = NOW() WHERE {} = {} AND deleted_at IS NULL",
                         #table, stringify!(#id_name), #placeholder
                     )).bind(&id).execute(self).await?;
-                    Ok(result.rows_affected() > 0)
+                    let deleted = result.rows_affected() > 0;
+                    if deleted {
+                        #notify
+                    }
+                    Ok(deleted)
                 }
             }
         } else {
+            let notify = self.notify_hard_deleted();
             quote! {
                 async fn delete(&self, id: #id_type) -> Result<bool, Self::Error> {
                     let result = sqlx::query(&format!("DELETE FROM {} WHERE {} = {}", #table, stringify!(#id_name), #placeholder))
                         .bind(&id).execute(self).await?;
-                    Ok(result.rows_affected() > 0)
+                    let deleted = result.rows_affected() > 0;
+                    if deleted {
+                        #notify
+                    }
+                    Ok(deleted)
                 }
             }
         }
