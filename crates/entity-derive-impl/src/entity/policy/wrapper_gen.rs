@@ -130,7 +130,8 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             /// List entities with authorization check.
             pub async fn list(
                 &self,
-                pagination: ::entity_core::Pagination,
+                limit: i64,
+                offset: i64,
                 ctx: &P::Context,
             ) -> Result<Vec<#entity_name>, ::entity_core::policy::PolicyError<R::Error, P::Error>>
             {
@@ -139,7 +140,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
                     .await
                     .map_err(::entity_core::policy::PolicyError::Policy)?;
                 self.repo
-                    .list(pagination)
+                    .list(limit, offset)
                     .await
                     .map_err(::entity_core::policy::PolicyError::Repository)
             }
