@@ -190,5 +190,25 @@ pub struct EntityAttrs {
     /// }
     /// ```
     #[darling(default)]
-    pub hooks: bool
+    pub hooks: bool,
+
+    /// Generate CQRS-style command pattern.
+    ///
+    /// When enabled, processes `#[command(...)]` attributes to generate:
+    /// - Command structs (e.g., `RegisterUser`, `UpdateEmailUser`)
+    /// - Command enum (`UserCommand`)
+    /// - Result enum (`UserCommandResult`)
+    /// - Handler trait (`UserCommandHandler`)
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// #[entity(table = "users", commands)]
+    /// #[command(Register)]
+    /// #[command(UpdateEmail: email)]
+    /// #[command(Deactivate, requires_id)]
+    /// pub struct User { ... }
+    /// ```
+    #[darling(default)]
+    pub commands: bool
 }

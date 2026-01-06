@@ -43,7 +43,11 @@ pub use projection::{ProjectionDef, parse_projection_attrs};
 use syn::{Attribute, DeriveInput, Ident, Visibility};
 
 use super::{
-    dialect::DatabaseDialect, field::FieldDef, returning::ReturningMode, sql_level::SqlLevel,
+    command::{CommandDef, parse_command_attrs},
+    dialect::DatabaseDialect,
+    field::FieldDef,
+    returning::ReturningMode,
+    sql_level::SqlLevel,
     uuid_version::UuidVersion
 };
 
@@ -180,7 +184,17 @@ pub struct EntityDef {
     ///
     /// When `true`, generates a `{Entity}Hooks` trait with before/after
     /// methods for CRUD operations.
-    pub hooks: bool
+    pub hooks: bool,
+
+    /// Whether to generate CQRS-style commands.
+    ///
+    /// When `true`, processes `#[command(...)]` attributes.
+    pub commands: bool,
+
+    /// Command definitions parsed from `#[command(...)]` attributes.
+    ///
+    /// Each entry describes a business command (e.g., Register, UpdateEmail).
+    pub command_defs: Vec<CommandDef>
 }
 
 impl EntityDef {
@@ -245,6 +259,7 @@ impl EntityDef {
 
         let has_many = parse_has_many_attrs(&input.attrs);
         let projections = parse_projection_attrs(&input.attrs);
+        let command_defs = parse_command_attrs(&input.attrs);
 
         let id_field_index = fields.iter().position(|f| f.is_id()).ok_or_else(|| {
             darling::Error::custom("Entity must have exactly one field with #[id] attribute")
@@ -267,7 +282,9 @@ impl EntityDef {
             soft_delete: attrs.soft_delete,
             returning: attrs.returning,
             events: attrs.events,
-            hooks: attrs.hooks
+            hooks: attrs.hooks,
+            commands: attrs.commands,
+            command_defs
         })
     }
 
@@ -500,6 +517,24 @@ impl EntityDef {
     /// `true` if `#[entity(hooks)]` is present.
     pub fn has_hooks(&self) -> bool {
         self.hooks
+    }
+
+    /// Check if CQRS-style commands should be generated.
+    ///
+    /// # Returns
+    ///
+    /// `true` if `#[entity(commands)]` is present.
+    pub fn has_commands(&self) -> bool {
+        self.commands
+    }
+
+    /// Get command definitions.
+    ///
+    /// # Returns
+    ///
+    /// Slice of command definitions parsed from `#[command(...)]` attributes.
+    pub fn command_defs(&self) -> &[CommandDef] {
+        &self.command_defs
     }
 }
 
