@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
+SPDX-License-Identifier: MIT
+-->
+
 # entity-core
 
 [![Crates.io](https://img.shields.io/crates/v/entity-core.svg)](https://crates.io/crates/entity-core)
