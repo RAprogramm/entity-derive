@@ -55,6 +55,9 @@
   - [Query Filtering](#query-filtering)
   - [Projections](#projections)
   - [Relations](#relations)
+  - [Lifecycle Events](#lifecycle-events)
+  - [Lifecycle Hooks](#lifecycle-hooks)
+  - [CQRS Commands](#cqrs-commands)
 - [Generated Code](#generated-code)
 - [Architecture](#architecture)
 - [Comparison](#comparison)
@@ -161,6 +164,9 @@ pub struct User {
 - **Projections** — Partial entity views with optimized SELECT queries
 - **RETURNING Control** — Configure what data comes back from INSERT/UPDATE
 - **Relations** — `#[belongs_to]` and `#[has_many]` for entity relationships
+- **Lifecycle Events** — `Created`, `Updated`, `Deleted` events for audit logging
+- **Lifecycle Hooks** — `before_create`, `after_update`, etc. for validation and side effects
+- **CQRS Commands** — Business-oriented commands instead of generic CRUD
 
 <div align="right"><a href="#top">⬆ back to top</a></div>
 
@@ -249,6 +255,9 @@ pub struct Post {
 | `uuid` | No | `"v7"` | UUID version for ID generation |
 | `soft_delete` | No | `false` | Enable soft delete (uses `deleted_at` timestamp) |
 | `returning` | No | `"full"` | RETURNING clause mode (`full`, `id`, `none`, or custom columns) |
+| `events` | No | `false` | Generate lifecycle events enum |
+| `hooks` | No | `false` | Generate lifecycle hooks trait |
+| `commands` | No | `false` | Enable CQRS command pattern (use with `#[command(...)]`) |
 
 #### Database Dialects
 
@@ -390,6 +399,7 @@ let products = repo.query(query).await?;
 | `#[filter]` | Exact match filter, generates field in Query struct |
 | `#[filter(like)]` | ILIKE pattern filter for text search |
 | `#[filter(range)]` | Range filter, generates `field_from` and `field_to` fields |
+| `#[command(Name)]` | Define a command (entity-level, requires `commands` in entity) |
 
 Combine multiple: `#[field(create, update, response)]`
 
@@ -490,6 +500,187 @@ pub struct Post {
 // Generated PostRepository includes:
 // async fn find_user(&self, id: Uuid) -> Result<Option<User>, Self::Error>;
 ```
+
+<div align="right"><a href="#top">⬆ back to top</a></div>
+
+### Lifecycle Events
+
+Generate domain events for entity lifecycle changes:
+
+```rust,ignore
+#[derive(Entity)]
+#[entity(table = "orders", events)]
+pub struct Order {
+    #[id]
+    pub id: Uuid,
+
+    #[field(create, response)]
+    pub customer_id: Uuid,
+
+    #[field(create, update, response)]
+    pub status: String,
+
+    #[field(response)]
+    #[auto]
+    pub created_at: DateTime<Utc>,
+}
+
+// Generated OrderEvent enum:
+// pub enum OrderEvent {
+//     Created(Order),
+//     Updated { id: Uuid, changes: UpdateOrderRequest },
+//     Deleted(Uuid),
+// }
+
+// Usage with event bus:
+async fn create_order(repo: &impl OrderRepository, bus: &impl EventBus) {
+    let order = repo.create(dto).await?;
+    bus.publish(OrderEvent::Created(order.clone())).await;
+}
+```
+
+Events enable:
+- **Audit logging** — Track all entity changes
+- **Event sourcing** — Reconstruct state from events
+- **Integration** — Publish to message queues (Kafka, RabbitMQ)
+
+<div align="right"><a href="#top">⬆ back to top</a></div>
+
+### Lifecycle Hooks
+
+Execute custom logic before/after entity operations:
+
+```rust,ignore
+#[derive(Entity)]
+#[entity(table = "users", hooks)]
+pub struct User {
+    #[id]
+    pub id: Uuid,
+
+    #[field(create, update, response)]
+    pub email: String,
+
+    #[field(create, response)]
+    pub name: String,
+}
+
+// Generated UserHooks trait:
+#[async_trait]
+pub trait UserHooks: Send + Sync {
+    type Error: std::error::Error + Send + Sync;
+
+    async fn before_create(&self, dto: &mut CreateUserRequest) -> Result<(), Self::Error>;
+    async fn after_create(&self, entity: &User) -> Result<(), Self::Error>;
+    async fn before_update(&self, id: &Uuid, dto: &mut UpdateUserRequest) -> Result<(), Self::Error>;
+    async fn after_update(&self, entity: &User) -> Result<(), Self::Error>;
+    async fn before_delete(&self, id: &Uuid) -> Result<(), Self::Error>;
+    async fn after_delete(&self, id: &Uuid) -> Result<(), Self::Error>;
+}
+
+// Implementation example:
+struct UserService { db: PgPool, cache: Redis }
+
+#[async_trait]
+impl UserHooks for UserService {
+    type Error = AppError;
+
+    async fn before_create(&self, dto: &mut CreateUserRequest) -> Result<(), Self::Error> {
+        // Normalize email
+        dto.email = dto.email.to_lowercase();
+        Ok(())
+    }
+
+    async fn after_delete(&self, id: &Uuid) -> Result<(), Self::Error> {
+        // Invalidate cache
+        self.cache.del(&format!("user:{}", id)).await?;
+        Ok(())
+    }
+    // ... other hooks with default Ok(()) implementations
+}
+```
+
+Hooks enable:
+- **Validation** — Reject invalid data before persistence
+- **Normalization** — Transform data (lowercase email, trim whitespace)
+- **Side effects** — Cache invalidation, notifications, audit logs
+- **Authorization** — Check permissions before operations
+
+<div align="right"><a href="#top">⬆ back to top</a></div>
+
+### CQRS Commands
+
+Define business-oriented commands instead of generic CRUD:
+
+```rust,ignore
+#[derive(Entity)]
+#[entity(table = "users", commands)]
+#[command(Register)]                                // Uses create fields
+#[command(UpdateEmail: email)]                      // Specific fields only
+#[command(Deactivate, requires_id)]                 // ID-only command
+#[command(Transfer, payload = "TransferPayload", result = "TransferResult")]  // Custom types
+pub struct User {
+    #[id]
+    pub id: Uuid,
+
+    #[field(create, update, response)]
+    pub email: String,
+
+    #[field(create, response)]
+    pub name: String,
+}
+
+// Generated command structs:
+pub struct RegisterUser { pub email: String, pub name: String }
+pub struct UpdateEmailUser { pub id: Uuid, pub email: String }
+pub struct DeactivateUser { pub id: Uuid }
+
+// Generated command enum:
+pub enum UserCommand {
+    Register(RegisterUser),
+    UpdateEmail(UpdateEmailUser),
+    Deactivate(DeactivateUser),
+    Transfer(TransferPayload),
+}
+
+// Generated result enum:
+pub enum UserCommandResult {
+    Register(User),
+    UpdateEmail(User),
+    Deactivate,
+    Transfer(TransferResult),
+}
+
+// Generated handler trait:
+#[async_trait]
+pub trait UserCommandHandler: Send + Sync {
+    type Error: std::error::Error + Send + Sync;
+    type Context: Send + Sync;
+
+    async fn handle(&self, cmd: UserCommand, ctx: &Self::Context)
+        -> Result<UserCommandResult, Self::Error>;
+
+    async fn handle_register(&self, cmd: RegisterUser, ctx: &Self::Context)
+        -> Result<User, Self::Error>;
+    async fn handle_update_email(&self, cmd: UpdateEmailUser, ctx: &Self::Context)
+        -> Result<User, Self::Error>;
+    async fn handle_deactivate(&self, cmd: DeactivateUser, ctx: &Self::Context)
+        -> Result<(), Self::Error>;
+}
+```
+
+| Command Syntax | Effect |
+|----------------|--------|
+| `#[command(Name)]` | Uses all `#[field(create)]` fields |
+| `#[command(Name: field1, field2)]` | Uses only specified fields |
+| `#[command(Name, requires_id)]` | Adds ID field, no other fields |
+| `#[command(Name, payload = "Type")]` | Uses custom payload struct |
+| `#[command(Name, result = "Type")]` | Uses custom result type |
+
+Commands enable:
+- **Domain language** — `RegisterUser` instead of `CreateUserRequest`
+- **Explicit intent** — Each command has a clear business purpose
+- **CQRS pattern** — Separate read and write models
+- **Command hooks** — `before_command` / `after_command` when combined with `hooks`
 
 <div align="right"><a href="#top">⬆ back to top</a></div>
 
