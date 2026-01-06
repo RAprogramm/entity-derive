@@ -31,6 +31,7 @@
 #![warn(missing_docs)]
 #![warn(clippy::all)]
 
+pub mod policy;
 pub mod prelude;
 
 /// Re-export async_trait for generated code.
