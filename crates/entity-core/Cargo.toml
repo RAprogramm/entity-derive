@@ -3,7 +3,7 @@
 
 [package]
 name = "entity-core"
-version = "0.3.0"
+version = "0.1.0"
 edition = "2024"
 rust-version = "1.92"
 authors = ["RAprogramm <andrey.rozanov.vl@gmail.com>"]
@@ -11,7 +11,7 @@ description = "Core traits and types for entity-derive"
 license = "MIT"
 repository = "https://github.com/RAprogramm/entity-derive"
 documentation = "https://docs.rs/entity-core"
-readme = "README.md"
+readme = "../../README.md"
 keywords = ["entity", "repository", "traits", "database"]
 categories = ["database"]
 

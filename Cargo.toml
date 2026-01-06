@@ -6,7 +6,7 @@ resolver = "3"
 members = ["crates/*"]
 
 [workspace.package]
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 rust-version = "1.92"
 authors = ["RAprogramm <andrey.rozanov.vl@gmail.com>"]
@@ -14,9 +14,9 @@ license = "MIT"
 repository = "https://github.com/RAprogramm/entity-derive"
 
 [workspace.dependencies]
-entity-core = { path = "crates/entity-core", version = "0.2.0" }
+entity-core = { path = "crates/entity-core", version = "0.1.0" }
 entity-derive = { path = "crates/entity-derive", version = "0.3.0" }
-entity-derive-impl = { path = "crates/entity-derive-impl", version = "0.2.0" }
+entity-derive-impl = { path = "crates/entity-derive-impl", version = "0.1.0" }
 syn = { version = "2", features = ["full", "extra-traits", "parsing"] }
 quote = "1"
 proc-macro2 = "1"

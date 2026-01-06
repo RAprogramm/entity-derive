@@ -333,9 +333,9 @@ jobs:
       !contains(github.event.head_commit.message || '', '[skip ci]')
     runs-on: ubuntu-latest
     outputs:
-      published: ${{ steps.publish.outputs.published }}
-      version: ${{ steps.publish.outputs.version }}
-      tag: ${{ steps.publish.outputs.tag }}
+      published: ${{ steps.summary.outputs.published }}
+      version: ${{ steps.summary.outputs.version }}
+      tag: ${{ steps.summary.outputs.tag }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -348,69 +348,128 @@ jobs:
       - name: Cache
         uses: Swatinem/rust-cache@v2
 
-      - name: Detect version
-        id: version
-        run: |
-          VERSION=$(cargo metadata --format-version=1 --no-deps | jq -r '.packages[0].version')
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Detected version: $VERSION"
-
-      - name: Check if already published
-        id: check
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          # Check crates.io API directly for more reliable results
-          if curl -s "https://crates.io/api/v1/crates/entity-derive/$VERSION" | jq -e '.version' >/dev/null 2>&1; then
-            echo "already_published=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::Version $VERSION already exists on crates.io"
-          else
-            echo "already_published=false" >> "$GITHUB_OUTPUT"
-            echo "Version $VERSION not yet published"
-          fi
-
-      - name: Version already published
-        if: steps.check.outputs.already_published == 'true' && !inputs.force_publish
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          echo "## ℹ️ Version $VERSION already published" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "This version is already available on [crates.io](https://crates.io/crates/entity-derive/$VERSION)." >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### To publish a new version:" >> $GITHUB_STEP_SUMMARY
-          echo "1. Update \`version\` in \`Cargo.toml\`" >> $GITHUB_STEP_SUMMARY
-          echo "2. Follow [SemVer](https://semver.org/) rules:" >> $GITHUB_STEP_SUMMARY
-          echo "   - **MAJOR** (x.0.0): Breaking API changes" >> $GITHUB_STEP_SUMMARY
-          echo "   - **MINOR** (0.x.0): New features, backwards compatible" >> $GITHUB_STEP_SUMMARY
-          echo "   - **PATCH** (0.0.x): Bug fixes, backwards compatible" >> $GITHUB_STEP_SUMMARY
-          echo "3. Commit and push to trigger a new release" >> $GITHUB_STEP_SUMMARY
-
-      - name: Publish to crates.io
+      - name: Publish crates
         id: publish
-        if: steps.check.outputs.already_published == 'false' || inputs.force_publish
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          TAG="${{ steps.version.outputs.tag }}"
+          set -euo pipefail
 
-          echo "Publishing entity-derive $VERSION..."
+          # Crates in dependency order
+          CRATES=("entity-core" "entity-derive-impl" "entity-derive")
+          PUBLISHED=""
+          SKIPPED=""
+          FAILED=""
 
-          if cargo publish --no-verify 2>&1 | tee /tmp/publish.log; then
-            echo "Successfully published entity-derive $VERSION"
-            echo "published=true" >> "$GITHUB_OUTPUT"
-            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-            echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          else
-            if grep -q "already exists" /tmp/publish.log; then
-              echo "::notice::Version $VERSION already exists on crates.io"
-              echo "published=false" >> "$GITHUB_OUTPUT"
+          # Compare semver versions: returns 0 if $1 > $2
+          version_gt() {
+            local v1=$1 v2=$2
+            if [[ "$v1" == "$v2" ]]; then return 1; fi
+            local IFS=.
+            local i v1_arr=($v1) v2_arr=($v2)
+            for ((i=0; i<3; i++)); do
+              local n1=${v1_arr[i]:-0} n2=${v2_arr[i]:-0}
+              if ((n1 > n2)); then return 0; fi
+              if ((n1 < n2)); then return 1; fi
+            done
+            return 1
+          }
+
+          # Get version from crates.io (returns "0.0.0" if not found)
+          get_crates_io_version() {
+            local crate=$1
+            local response
+            response=$(curl -s "https://crates.io/api/v1/crates/$crate" 2>/dev/null || echo "{}")
+            local version
+            version=$(echo "$response" | jq -r '.crate.max_version // "0.0.0"' 2>/dev/null || echo "0.0.0")
+            if [[ "$version" == "null" || -z "$version" ]]; then
+              echo "0.0.0"
             else
-              echo "::error::Failed to publish"
-              cat /tmp/publish.log
-              exit 1
+              echo "$version"
             fi
+          }
+
+          # Get local version from Cargo.toml
+          get_local_version() {
+            local crate_dir=$1
+            cargo metadata --format-version=1 --no-deps --manifest-path "$crate_dir/Cargo.toml" \
+              | jq -r '.packages[0].version'
+          }
+
+          echo "## Crate Publication Status" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Crate | Local | crates.io | Action |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-------|-----------|--------|" >> $GITHUB_STEP_SUMMARY
+
+          for crate in "${CRATES[@]}"; do
+            echo "::group::Processing $crate"
+
+            crate_dir="crates/$crate"
+            local_ver=$(get_local_version "$crate_dir")
+            remote_ver=$(get_crates_io_version "$crate")
+
+            echo "Local version: $local_ver"
+            echo "crates.io version: $remote_ver"
+
+            if version_gt "$local_ver" "$remote_ver"; then
+              echo "Publishing $crate $local_ver (current: $remote_ver)..."
+
+              if cargo publish --manifest-path "$crate_dir/Cargo.toml" --no-verify 2>&1 | tee /tmp/publish_${crate}.log; then
+                echo "Successfully published $crate $local_ver"
+                PUBLISHED="$PUBLISHED $crate:$local_ver"
+                echo "| $crate | $local_ver | $remote_ver | Published |" >> $GITHUB_STEP_SUMMARY
+
+                # Wait for crates.io to index before publishing dependent crates
+                echo "Waiting for crates.io to index..."
+                sleep 30
+              else
+                if grep -q "already exists" /tmp/publish_${crate}.log; then
+                  echo "::notice::$crate $local_ver already exists"
+                  SKIPPED="$SKIPPED $crate:$local_ver"
+                  echo "| $crate | $local_ver | $remote_ver | Already exists |" >> $GITHUB_STEP_SUMMARY
+                else
+                  echo "::error::Failed to publish $crate"
+                  cat /tmp/publish_${crate}.log
+                  FAILED="$FAILED $crate:$local_ver"
+                  echo "| $crate | $local_ver | $remote_ver | Failed |" >> $GITHUB_STEP_SUMMARY
+                fi
+              fi
+            elif [[ "$local_ver" == "$remote_ver" ]]; then
+              echo "$crate $local_ver already published"
+              SKIPPED="$SKIPPED $crate:$local_ver"
+              echo "| $crate | $local_ver | $remote_ver | Up to date |" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "::warning::$crate local ($local_ver) < crates.io ($remote_ver)"
+              SKIPPED="$SKIPPED $crate:$local_ver"
+              echo "| $crate | $local_ver | $remote_ver | Local older |" >> $GITHUB_STEP_SUMMARY
+            fi
+
+            echo "::endgroup::"
+          done
+
+          # Set outputs
+          if [[ -n "$PUBLISHED" ]]; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "published_crates=$PUBLISHED" >> "$GITHUB_OUTPUT"
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
           fi
+
+          if [[ -n "$FAILED" ]]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Failed publications" >> $GITHUB_STEP_SUMMARY
+            echo "$FAILED" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+      - name: Detect main version
+        id: version
+        run: |
+          VERSION=$(cargo metadata --format-version=1 --no-deps \
+            --manifest-path crates/entity-derive/Cargo.toml \
+            | jq -r '.packages[0].version')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Install git-cliff
         if: steps.publish.outputs.published == 'true'
@@ -423,23 +482,18 @@ jobs:
         if: steps.publish.outputs.published == 'true'
         run: |
           TAG="${{ steps.version.outputs.tag }}"
-
-          # Fetch all tags for accurate comparison
           git fetch --tags --force
 
-          # Generate notes BEFORE tag is created
           NOTES=$(git cliff --config cliff.toml \
             --unreleased \
             --strip header \
             --tag "$TAG" \
             2>/dev/null || echo "")
 
-          # Fallback
           if [ -z "$NOTES" ]; then
             NOTES="Release ${{ steps.version.outputs.version }}"
           fi
 
-          # Save to file (multiline output)
           echo "$NOTES" > /tmp/release_notes.md
 
       - name: Create git tag
@@ -465,24 +519,29 @@ jobs:
           TAG="${{ steps.version.outputs.tag }}"
           VERSION="${{ steps.version.outputs.version }}"
 
-          # Create release with pre-generated notes
           gh release create "$TAG" \
-            --title "🚀 Release $VERSION" \
+            --title "Release $VERSION" \
             --notes-file /tmp/release_notes.md \
             --verify-tag || echo "Release already exists or creation failed"
 
       - name: Summary
+        id: summary
         if: always()
         run: |
-          echo "## Release Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+
           if [ "${{ steps.publish.outputs.published }}" == "true" ]; then
-            echo "✅ Published **entity-derive ${{ steps.version.outputs.version }}**" >> $GITHUB_STEP_SUMMARY
+            echo "### Published crates:" >> $GITHUB_STEP_SUMMARY
+            echo "${{ steps.publish.outputs.published_crates }}" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "- [crates.io](https://crates.io/crates/entity-derive/${{ steps.version.outputs.version }})" >> $GITHUB_STEP_SUMMARY
-            echo "- [docs.rs](https://docs.rs/entity-derive/${{ steps.version.outputs.version }})" >> $GITHUB_STEP_SUMMARY
-          elif [ "${{ steps.check.outputs.already_published }}" == "true" ]; then
-            echo "ℹ️ Version ${{ steps.version.outputs.version }} already published" >> $GITHUB_STEP_SUMMARY
+            echo "- [entity-derive on crates.io](https://crates.io/crates/entity-derive)" >> $GITHUB_STEP_SUMMARY
+            echo "- [Documentation](https://docs.rs/entity-derive)" >> $GITHUB_STEP_SUMMARY
+
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "version=${{ steps.version.outputs.version }}" >> "$GITHUB_OUTPUT"
+            echo "tag=${{ steps.version.outputs.tag }}" >> "$GITHUB_OUTPUT"
           else
-            echo "⏭️ No release triggered" >> $GITHUB_STEP_SUMMARY
+            echo "No new versions published." >> $GITHUB_STEP_SUMMARY
+            echo "published=false" >> "$GITHUB_OUTPUT"
           fi
