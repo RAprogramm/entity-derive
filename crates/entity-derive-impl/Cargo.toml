@@ -3,14 +3,14 @@
 
 [package]
 name = "entity-derive-impl"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 rust-version = "1.92"
 authors = ["RAprogramm <andrey.rozanov.vl@gmail.com>"]
 description = "Internal proc-macro implementation for entity-derive. Use entity-derive instead."
 license = "MIT"
 repository = "https://github.com/RAprogramm/entity-derive"
-documentation = "https://docs.rs/entity-derive"
+documentation = "https://docs.rs/entity-derive-impl"
 keywords = ["derive", "macro", "entity", "internal"]
 categories = ["development-tools::procedural-macro-helpers"]
 
@@ -38,3 +38,7 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 utoipa = { version = "5", features = ["chrono", "uuid"] }
 validator = { version = "0.20", features = ["derive"] }
 entity-core = { path = "../entity-core" }
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

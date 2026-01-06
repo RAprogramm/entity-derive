@@ -462,14 +462,14 @@ jobs:
             exit 1
           fi
 
-      - name: Detect main version
+      - name: Detect version
         id: version
         run: |
-          VERSION=$(cargo metadata --format-version=1 --no-deps \
-            --manifest-path crates/entity-derive/Cargo.toml \
-            | jq -r '.packages[0].version')
+          # Single source of truth: crates/entity-derive/Cargo.toml
+          VERSION=$(grep '^version' crates/entity-derive/Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Detected version: $VERSION"
 
       - name: Install git-cliff
         if: steps.publish.outputs.published == 'true'
@@ -482,19 +482,37 @@ jobs:
         if: steps.publish.outputs.published == 'true'
         run: |
           TAG="${{ steps.version.outputs.tag }}"
+          VERSION="${{ steps.version.outputs.version }}"
           git fetch --tags --force
 
-          NOTES=$(git cliff --config cliff.toml \
-            --unreleased \
-            --strip header \
-            --tag "$TAG" \
-            2>/dev/null || echo "")
+          # Get the latest tag to compare against
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
 
-          if [ -z "$NOTES" ]; then
-            NOTES="Release ${{ steps.version.outputs.version }}"
+          if [ -n "$LATEST_TAG" ]; then
+            echo "Generating changelog from $LATEST_TAG to HEAD"
+            NOTES=$(git cliff --config cliff.toml \
+              --unreleased \
+              --strip header \
+              --tag "$TAG" \
+              2>/dev/null || echo "")
+          else
+            echo "No previous tags, generating initial changelog"
+            NOTES=$(git cliff --config cliff.toml \
+              --strip header \
+              --tag "$TAG" \
+              2>/dev/null || echo "")
+          fi
+
+          if [ -z "$NOTES" ] || [ "$NOTES" = "" ]; then
+            NOTES="## Release $VERSION
+
+Published crates:
+${{ steps.publish.outputs.published_crates }}"
           fi
 
           echo "$NOTES" > /tmp/release_notes.md
+          echo "Release notes:"
+          cat /tmp/release_notes.md
 
       - name: Create git tag
         if: steps.publish.outputs.published == 'true'
