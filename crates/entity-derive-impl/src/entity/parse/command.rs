@@ -30,11 +30,12 @@ use syn::{Attribute, Ident, Type};
 /// Source of fields for a command.
 ///
 /// Determines which entity fields are included in the command payload.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum CommandSource {
     /// Use fields marked with `#[field(create)]`.
     ///
     /// Default for commands that create new entities.
+    #[default]
     Create,
 
     /// Use fields marked with `#[field(update)]`.
@@ -56,12 +57,6 @@ pub enum CommandSource {
     ///
     /// Combined with `requires_id` for id-only commands.
     None
-}
-
-impl Default for CommandSource {
-    fn default() -> Self {
-        Self::Create
-    }
 }
 
 /// Kind of command for categorization.
@@ -166,10 +161,6 @@ impl CommandDef {
     ///
     /// Converts command name to snake_case handler method.
     ///
-    /// # Arguments
-    ///
-    /// * `entity_name` - The entity name (e.g., "User")
-    ///
     /// # Returns
     ///
     /// Handler method name (e.g., "handle_register")
@@ -177,22 +168,6 @@ impl CommandDef {
         use convert_case::{Case, Casing};
         let snake = self.name.to_string().to_case(Case::Snake);
         Ident::new(&format!("handle_{}", snake), Span::call_site())
-    }
-
-    /// Check if this command creates a new entity.
-    pub fn is_create(&self) -> bool {
-        matches!(self.kind, CommandKindHint::Create)
-    }
-
-    /// Check if this command modifies an existing entity.
-    pub fn is_update(&self) -> bool {
-        matches!(self.kind, CommandKindHint::Update)
-            || (self.requires_id && !matches!(self.kind, CommandKindHint::Delete))
-    }
-
-    /// Check if this command has a payload (fields).
-    pub fn has_payload(&self) -> bool {
-        !matches!(self.source, CommandSource::None)
     }
 }
 
