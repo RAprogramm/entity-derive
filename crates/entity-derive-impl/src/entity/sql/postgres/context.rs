@@ -78,12 +78,8 @@ pub struct Context<'a> {
 
 impl<'a> Context<'a> {
     /// Create a new generation context from an entity definition.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the entity does not have an `#[id]` field.
     pub fn new(entity: &'a EntityDef) -> Self {
-        let id_field = entity.id_field().expect("Entity must have #[id] field");
+        let id_field = entity.id_field();
         let fields = entity.all_fields();
         let dialect = entity.dialect;
 

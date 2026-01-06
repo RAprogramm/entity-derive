@@ -57,6 +57,7 @@
 
 mod dto;
 mod events;
+mod hooks;
 mod insertable;
 mod mappers;
 pub mod parse;
@@ -87,6 +88,7 @@ fn generate(entity: EntityDef) -> TokenStream {
     let projections = projection::generate(&entity);
     let query_struct = query::generate(&entity);
     let events = events::generate(&entity);
+    let hooks = hooks::generate(&entity);
     let repository = repository::generate(&entity);
     let row = row::generate(&entity);
     let insertable = insertable::generate(&entity);
@@ -98,6 +100,7 @@ fn generate(entity: EntityDef) -> TokenStream {
         #projections
         #query_struct
         #events
+        #hooks
         #repository
         #row
         #insertable
