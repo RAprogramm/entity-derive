@@ -82,7 +82,7 @@ impl Context<'_> {
         let event_name = format_ident!("{}Event", entity_name);
 
         quote! {
-            let __event = #event_name::soft_deleted(id.clone());
+            let __event = #event_name::SoftDeleted { id: id.clone() };
             let __payload = ::serde_json::to_string(&__event)
                 .expect("event serialization should not fail");
             ::sqlx::query("SELECT pg_notify($1, $2)")

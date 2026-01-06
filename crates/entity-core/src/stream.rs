@@ -84,4 +84,15 @@ mod tests {
         let de: StreamError<TestError> = StreamError::Deserialize("invalid".into());
         assert_eq!(format!("{}", de), "deserialize error: invalid");
     }
+
+    #[test]
+    fn stream_error_source() {
+        use std::error::Error;
+
+        let db: StreamError<TestError> = StreamError::Database(TestError("source"));
+        assert!(db.source().is_some());
+
+        let de: StreamError<TestError> = StreamError::Deserialize("no source".into());
+        assert!(de.source().is_none());
+    }
 }

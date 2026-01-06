@@ -77,3 +77,53 @@ fn event_hard_deleted_serialization() {
     assert_eq!(parsed.kind(), EventKind::HardDeleted);
     assert_eq!(parsed.entity_id(), &Uuid::nil());
 }
+
+// Test streams with soft_delete to cover notify_soft_deleted
+#[derive(Entity, Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[entity(table = "documents", events, streams, soft_delete)]
+pub struct Document {
+    #[id]
+    pub id: Uuid,
+
+    #[field(create, response)]
+    pub title: String,
+
+    #[field(skip)]
+    pub deleted_at: Option<chrono::DateTime<chrono::Utc>>
+}
+
+#[test]
+fn soft_delete_channel_exists() {
+    assert_eq!(Document::CHANNEL, "entity_documents");
+}
+
+#[test]
+fn soft_delete_subscriber_exists() {
+    fn _check(
+        pool: &sqlx::PgPool
+    ) -> impl std::future::Future<Output = Result<DocumentSubscriber, sqlx::Error>> {
+        DocumentSubscriber::new(pool)
+    }
+}
+
+#[test]
+fn soft_delete_event_serialization() {
+    let event = DocumentEvent::SoftDeleted {
+        id: Uuid::nil()
+    };
+    let json = serde_json::to_string(&event).expect("serialize");
+    let parsed: DocumentEvent = serde_json::from_str(&json).expect("deserialize");
+
+    assert_eq!(parsed.kind(), EventKind::SoftDeleted);
+}
+
+#[test]
+fn restored_event_serialization() {
+    let event = DocumentEvent::Restored {
+        id: Uuid::nil()
+    };
+    let json = serde_json::to_string(&event).expect("serialize");
+    let parsed: DocumentEvent = serde_json::from_str(&json).expect("deserialize");
+
+    assert_eq!(parsed.kind(), EventKind::Restored);
+}
