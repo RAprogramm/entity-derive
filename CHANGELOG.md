@@ -11,7 +11,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.2.0...HEAD)
+## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.3.1...HEAD)
+
+### 🐛 Bug Fixes
+
+- **docs:** Resolve docs.rs build failure for published crates ([22e8cf9](https://github.com/RAprogramm/entity-derive/commit/22e8cf9bf3f313230d850d746b73d88a21e4a89f)) by [@RAprogramm](https://github.com/RAprogramm)
+
+
+### 🔧 Miscellaneous
+
+- Add SPDX headers to README files ([5fce943](https://github.com/RAprogramm/entity-derive/commit/5fce9437f7243ba0397d3b0b5b67a697e60ad92a)) by [@RAprogramm](https://github.com/RAprogramm)
+
+## [0.3.1](https://github.com/RAprogramm/entity-derive/releases/tag/v0.3.1) — 2026-01-06
 
 ### 🐛 Bug Fixes
 
@@ -29,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Implement cascading crate publication ([4b254ea](https://github.com/RAprogramm/entity-derive/commit/4b254ea27ecc3cabef2f477ad332af5a0c9274f1)) by [@RAprogramm](https://github.com/RAprogramm)
 
+**Full Changelog**: [`v0.2.0...v0.3.1`](https://github.com/RAprogramm/entity-derive/compare/v0.2.0...v0.3.1)
 ## [0.2.0](https://github.com/RAprogramm/entity-derive/releases/tag/v0.2.0) — 2025-12-24
 
 ### ✨ Features
