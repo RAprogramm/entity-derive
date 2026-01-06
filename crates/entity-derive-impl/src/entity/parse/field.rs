@@ -87,8 +87,14 @@ impl FieldDef {
     ///
     /// Extracts base information and parses all attributes into
     /// exposure and storage configurations.
-    pub fn from_field(field: &Field) -> Self {
-        let ident = field.ident.clone().expect("named field required");
+    ///
+    /// # Errors
+    ///
+    /// Returns error if the field has no identifier (tuple struct field).
+    pub fn from_field(field: &Field) -> darling::Result<Self> {
+        let ident = field.ident.clone().ok_or_else(|| {
+            darling::Error::custom("Entity fields must be named").with_span(field)
+        })?;
         let ty = field.ty.clone();
         let vis = field.vis.clone();
 
@@ -110,14 +116,14 @@ impl FieldDef {
             }
         }
 
-        Self {
+        Ok(Self {
             ident,
             ty,
             vis,
             expose,
             storage,
             filter
-        }
+        })
     }
 
     /// Get the field name as an identifier.
