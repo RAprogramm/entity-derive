@@ -194,11 +194,9 @@ impl Context<'_> {
             ..
         } = self;
 
-        let field_names: Vec<&str> = update_fields
-            .iter()
-            .map(|f| f.name_str().leak() as &str)
-            .collect();
-        let set_clause = dialect.set_clause(&field_names);
+        let field_names: Vec<String> = update_fields.iter().map(|f| f.name_str()).collect();
+        let field_refs: Vec<&str> = field_names.iter().map(String::as_str).collect();
+        let set_clause = dialect.set_clause(&field_refs);
         let where_placeholder = dialect.placeholder(update_fields.len() + 1);
         let bindings = update_bindings(&update_fields);
 
