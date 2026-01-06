@@ -62,10 +62,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     let entity_name = entity.name();
     let hooks_trait = format_ident!("{}Hooks", entity_name);
 
-    let id_type = entity
-        .id_field()
-        .map(|f| f.ty())
-        .unwrap_or_else(|| panic!("Entity must have an #[id] field for hooks"));
+    let id_type = entity.id_field().ty();
 
     let create_hooks = generate_create_hooks(entity);
     let update_hooks = generate_update_hooks(entity, id_type);

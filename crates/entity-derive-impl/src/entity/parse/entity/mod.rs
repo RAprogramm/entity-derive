@@ -104,8 +104,8 @@ fn parse_has_many_attrs(attrs: &[Attribute]) -> Vec<Ident> {
 /// let update_fields = entity.update_fields();
 /// let response_fields = entity.response_fields();
 ///
-/// // Primary key field
-/// let id = entity.id_field().expect("must have #[id]");
+/// // Primary key field (guaranteed to exist)
+/// let id = entity.id_field();
 /// ```
 #[derive(Debug)]
 pub struct EntityDef {
@@ -141,6 +141,11 @@ pub struct EntityDef {
 
     /// All field definitions from the struct.
     pub fields: Vec<FieldDef>,
+
+    /// Index of the primary key field in `fields`.
+    ///
+    /// Validated at parse time to always be valid.
+    id_field_index: usize,
 
     /// Has-many relations defined via `#[has_many(Entity)]`.
     ///
@@ -217,7 +222,7 @@ impl EntityDef {
     pub fn from_derive_input(input: &DeriveInput) -> darling::Result<Self> {
         let attrs = EntityAttrs::from_derive_input(input)?;
 
-        let fields = match &input.data {
+        let fields: Vec<FieldDef> = match &input.data {
             syn::Data::Struct(data) => match &data.fields {
                 syn::Fields::Named(named) => {
                     named.named.iter().map(FieldDef::from_field).collect()
@@ -238,6 +243,11 @@ impl EntityDef {
         let has_many = parse_has_many_attrs(&input.attrs);
         let projections = parse_projection_attrs(&input.attrs);
 
+        let id_field_index = fields.iter().position(|f| f.is_id()).ok_or_else(|| {
+            darling::Error::custom("Entity must have exactly one field with #[id] attribute")
+                .with_span(&input.ident)
+        })?;
+
         Ok(Self {
             ident: attrs.ident,
             vis: attrs.vis,
@@ -248,6 +258,7 @@ impl EntityDef {
             uuid: attrs.uuid,
             error: attrs.error,
             fields,
+            id_field_index,
             has_many,
             projections,
             soft_delete: attrs.soft_delete,
@@ -259,17 +270,13 @@ impl EntityDef {
 
     /// Get the primary key field marked with `#[id]`.
     ///
+    /// This field is guaranteed to exist as it's validated during parsing.
+    ///
     /// # Returns
     ///
-    /// `Some(&FieldDef)` if an `#[id]` field exists, `None` otherwise.
-    ///
-    /// # Note
-    ///
-    /// Most generators require an id field. The SQL generator will
-    /// panic if called without one. Consider validating this in
-    /// `from_derive_input` for better error messages.
-    pub fn id_field(&self) -> Option<&FieldDef> {
-        self.fields.iter().find(|f| f.is_id())
+    /// Reference to the primary key field definition.
+    pub fn id_field(&self) -> &FieldDef {
+        &self.fields[self.id_field_index]
     }
 
     /// Get fields to include in `CreateRequest` DTO.

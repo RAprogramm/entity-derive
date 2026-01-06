@@ -68,10 +68,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     let create_dto = entity.ident_with("Create", "Request");
     let update_dto = entity.ident_with("Update", "Request");
 
-    let id_type = entity
-        .id_field()
-        .map(|f| f.ty())
-        .unwrap_or_else(|| panic!("Entity must have an #[id] field"));
+    let id_type = entity.id_field().ty();
 
     let create_method = if entity.create_fields().is_empty() {
         TokenStream::new()

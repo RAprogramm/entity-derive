@@ -45,10 +45,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     let entity_name = entity.name();
     let event_name = format_ident!("{}Event", entity_name);
 
-    let id_type = entity
-        .id_field()
-        .map(|f| f.ty())
-        .unwrap_or_else(|| panic!("Entity must have an #[id] field for events"));
+    let id_type = entity.id_field().ty();
 
     let soft_delete_variants = if entity.is_soft_delete() {
         quote! {
