@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-#![doc = include_str!("../../../README.md")]
+#![doc = include_str!("../README.md")]
 #![doc(
     html_logo_url = "https://raw.githubusercontent.com/RAprogramm/entity-derive/main/assets/logo.svg",
     html_favicon_url = "https://raw.githubusercontent.com/RAprogramm/entity-derive/main/assets/favicon.ico"

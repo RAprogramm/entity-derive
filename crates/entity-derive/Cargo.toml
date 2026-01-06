@@ -3,7 +3,7 @@
 
 [package]
 name = "entity-derive"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2024"
 rust-version = "1.92"
 authors = ["RAprogramm <andrey.rozanov.vl@gmail.com>"]
@@ -11,7 +11,7 @@ description = "Derive macro for generating DTOs, repositories, and SQL from a si
 license = "MIT"
 repository = "https://github.com/RAprogramm/entity-derive"
 documentation = "https://docs.rs/entity-derive"
-readme = "../../README.md"
+readme = "README.md"
 keywords = ["derive", "macro", "entity", "dto", "repository"]
 categories = ["development-tools::procedural-macro-helpers", "database"]
 
@@ -25,8 +25,8 @@ api = []
 validate = []
 
 [dependencies]
-entity-core = { path = "../entity-core", version = "0.1.1" }
-entity-derive-impl = { path = "../entity-derive-impl", version = "0.1.1" }
+entity-core = { path = "../entity-core", version = "0.1.2" }
+entity-derive-impl = { path = "../entity-derive-impl", version = "0.1.2" }
 
 [dev-dependencies]
 trybuild = "1"

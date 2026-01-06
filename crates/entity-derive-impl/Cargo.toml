@@ -3,7 +3,7 @@
 
 [package]
 name = "entity-derive-impl"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 rust-version = "1.92"
 authors = ["RAprogramm <andrey.rozanov.vl@gmail.com>"]
@@ -11,6 +11,7 @@ description = "Internal proc-macro implementation for entity-derive. Use entity-
 license = "MIT"
 repository = "https://github.com/RAprogramm/entity-derive"
 documentation = "https://docs.rs/entity-derive-impl"
+readme = "README.md"
 keywords = ["derive", "macro", "entity", "internal"]
 categories = ["development-tools::procedural-macro-helpers"]
 

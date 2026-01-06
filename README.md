@@ -44,7 +44,7 @@ Building a typical CRUD application requires writing the same boilerplate over a
 
 ## The Solution
 
-```rust
+```rust,ignore
 #[derive(Entity)]
 #[entity(table = "users")]
 pub struct User {
@@ -121,7 +121,7 @@ entity-derive = { version = "0.3", features = ["postgres"] }
 
 ### Entity Attributes
 
-```rust
+```rust,ignore
 #[entity(
     table = "users",           // Required: table name
     schema = "public",         // Optional: schema (default: public)
@@ -136,7 +136,7 @@ entity-derive = { version = "0.3", features = ["postgres"] }
 
 ### Field Attributes
 
-```rust
+```rust,ignore
 #[id]                          // Primary key (auto-generated UUID)
 #[auto]                        // Auto-generated (timestamps)
 #[field(create)]               // Include in CreateRequest
