@@ -37,8 +37,9 @@ pub fn default_schema() -> String {
 /// Default error type path for SQL implementations.
 ///
 /// Used when no custom error type is specified.
+/// Uses `parse_quote!` for compile-time validation.
 pub fn default_error_type() -> syn::Path {
-    syn::parse_str("sqlx::Error").expect("valid path")
+    syn::parse_quote!(sqlx::Error)
 }
 
 /// Entity-level attributes parsed from `#[entity(...)]`.
