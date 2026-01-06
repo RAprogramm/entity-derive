@@ -17,6 +17,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Remove invalid crates-io registry from dependabot ([38f27e3](https://github.com/RAprogramm/entity-derive/commit/38f27e3045da206c1538158e74467a003c9f7430)) by [@RAprogramm](https://github.com/RAprogramm)
 
+
+### 📚 Documentation
+
+- Remove regular comments, use doc comments only ([109119f](https://github.com/RAprogramm/entity-derive/commit/109119ff1778f080fc36d3d79ae1fed49db439ac)) by [@RAprogramm](https://github.com/RAprogramm)
+
+
+### 🔧 Miscellaneous
+
+- Implement cascading crate publication ([4b254ea](https://github.com/RAprogramm/entity-derive/commit/4b254ea27ecc3cabef2f477ad332af5a0c9274f1)) by [@RAprogramm](https://github.com/RAprogramm)
+
 ## [0.2.0](https://github.com/RAprogramm/entity-derive/releases/tag/v0.2.0) — 2025-12-24
 
 ### ✨ Features
