@@ -194,7 +194,12 @@ pub struct EntityDef {
     /// Command definitions parsed from `#[command(...)]` attributes.
     ///
     /// Each entry describes a business command (e.g., Register, UpdateEmail).
-    pub command_defs: Vec<CommandDef>
+    pub command_defs: Vec<CommandDef>,
+
+    /// Whether to generate authorization policy trait.
+    ///
+    /// When `true`, generates `{Entity}Policy` trait and related types.
+    pub policy: bool
 }
 
 impl EntityDef {
@@ -284,7 +289,8 @@ impl EntityDef {
             events: attrs.events,
             hooks: attrs.hooks,
             commands: attrs.commands,
-            command_defs
+            command_defs,
+            policy: attrs.policy
         })
     }
 
@@ -535,6 +541,15 @@ impl EntityDef {
     /// Slice of command definitions parsed from `#[command(...)]` attributes.
     pub fn command_defs(&self) -> &[CommandDef] {
         &self.command_defs
+    }
+
+    /// Check if authorization policy should be generated.
+    ///
+    /// # Returns
+    ///
+    /// `true` if `#[entity(policy)]` is present.
+    pub fn has_policy(&self) -> bool {
+        self.policy
     }
 }
 

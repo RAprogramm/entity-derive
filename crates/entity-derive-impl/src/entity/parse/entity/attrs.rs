@@ -21,6 +21,8 @@
 //! | `returning` | No | `Full` | RETURNING clause mode |
 //! | `events` | No | `false` | Generate lifecycle events |
 //! | `hooks` | No | `false` | Generate lifecycle hooks trait |
+//! | `commands` | No | `false` | Generate CQRS command pattern |
+//! | `policy` | No | `false` | Generate authorization policy trait |
 
 use darling::FromDeriveInput;
 use syn::{Ident, Visibility};
@@ -199,16 +201,15 @@ pub struct EntityAttrs {
     /// - Command enum (`UserCommand`)
     /// - Result enum (`UserCommandResult`)
     /// - Handler trait (`UserCommandHandler`)
-    ///
-    /// # Example
-    ///
-    /// ```rust,ignore
-    /// #[entity(table = "users", commands)]
-    /// #[command(Register)]
-    /// #[command(UpdateEmail: email)]
-    /// #[command(Deactivate, requires_id)]
-    /// pub struct User { ... }
-    /// ```
     #[darling(default)]
-    pub commands: bool
+    pub commands: bool,
+
+    /// Generate authorization policy trait.
+    ///
+    /// When enabled, generates:
+    /// - `{Entity}Policy` trait with `can_create`, `can_read`, etc.
+    /// - `{Entity}AllowAllPolicy` default implementation
+    /// - `{Entity}PolicyRepository` wrapper with authorization checks
+    #[darling(default)]
+    pub policy: bool
 }
