@@ -59,7 +59,7 @@ impl Context<'_> {
     ///
     /// First fetches the current entity, then queries the parent:
     /// ```sql
-    /// SELECT * FROM public.{parent}s WHERE id = $1
+    /// SELECT * FROM {schema}.{parent}s WHERE id = $1
     /// ```
     ///
     /// # Returns
@@ -70,7 +70,8 @@ impl Context<'_> {
         let related_snake = related_entity.to_string().to_case(Case::Snake);
         let method_name = format_ident!("find_{}", related_snake);
         let related_row = format_ident!("{}Row", related_entity);
-        let related_table = format!("public.{}s", related_snake);
+        let schema = &self.entity.schema;
+        let related_table = format!("{}.{}s", schema, related_snake);
         let fk_name = field.name();
         let id_type = self.id_type;
         let placeholder = self.dialect.placeholder(1);
@@ -97,13 +98,14 @@ impl Context<'_> {
     /// # SQL Pattern
     ///
     /// ```sql
-    /// SELECT * FROM public.{child}s WHERE {parent}_id = $1
+    /// SELECT * FROM {schema}.{child}s WHERE {parent}_id = $1
     /// ```
     fn has_many_method(&self, related: &syn::Ident) -> TokenStream {
         let related_snake = related.to_string().to_case(Case::Snake);
         let method_name = format_ident!("find_{}s", related_snake);
         let related_row = format_ident!("{}Row", related);
-        let related_table = format!("public.{}s", related_snake);
+        let schema = &self.entity.schema;
+        let related_table = format!("{}.{}s", schema, related_snake);
         let entity_snake = self.entity.name_str().to_case(Case::Snake);
         let fk_field = format_ident!("{}_id", entity_snake);
         let id_type = self.id_type;
