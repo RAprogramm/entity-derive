@@ -24,7 +24,7 @@ streams = ["serde", "serde_json", "futures"]
 
 [dependencies]
 async-trait = "0.1"
-sqlx = { version = "0.8", optional = true, default-features = false }
+sqlx = { version = "0.8", optional = true, default-features = false, features = ["postgres"] }
 serde = { version = "1", features = ["derive"], optional = true }
 serde_json = { version = "1", optional = true }
 futures = { version = "0.3", optional = true }
