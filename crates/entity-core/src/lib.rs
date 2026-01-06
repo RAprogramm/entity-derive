@@ -232,6 +232,57 @@ pub trait EntityEvent: Send + Sync + std::fmt::Debug {
     fn entity_id(&self) -> &Self::Id;
 }
 
+/// Kind of business command.
+///
+/// Used by generated command enums to categorize commands for auditing
+/// and routing purposes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum CommandKind {
+    /// Creates a new entity (e.g., Register, Create).
+    Create,
+
+    /// Modifies an existing entity (e.g., UpdateEmail, ChangeStatus).
+    Update,
+
+    /// Removes an entity (e.g., Delete, Deactivate).
+    Delete,
+
+    /// Custom business operation that doesn't fit CRUD.
+    Custom
+}
+
+impl CommandKind {
+    /// Check if this command creates an entity.
+    pub const fn is_create(&self) -> bool {
+        matches!(self, Self::Create)
+    }
+
+    /// Check if this command modifies state.
+    pub const fn is_mutation(&self) -> bool {
+        !matches!(self, Self::Custom)
+    }
+}
+
+/// Base trait for entity commands.
+///
+/// Generated command enums implement this trait, enabling generic
+/// command handling, auditing, and dispatching.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// fn audit_command<C: EntityCommand>(cmd: &C) {
+///     log::info!("Executing command: {} ({:?})", cmd.name(), cmd.kind());
+/// }
+/// ```
+pub trait EntityCommand: Send + Sync + std::fmt::Debug {
+    /// Get the kind of command for categorization.
+    fn kind(&self) -> CommandKind;
+
+    /// Get the command name as a string for logging/auditing.
+    fn name(&self) -> &'static str;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -284,5 +335,21 @@ mod tests {
         assert!(EventKind::SoftDeleted.is_mutation());
         assert!(EventKind::HardDeleted.is_mutation());
         assert!(!EventKind::Restored.is_mutation());
+    }
+
+    #[test]
+    fn command_kind_is_create() {
+        assert!(CommandKind::Create.is_create());
+        assert!(!CommandKind::Update.is_create());
+        assert!(!CommandKind::Delete.is_create());
+        assert!(!CommandKind::Custom.is_create());
+    }
+
+    #[test]
+    fn command_kind_is_mutation() {
+        assert!(CommandKind::Create.is_mutation());
+        assert!(CommandKind::Update.is_mutation());
+        assert!(CommandKind::Delete.is_mutation());
+        assert!(!CommandKind::Custom.is_mutation());
     }
 }
