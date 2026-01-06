@@ -15,6 +15,7 @@
 //! ├── field.rs       - Field-level parsing (FieldDef)
 //! │   ├── expose.rs  - DTO exposure config (create, update, response, skip)
 //! │   └── storage.rs - DB storage config (id, auto)
+//! ├── command.rs     - Command pattern parsing (CommandDef, CommandSource)
 //! ├── dialect.rs     - Database dialect (Postgres, ClickHouse, MongoDB)
 //! ├── sql_level.rs   - SQL generation level (Full, Trait, None)
 //! └── uuid_version.rs - UUID version for IDs (V7, V4)
@@ -44,6 +45,14 @@
 //! ├── sql: SqlLevel         (generation level)
 //! ├── dialect: DatabaseDialect (Postgres, ClickHouse, MongoDB)
 //! ├── uuid: UuidVersion     (V7 or V4)
+//! ├── commands: bool        (generate command pattern)
+//! ├── command_defs: Vec<CommandDef> (parsed #[command(...)])
+//! │   └── CommandDef
+//! │       ├── name: Ident           (command name, e.g., "Register")
+//! │       ├── source: CommandSource (where fields come from)
+//! │       ├── requires_id: bool     (needs entity ID)
+//! │       ├── result_type: Option   (custom result type)
+//! │       └── kind: CommandKindHint (create/update/delete/custom)
 //! └── fields: Vec<FieldDef>
 //!     └── FieldDef
 //!         ├── ident: Ident          (field name)
@@ -97,6 +106,7 @@
 //! pub struct Product { /* ... */ }
 //! ```
 
+mod command;
 mod dialect;
 mod entity;
 mod field;
@@ -104,6 +114,7 @@ mod returning;
 mod sql_level;
 mod uuid_version;
 
+pub use command::{CommandDef, CommandKindHint, CommandSource};
 pub use dialect::DatabaseDialect;
 pub use entity::{EntityDef, ProjectionDef};
 pub use field::{FieldDef, FilterType};

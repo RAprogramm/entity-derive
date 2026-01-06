@@ -67,6 +67,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     let create_hooks = generate_create_hooks(entity);
     let update_hooks = generate_update_hooks(entity, id_type);
     let delete_hooks = generate_delete_hooks(id_type, entity.is_soft_delete());
+    let command_hooks = generate_command_hooks(entity);
 
     let marker = marker::generated();
 
@@ -90,6 +91,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             #create_hooks
             #update_hooks
             #delete_hooks
+            #command_hooks
         }
     }
 }
@@ -208,5 +210,39 @@ fn generate_delete_hooks(id_type: &syn::Type, soft_delete: bool) -> TokenStream 
         }
 
         #soft_delete_hooks
+    }
+}
+
+/// Generate before/after hooks for command execution.
+fn generate_command_hooks(entity: &EntityDef) -> TokenStream {
+    if !entity.has_commands() || entity.command_defs().is_empty() {
+        return TokenStream::new();
+    }
+
+    let entity_name = entity.name();
+    let command_enum = format_ident!("{}Command", entity_name);
+    let result_enum = format_ident!("{}CommandResult", entity_name);
+
+    quote! {
+        /// Called before any command execution.
+        ///
+        /// Use for authorization, validation, or audit logging.
+        /// Returning an error aborts the command.
+        async fn before_command(&self, cmd: &#command_enum) -> Result<(), Self::Error> {
+            let _ = cmd;
+            Ok(())
+        }
+
+        /// Called after successful command execution.
+        ///
+        /// Use for notifications, cache updates, or audit logging.
+        async fn after_command(
+            &self,
+            cmd: &#command_enum,
+            result: &#result_enum
+        ) -> Result<(), Self::Error> {
+            let _ = (cmd, result);
+            Ok(())
+        }
     }
 }

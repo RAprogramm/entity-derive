@@ -12,10 +12,16 @@
 //! ```text
 //! entity.rs (orchestrator)
 //! │
-//! ├── parse/         → Attribute parsing (EntityDef, FieldDef)
+//! ├── parse/         → Attribute parsing (EntityDef, FieldDef, CommandDef)
 //! │
 //! ├── dto.rs         → CreateRequest, UpdateRequest, Response
 //! ├── events.rs      → Lifecycle event enum (Created, Updated, etc.)
+//! ├── hooks.rs       → Lifecycle hooks trait (before/after CRUD)
+//! ├── commands/      → CQRS command pattern
+//! │   ├── struct_gen.rs  → Command payload structs
+//! │   ├── enum_gen.rs    → Command enum
+//! │   ├── result_gen.rs  → Result enum
+//! │   └── handler_gen.rs → Handler trait
 //! ├── repository.rs  → Repository trait definition
 //! ├── row.rs         → Database row struct (sqlx::FromRow)
 //! ├── insertable.rs  → Insertable struct for INSERT operations
@@ -55,6 +61,7 @@
 //! | `impl From<...>` | Conversions between types |
 //! | `impl UserRepository for PgPool` | PostgreSQL implementation |
 
+mod commands;
 mod dto;
 mod events;
 mod hooks;
@@ -89,6 +96,7 @@ fn generate(entity: EntityDef) -> TokenStream {
     let query_struct = query::generate(&entity);
     let events = events::generate(&entity);
     let hooks = hooks::generate(&entity);
+    let commands = commands::generate(&entity);
     let repository = repository::generate(&entity);
     let row = row::generate(&entity);
     let insertable = insertable::generate(&entity);
@@ -101,6 +109,7 @@ fn generate(entity: EntityDef) -> TokenStream {
         #query_struct
         #events
         #hooks
+        #commands
         #repository
         #row
         #insertable
