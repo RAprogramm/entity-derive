@@ -146,7 +146,8 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
 
 /// Generate the builder extension trait.
 ///
-/// Creates an extension trait that adds `with_{entity}()` method to `Transaction`.
+/// Creates an extension trait that adds `with_{entity}()` method to
+/// `Transaction`.
 fn generate_builder_extension(entity: &EntityDef) -> TokenStream {
     let vis = &entity.vis;
     let entity_name = entity.name();

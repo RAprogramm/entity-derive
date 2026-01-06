@@ -97,8 +97,8 @@ impl<'p, DB, Repos> Transaction<'p, DB, Repos> {
 ///
 /// # Automatic Rollback
 ///
-/// If the context is dropped without calling [`commit`](Self::commit),
-/// the transaction is automatically rolled back.
+/// If dropped without explicit commit, the transaction is automatically
+/// rolled back via the underlying database transaction's Drop impl.
 ///
 /// # Type Parameters
 ///
