@@ -17,109 +17,36 @@
   <a href="https://docs.rs/entity-derive">
     <img src="https://img.shields.io/docsrs/entity-derive?style=for-the-badge" alt="Documentation"/>
   </a>
-</p>
-
-<p align="center">
   <a href="https://github.com/RAprogramm/entity-derive/actions">
     <img src="https://img.shields.io/github/actions/workflow/status/RAprogramm/entity-derive/ci.yml?style=for-the-badge" alt="CI Status"/>
   </a>
-  <a href="https://codecov.io/gh/RAprogramm/entity-derive">
-    <img src="https://img.shields.io/codecov/c/github/RAprogramm/entity-derive?style=for-the-badge&token=HGuwZf0REV" alt="Coverage"/>
-  </a>
 </p>
 
 <p align="center">
+  <a href="https://codecov.io/gh/RAprogramm/entity-derive">
+    <img src="https://img.shields.io/codecov/c/github/RAprogramm/entity-derive?style=for-the-badge&token=HGuwZf0REV" alt="Coverage"/>
+  </a>
   <a href="https://github.com/RAprogramm/entity-derive/blob/main/LICENSES/MIT.txt">
     <img src="https://img.shields.io/badge/license-MIT-blue.svg?style=for-the-badge" alt="License: MIT"/>
   </a>
   <a href="https://api.reuse.software/info/github.com/RAprogramm/entity-derive">
     <img src="https://img.shields.io/reuse/compliance/github.com%2FRAprogramm%2Fentity-derive?style=for-the-badge" alt="REUSE Compliant"/>
   </a>
-  <a href="https://github.com/RAprogramm/entity-derive/wiki">
-    <img src="https://img.shields.io/badge/Wiki-Documentation-purple?style=for-the-badge&logo=github" alt="Wiki"/>
-  </a>
 </p>
-
----
-
-## Table of Contents
-
-- [The Problem](#the-problem)
-- [The Solution](#the-solution)
-- [Features](#features)
-- [Installation](#installation)
-- [Quick Start](#quick-start)
-- [Attribute Reference](#attribute-reference)
-- [Generated Code](#generated-code)
-- [Architecture](#architecture)
-- [Comparison](#comparison)
-- [Code Coverage](#code-coverage)
 
 ---
 
 ## The Problem
 
-Building a typical CRUD application requires writing the same boilerplate over and over:
-
-```rust,ignore
-// 1. Your domain entity
-pub struct User {
-    pub id: Uuid,
-    pub name: String,
-    pub email: String,
-    pub password_hash: String,
-    pub created_at: DateTime<Utc>,
-}
-
-// 2. DTO for creating (without id, without auto-generated fields)
-pub struct CreateUserRequest {
-    pub name: String,
-    pub email: String,
-}
-
-// 3. DTO for updating (all fields optional for partial updates)
-pub struct UpdateUserRequest {
-    pub name: Option<String>,
-    pub email: Option<String>,
-}
-
-// 4. DTO for API response (without sensitive fields)
-pub struct UserResponse {
-    pub id: Uuid,
-    pub name: String,
-    pub email: String,
-    pub created_at: DateTime<Utc>,
-}
-
-// 5. Database row struct
-pub struct UserRow { /* ... */ }
-
-// 6. Insertable struct
-pub struct InsertableUser { /* ... */ }
-
-// 7. Repository trait
-pub trait UserRepository { /* ... */ }
-
-// 8. SQL implementation
-impl UserRepository for PgPool { /* ... */ }
-
-// 9. Six From implementations for mapping between types
-impl From<UserRow> for User { /* ... */ }
-impl From<User> for UserResponse { /* ... */ }
-// ... and more
-```
+Building a typical CRUD application requires writing the same boilerplate over and over: entity struct, create DTO, update DTO, response DTO, row struct, repository trait, SQL implementation, and 6+ From implementations.
 
 **That's 200+ lines of boilerplate for a single entity.**
 
-<div align="right"><a href="#top">⬆ back to top</a></div>
-
 ## The Solution
 
-```rust,ignore
-use entity_derive::Entity;
-
+```rust
 #[derive(Entity)]
-#[entity(table = "users", schema = "core")]
+#[entity(table = "users")]
 pub struct User {
     #[id]
     pub id: Uuid,
@@ -141,290 +68,92 @@ pub struct User {
 
 **Done.** The macro generates everything else.
 
-<div align="right"><a href="#top">⬆ back to top</a></div>
-
-## Features
-
-- **Zero Runtime Cost** — All code generation happens at compile time
-- **Type Safe** — Change a field type once, everything updates automatically
-- **Flexible Attributes** — Fine-grained control over what goes where
-- **SQL Generation** — Complete CRUD operations for PostgreSQL (via sqlx)
-- **Partial Updates** — Non-optional fields automatically wrapped in `Option` for updates
-- **Security by Default** — `#[field(skip)]` ensures sensitive data never leaks to responses
-
-<div align="right"><a href="#top">⬆ back to top</a></div>
+---
 
 ## Installation
 
-Add to your `Cargo.toml`:
-
 ```toml
 [dependencies]
-entity-derive = { version = "0.2", features = ["postgres"] }
-
-# Required peer dependencies
-uuid = { version = "1", features = ["v4", "v7"] }
-chrono = { version = "0.4", features = ["serde"] }
-serde = { version = "1", features = ["derive"] }
-async-trait = "0.1"
-
-# For PostgreSQL support
-sqlx = { version = "0.8", features = ["runtime-tokio", "postgres"] }
+entity-derive = { version = "0.3", features = ["postgres"] }
 ```
 
-### Available Features
+---
+
+## Features
 
 | Feature | Description |
 |---------|-------------|
-| `postgres` | PostgreSQL support via sqlx (stable) |
-| `clickhouse` | ClickHouse support (planned) |
-| `mongodb` | MongoDB support (planned) |
-| `api` | OpenAPI schema generation via utoipa |
-| `validate` | Validation derives via validator |
+| **Zero Runtime Cost** | All code generation at compile time |
+| **Type Safe** | Change a field once, everything updates |
+| **Query Filtering** | Type-safe `#[filter]`, `#[filter(like)]`, `#[filter(range)]` |
+| **Relations** | `#[belongs_to]` and `#[has_many]` |
+| **Projections** | Partial views with optimized SELECT |
+| **Lifecycle Events** | `Created`, `Updated`, `Deleted` events |
+| **Real-Time Streams** | Postgres LISTEN/NOTIFY integration |
+| **Lifecycle Hooks** | `before_create`, `after_update`, etc. |
+| **CQRS Commands** | Business-oriented command pattern |
+| **Soft Delete** | `deleted_at` timestamp support |
 
-<div align="right"><a href="#top">⬆ back to top</a></div>
+---
 
-## Quick Start
+## Documentation
 
-```rust,ignore
-use entity_derive::Entity;
-use uuid::Uuid;
-use chrono::{DateTime, Utc};
+| Topic | Languages |
+|-------|:---------:|
+| **Getting Started** ||
+| Attributes | [🇬🇧](https://github.com/RAprogramm/entity-derive/wiki/Attributes-en) [🇷🇺](https://github.com/RAprogramm/entity-derive/wiki/Attributes-ru) [🇰🇷](https://github.com/RAprogramm/entity-derive/wiki/Attributes-ko) [🇪🇸](https://github.com/RAprogramm/entity-derive/wiki/Attributes-es) [🇨🇳](https://github.com/RAprogramm/entity-derive/wiki/Attributes-zh) |
+| Examples | [🇬🇧](https://github.com/RAprogramm/entity-derive/wiki/Examples-en) [🇷🇺](https://github.com/RAprogramm/entity-derive/wiki/Examples-ru) [🇰🇷](https://github.com/RAprogramm/entity-derive/wiki/Examples-ko) [🇪🇸](https://github.com/RAprogramm/entity-derive/wiki/Examples-es) [🇨🇳](https://github.com/RAprogramm/entity-derive/wiki/Examples-zh) |
+| **Features** ||
+| Filtering | [🇬🇧](https://github.com/RAprogramm/entity-derive/wiki/Filtering-en) [🇷🇺](https://github.com/RAprogramm/entity-derive/wiki/Filtering-ru) [🇰🇷](https://github.com/RAprogramm/entity-derive/wiki/Filtering-ko) [🇪🇸](https://github.com/RAprogramm/entity-derive/wiki/Filtering-es) [🇨🇳](https://github.com/RAprogramm/entity-derive/wiki/Filtering-zh) |
+| Relations | [🇬🇧](https://github.com/RAprogramm/entity-derive/wiki/Relations-en) [🇷🇺](https://github.com/RAprogramm/entity-derive/wiki/Relations-ru) [🇰🇷](https://github.com/RAprogramm/entity-derive/wiki/Relations-ko) [🇪🇸](https://github.com/RAprogramm/entity-derive/wiki/Relations-es) [🇨🇳](https://github.com/RAprogramm/entity-derive/wiki/Relations-zh) |
+| Events | [🇬🇧](https://github.com/RAprogramm/entity-derive/wiki/Events-en) [🇷🇺](https://github.com/RAprogramm/entity-derive/wiki/Events-ru) [🇰🇷](https://github.com/RAprogramm/entity-derive/wiki/Events-ko) [🇪🇸](https://github.com/RAprogramm/entity-derive/wiki/Events-es) [🇨🇳](https://github.com/RAprogramm/entity-derive/wiki/Events-zh) |
+| Streams | [🇬🇧](https://github.com/RAprogramm/entity-derive/wiki/Streams-en) [🇷🇺](https://github.com/RAprogramm/entity-derive/wiki/Streams-ru) [🇰🇷](https://github.com/RAprogramm/entity-derive/wiki/Streams-ko) [🇪🇸](https://github.com/RAprogramm/entity-derive/wiki/Streams-es) [🇨🇳](https://github.com/RAprogramm/entity-derive/wiki/Streams-zh) |
+| Hooks | [🇬🇧](https://github.com/RAprogramm/entity-derive/wiki/Hooks-en) [🇷🇺](https://github.com/RAprogramm/entity-derive/wiki/Hooks-ru) [🇰🇷](https://github.com/RAprogramm/entity-derive/wiki/Hooks-ko) [🇪🇸](https://github.com/RAprogramm/entity-derive/wiki/Hooks-es) [🇨🇳](https://github.com/RAprogramm/entity-derive/wiki/Hooks-zh) |
+| Commands | [🇬🇧](https://github.com/RAprogramm/entity-derive/wiki/Commands-en) [🇷🇺](https://github.com/RAprogramm/entity-derive/wiki/Commands-ru) [🇰🇷](https://github.com/RAprogramm/entity-derive/wiki/Commands-ko) [🇪🇸](https://github.com/RAprogramm/entity-derive/wiki/Commands-es) [🇨🇳](https://github.com/RAprogramm/entity-derive/wiki/Commands-zh) |
+| **Advanced** ||
+| Custom SQL | [🇬🇧](https://github.com/RAprogramm/entity-derive/wiki/Custom-SQL-en) [🇷🇺](https://github.com/RAprogramm/entity-derive/wiki/Custom-SQL-ru) [🇰🇷](https://github.com/RAprogramm/entity-derive/wiki/Custom-SQL-ko) [🇪🇸](https://github.com/RAprogramm/entity-derive/wiki/Custom-SQL-es) [🇨🇳](https://github.com/RAprogramm/entity-derive/wiki/Custom-SQL-zh) |
+| Web Frameworks | [🇬🇧](https://github.com/RAprogramm/entity-derive/wiki/Web-Frameworks-en) [🇷🇺](https://github.com/RAprogramm/entity-derive/wiki/Web-Frameworks-ru) [🇰🇷](https://github.com/RAprogramm/entity-derive/wiki/Web-Frameworks-ko) [🇪🇸](https://github.com/RAprogramm/entity-derive/wiki/Web-Frameworks-es) [🇨🇳](https://github.com/RAprogramm/entity-derive/wiki/Web-Frameworks-zh) |
+| Best Practices | [🇬🇧](https://github.com/RAprogramm/entity-derive/wiki/Best-Practices-en) [🇷🇺](https://github.com/RAprogramm/entity-derive/wiki/Best-Practices-ru) [🇰🇷](https://github.com/RAprogramm/entity-derive/wiki/Best-Practices-ko) [🇪🇸](https://github.com/RAprogramm/entity-derive/wiki/Best-Practices-es) [🇨🇳](https://github.com/RAprogramm/entity-derive/wiki/Best-Practices-zh) |
 
-#[derive(Entity)]
-#[entity(table = "posts", schema = "blog")]
-pub struct Post {
-    #[id]
-    pub id: Uuid,
+---
 
-    #[field(create, update, response)]
-    pub title: String,
+## Quick Reference
 
-    #[field(create, update, response)]
-    pub content: String,
+### Entity Attributes
 
-    #[field(create, response)]
-    pub author_id: Uuid,
-
-    #[field(response)]
-    #[auto]
-    pub created_at: DateTime<Utc>,
-
-    #[field(response)]
-    #[auto]
-    pub updated_at: DateTime<Utc>,
-}
-
-// Now you have:
-// - CreatePostRequest { title, content, author_id }
-// - UpdatePostRequest { title?, content? }
-// - PostResponse { id, title, content, author_id, created_at, updated_at }
-// - PostRow, InsertablePost
-// - PostRepository trait
-// - impl PostRepository for sqlx::PgPool
-```
-
-<div align="right"><a href="#top">⬆ back to top</a></div>
-
-## Attribute Reference
-
-### Entity-Level: `#[entity(...)]`
-
-| Attribute | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `table` | Yes | — | Database table name |
-| `schema` | No | `"public"` | Database schema |
-| `sql` | No | `"full"` | SQL generation level |
-| `dialect` | No | `"postgres"` | Database dialect |
-| `uuid` | No | `"v7"` | UUID version for ID generation |
-
-#### Database Dialects
-
-| Dialect | Alias | Client | Status |
-|---------|-------|--------|--------|
-| `postgres` | `pg`, `postgresql` | `sqlx::PgPool` | Stable |
-| `clickhouse` | `ch` | `clickhouse::Client` | Planned |
-| `mongodb` | `mongo` | `mongodb::Client` | Planned |
-
-#### UUID Versions
-
-| Version | Method | Properties |
-|---------|--------|------------|
-| `v7` | `Uuid::now_v7()` | Time-ordered, sortable (recommended for databases) |
-| `v4` | `Uuid::new_v4()` | Random, widely compatible |
-
-#### SQL Levels
-
-| Level | Repository Trait | PgPool Impl | Use Case |
-|-------|-----------------|-------------|----------|
-| `full` | Yes | Yes | Simple entities with standard CRUD |
-| `trait` | Yes | No | Custom queries (joins, CTEs, full-text search) |
-| `none` | No | No | DTOs only, no database layer |
-
-### Field-Level Attributes
-
-| Attribute | Effect |
-|-----------|--------|
-| `#[id]` | Primary key, auto-generated UUID (v7 by default, configurable with `uuid` attribute), always in response |
-| `#[auto]` | Auto-generated field (timestamps), excluded from create/update |
-| `#[field(create)]` | Include in `CreateRequest` |
-| `#[field(update)]` | Include in `UpdateRequest` (wrapped in `Option` if not already) |
-| `#[field(response)]` | Include in `Response` |
-| `#[field(skip)]` | Exclude from all DTOs (for sensitive data) |
-
-Combine multiple: `#[field(create, update, response)]`
-
-### Example with All Options
-
-```rust,ignore
-#[derive(Entity)]
+```rust
 #[entity(
-    table = "sessions",
-    schema = "auth",
-    sql = "full",
-    dialect = "postgres",
-    uuid = "v4"  // Use random UUID instead of time-ordered
+    table = "users",           // Required: table name
+    schema = "public",         // Optional: schema (default: public)
+    dialect = "postgres",      // Optional: database dialect
+    soft_delete,               // Optional: use deleted_at instead of DELETE
+    events,                    // Optional: generate lifecycle events
+    streams,                   // Optional: real-time Postgres NOTIFY
+    hooks,                     // Optional: before/after lifecycle hooks
+    commands,                  // Optional: CQRS command pattern
 )]
-pub struct Session {
-    #[id]
-    pub id: Uuid,
-    // ...
-}
 ```
 
-<div align="right"><a href="#top">⬆ back to top</a></div>
+### Field Attributes
 
-## Generated Code
-
-For a `User` entity, the macro generates:
-
-### DTOs
-
-```rust,ignore
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CreateUserRequest {
-    pub name: String,
-    pub email: String,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct UpdateUserRequest {
-    pub name: Option<String>,
-    pub email: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UserResponse {
-    pub id: Uuid,
-    pub name: String,
-    pub email: String,
-    pub created_at: DateTime<Utc>,
-}
+```rust
+#[id]                          // Primary key (auto-generated UUID)
+#[auto]                        // Auto-generated (timestamps)
+#[field(create)]               // Include in CreateRequest
+#[field(update)]               // Include in UpdateRequest
+#[field(response)]             // Include in Response
+#[field(skip)]                 // Exclude from all DTOs
+#[filter]                      // Exact match filter
+#[filter(like)]                // ILIKE pattern filter
+#[filter(range)]               // Range filter (from/to)
+#[belongs_to(Entity)]          // Foreign key relation
+#[has_many(Entity)]            // One-to-many relation
+#[projection(Name: fields)]    // Partial view
 ```
 
-### Repository Trait
-
-```rust,ignore
-#[async_trait]
-pub trait UserRepository: Send + Sync {
-    type Error: std::error::Error + Send + Sync;
-
-    async fn create(&self, dto: CreateUserRequest) -> Result<User, Self::Error>;
-    async fn find_by_id(&self, id: Uuid) -> Result<Option<User>, Self::Error>;
-    async fn update(&self, id: Uuid, dto: UpdateUserRequest) -> Result<User, Self::Error>;
-    async fn delete(&self, id: Uuid) -> Result<bool, Self::Error>;
-    async fn list(&self, limit: i64, offset: i64) -> Result<Vec<User>, Self::Error>;
-}
-```
-
-### SQL Implementation
-
-```rust,ignore
-#[async_trait]
-impl UserRepository for sqlx::PgPool {
-    type Error = sqlx::Error;
-
-    async fn create(&self, dto: CreateUserRequest) -> Result<User, Self::Error> {
-        let entity = User::from(dto);
-        let insertable = InsertableUser::from(&entity);
-        sqlx::query(
-            "INSERT INTO core.users (id, name, email, password_hash, created_at) \
-             VALUES ($1, $2, $3, $4, $5)"
-        )
-        .bind(insertable.id)
-        .bind(&insertable.name)
-        .bind(&insertable.email)
-        .bind(&insertable.password_hash)
-        .bind(insertable.created_at)
-        .execute(self)
-        .await?;
-        Ok(entity)
-    }
-
-    // ... find_by_id, update, delete, list
-}
-```
-
-### Mappers
-
-```rust,ignore
-impl From<UserRow> for User { /* ... */ }
-impl From<CreateUserRequest> for User { /* ... */ }
-impl From<User> for UserResponse { /* ... */ }
-impl From<&User> for InsertableUser { /* ... */ }
-// ... and more
-```
-
-<div align="right"><a href="#top">⬆ back to top</a></div>
-
-## Architecture
-
-```text
-┌─────────────────────────────────────────────────────────────┐
-│                     Your Code                               │
-│  #[derive(Entity)]                                          │
-│  pub struct User { ... }                                    │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                   entity-derive                             │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
-│  │   Parser    │  │ Generators  │  │      Output         │  │
-│  │             │  │             │  │                     │  │
-│  │ EntityDef   │─>│ dto.rs      │─>│ CreateRequest       │  │
-│  │ FieldDef    │  │ row.rs      │  │ UpdateRequest       │  │
-│  │ SqlLevel    │  │ repository  │  │ Response            │  │
-│  │             │  │ sql.rs      │  │ Row, Insertable     │  │
-│  │             │  │ mappers.rs  │  │ Repository trait    │  │
-│  │             │  │             │  │ PgPool impl         │  │
-│  │             │  │             │  │ From impls          │  │
-│  └─────────────┘  └─────────────┘  └─────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-```
-
-<div align="right"><a href="#top">⬆ back to top</a></div>
-
-## Comparison
-
-| Aspect | Without entity-derive | With entity-derive |
-|--------|----------------------|-------------------|
-| Lines of code | 200+ per entity | ~15 per entity |
-| Type safety | Manual sync required | Automatic |
-| Sensitive data leaks | Possible | Prevented by `#[field(skip)]` |
-| Partial updates | Manual wrapping | Automatic |
-| SQL bindings | Error-prone | Always in sync |
-| Refactoring | Update 8+ places | Update 1 place |
-
-<div align="right"><a href="#top">⬆ back to top</a></div>
+---
 
 ## Code Coverage
-
-We maintain high test coverage to ensure reliability. Below are visual representations of our codebase coverage:
-
-### Sunburst
-
-The inner circle represents the entire project. Moving outward: folders, then individual files. Size = number of statements, color = coverage percentage.
 
 <p align="center">
   <a href="https://codecov.io/gh/RAprogramm/entity-derive">
@@ -432,24 +161,3 @@ The inner circle represents the entire project. Moving outward: folders, then in
   </a>
 </p>
 
-### Grid
-
-Each block represents a file. Size = number of statements, color = coverage level (green = high, red = low).
-
-<p align="center">
-  <a href="https://codecov.io/gh/RAprogramm/entity-derive">
-    <img src="https://codecov.io/gh/RAprogramm/entity-derive/graphs/tree.svg?token=HGuwZf0REV" alt="Coverage Grid"/>
-  </a>
-</p>
-
-### Icicle
-
-Hierarchical view: top = entire project, descending through folders to individual files. Size and color represent statements and coverage.
-
-<p align="center">
-  <a href="https://codecov.io/gh/RAprogramm/entity-derive">
-    <img src="https://codecov.io/gh/RAprogramm/entity-derive/graphs/icicle.svg?token=HGuwZf0REV" alt="Coverage Icicle"/>
-  </a>
-</p>
-
-<div align="right"><a href="#top">⬆ back to top</a></div>

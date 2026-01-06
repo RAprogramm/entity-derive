@@ -1,0 +1,5 @@
+error: Entity must have exactly one field with #[id] attribute
+ --> tests/cases/fail/missing_id.rs:9:12
+  |
+9 | pub struct Item {
+  |            ^^^^

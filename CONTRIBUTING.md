@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: 2025 RA <contact@revaprogramm.com>
+SPDX-FileCopyrightText: 2025-2026 RA <contact@revaprogramm.com>
 SPDX-License-Identifier: MIT
 -->
 

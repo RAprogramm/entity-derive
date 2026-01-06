@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "entity-derive-impl"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.92"
+authors = ["RAprogramm <andrey.rozanov.vl@gmail.com>"]
+description = "Internal proc-macro implementation for entity-derive. Use entity-derive instead."
+license = "MIT"
+repository = "https://github.com/RAprogramm/entity-derive"
+documentation = "https://docs.rs/entity-derive"
+keywords = ["derive", "macro", "entity", "internal"]
+categories = ["development-tools::procedural-macro-helpers"]
+
+[lib]
+proc-macro = true
+
+[features]
+default = []
+
+[dependencies]
+syn = { version = "2", features = ["full", "extra-traits", "parsing"] }
+quote = "1"
+proc-macro2 = "1"
+darling = "0.23"
+convert_case = "0.10"
+
+[dev-dependencies]
+trybuild = "1"
+uuid = { version = "1", features = ["v4", "v7", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+async-trait = "0.1"
+sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "uuid", "chrono"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+utoipa = { version = "5", features = ["chrono", "uuid"] }
+validator = { version = "0.20", features = ["derive"] }
+entity-core = { path = "../entity-core" }
