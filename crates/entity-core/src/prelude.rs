@@ -9,6 +9,8 @@
 //! use entity_core::prelude::*;
 //! ```
 
+#[cfg(feature = "streams")]
+pub use crate::stream::StreamError;
 pub use crate::{
     CommandKind, EntityCommand, EntityEvent, EventKind, Pagination, Repository, SortDirection,
     async_trait,
