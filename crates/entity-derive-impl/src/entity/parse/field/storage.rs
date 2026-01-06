@@ -68,35 +68,6 @@ pub struct StorageConfig {
 }
 
 impl StorageConfig {
-    /// Create config for ID field.
-    #[must_use]
-    #[allow(dead_code)]
-    pub fn id() -> Self {
-        Self {
-            is_id:      true,
-            is_auto:    false,
-            belongs_to: None
-        }
-    }
-
-    /// Create config for auto-generated field.
-    #[must_use]
-    #[allow(dead_code)]
-    pub fn auto() -> Self {
-        Self {
-            is_id:      false,
-            is_auto:    true,
-            belongs_to: None
-        }
-    }
-
-    /// Check if field value is auto-generated (ID or auto).
-    #[must_use]
-    #[allow(dead_code)]
-    pub fn is_generated(&self) -> bool {
-        self.is_id || self.is_auto
-    }
-
     /// Check if this field is a foreign key relation.
     #[must_use]
     pub fn is_relation(&self) -> bool {
@@ -115,23 +86,6 @@ mod tests {
         let config = StorageConfig::default();
         assert!(!config.is_id);
         assert!(!config.is_auto);
-        assert!(!config.is_generated());
-        assert!(!config.is_relation());
-    }
-
-    #[test]
-    fn id_is_generated() {
-        let config = StorageConfig::id();
-        assert!(config.is_id);
-        assert!(config.is_generated());
-        assert!(!config.is_relation());
-    }
-
-    #[test]
-    fn auto_is_generated() {
-        let config = StorageConfig::auto();
-        assert!(config.is_auto);
-        assert!(config.is_generated());
         assert!(!config.is_relation());
     }
 
@@ -143,6 +97,5 @@ mod tests {
             belongs_to: Some(Ident::new("User", Span::call_site()))
         };
         assert!(config.is_relation());
-        assert!(!config.is_generated());
     }
 }

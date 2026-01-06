@@ -33,7 +33,7 @@ mod storage;
 pub use expose::ExposeConfig;
 pub use filter::{FilterConfig, FilterType};
 pub use storage::StorageConfig;
-use syn::{Attribute, Field, Ident, Type, Visibility};
+use syn::{Attribute, Field, Ident, Type};
 
 /// Parse `#[belongs_to(EntityName)]` attribute.
 ///
@@ -68,10 +68,6 @@ pub struct FieldDef {
     /// Field type (e.g., `Uuid`, `Option<String>`, `DateTime<Utc>`).
     pub ty: Type,
 
-    /// Field visibility.
-    #[allow(dead_code)]
-    pub vis: Visibility,
-
     /// DTO exposure configuration.
     pub expose: ExposeConfig,
 
@@ -96,7 +92,6 @@ impl FieldDef {
             darling::Error::custom("Entity fields must be named").with_span(field)
         })?;
         let ty = field.ty.clone();
-        let vis = field.vis.clone();
 
         let mut expose = ExposeConfig::default();
         let mut storage = StorageConfig::default();
@@ -119,7 +114,6 @@ impl FieldDef {
         Ok(Self {
             ident,
             ty,
-            vis,
             expose,
             storage,
             filter

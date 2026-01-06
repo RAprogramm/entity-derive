@@ -86,17 +86,6 @@ impl DatabaseDialect {
         }
     }
 
-    /// Get the client type path for this dialect.
-    #[must_use]
-    #[allow(dead_code)]
-    pub fn client_type(&self) -> &'static str {
-        match self {
-            Self::Postgres => "sqlx::PgPool",
-            Self::ClickHouse => "clickhouse::Client",
-            Self::MongoDB => "mongodb::Client"
-        }
-    }
-
     /// Get the feature flag name for this dialect.
     #[must_use]
     pub fn feature_flag(&self) -> &'static str {
@@ -105,27 +94,6 @@ impl DatabaseDialect {
             Self::ClickHouse => "clickhouse",
             Self::MongoDB => "mongodb"
         }
-    }
-
-    /// Check if RETURNING clause is supported.
-    #[must_use]
-    #[allow(dead_code)]
-    pub fn supports_returning(&self) -> bool {
-        matches!(self, Self::Postgres)
-    }
-
-    /// Check if this is a SQL-based database.
-    #[must_use]
-    #[allow(dead_code)]
-    pub fn is_sql(&self) -> bool {
-        matches!(self, Self::Postgres | Self::ClickHouse)
-    }
-
-    /// Check if this is a document database.
-    #[must_use]
-    #[allow(dead_code)]
-    pub fn is_document(&self) -> bool {
-        matches!(self, Self::MongoDB)
     }
 }
 
@@ -189,41 +157,10 @@ mod tests {
     }
 
     #[test]
-    fn client_types() {
-        assert_eq!(DatabaseDialect::Postgres.client_type(), "sqlx::PgPool");
-        assert_eq!(
-            DatabaseDialect::ClickHouse.client_type(),
-            "clickhouse::Client"
-        );
-        assert_eq!(DatabaseDialect::MongoDB.client_type(), "mongodb::Client");
-    }
-
-    #[test]
     fn feature_flags() {
         assert_eq!(DatabaseDialect::Postgres.feature_flag(), "postgres");
         assert_eq!(DatabaseDialect::ClickHouse.feature_flag(), "clickhouse");
         assert_eq!(DatabaseDialect::MongoDB.feature_flag(), "mongodb");
-    }
-
-    #[test]
-    fn is_sql() {
-        assert!(DatabaseDialect::Postgres.is_sql());
-        assert!(DatabaseDialect::ClickHouse.is_sql());
-        assert!(!DatabaseDialect::MongoDB.is_sql());
-    }
-
-    #[test]
-    fn is_document() {
-        assert!(!DatabaseDialect::Postgres.is_document());
-        assert!(!DatabaseDialect::ClickHouse.is_document());
-        assert!(DatabaseDialect::MongoDB.is_document());
-    }
-
-    #[test]
-    fn supports_returning() {
-        assert!(DatabaseDialect::Postgres.supports_returning());
-        assert!(!DatabaseDialect::ClickHouse.supports_returning());
-        assert!(!DatabaseDialect::MongoDB.supports_returning());
     }
 
     #[test]
