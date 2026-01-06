@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🐛 Bug Fixes
 
+- **ci:** Correct YAML syntax in release notes generation ([397438c](https://github.com/RAprogramm/entity-derive/commit/397438c3bff63c767d01efce6f483ebd93eea972)) by [@RAprogramm](https://github.com/RAprogramm)
+- Improve CI release detection and docs.rs configuration ([1977a2c](https://github.com/RAprogramm/entity-derive/commit/1977a2c3bf458341b9e2b0a321f76ccb542cb094)) by [@RAprogramm](https://github.com/RAprogramm)
 - Remove invalid crates-io registry from dependabot ([38f27e3](https://github.com/RAprogramm/entity-derive/commit/38f27e3045da206c1538158e74467a003c9f7430)) by [@RAprogramm](https://github.com/RAprogramm)
 
 
