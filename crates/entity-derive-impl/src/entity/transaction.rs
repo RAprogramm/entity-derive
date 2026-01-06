@@ -32,7 +32,7 @@ use convert_case::{Case, Casing};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
-use super::parse::EntityDef;
+use super::{parse::EntityDef, sql::postgres::Context};
 use crate::utils::marker;
 
 /// Generate all transaction-related code for an entity.
@@ -58,12 +58,27 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
 /// repository methods that operate within the transaction.
 fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
     let vis = &entity.vis;
-    let entity_name = entity.name();
+    let ctx = Context::new(entity);
+    let entity_name = ctx.entity_name;
+    let row_name = &ctx.row_name;
+    let insertable_name = &ctx.insertable_name;
+    let create_dto = &ctx.create_dto;
+    let update_dto = &ctx.update_dto;
+    let table = &ctx.table;
+    let columns_str = &ctx.columns_str;
+    let placeholders_str = &ctx.placeholders_str;
+    let id_name = ctx.id_name;
+    let id_type = ctx.id_type;
+    let soft_delete = ctx.soft_delete;
     let repo_name = format_ident!("{}TransactionRepo", entity_name);
-    let create_dto = entity.ident_with("Create", "Request");
-    let update_dto = entity.ident_with("Update", "Request");
-    let id_type = entity.id_field().ty();
     let marker = marker::generated();
+
+    let bindings = super::sql::postgres::helpers::insert_bindings(entity.all_fields());
+    let deleted_filter = if soft_delete {
+        " AND deleted_at IS NULL"
+    } else {
+        ""
+    };
 
     let create_method = if entity.create_fields().is_empty() {
         TokenStream::new()
@@ -74,8 +89,14 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
                 &mut self,
                 dto: #create_dto
             ) -> Result<#entity_name, sqlx::Error> {
-                // Implementation delegated to generated SQL
-                todo!("Transaction create not yet implemented")
+                let entity = #entity_name::from(dto);
+                let insertable = #insertable_name::from(&entity);
+                let row: #row_name = sqlx::query_as(
+                    concat!("INSERT INTO ", #table, " (", #columns_str, ") VALUES (", #placeholders_str, ") RETURNING *")
+                )
+                    #(#bindings)*
+                    .fetch_one(&mut **self.tx).await?;
+                Ok(#entity_name::from(row))
             }
         }
     };
@@ -83,6 +104,13 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
     let update_method = if entity.update_fields().is_empty() {
         TokenStream::new()
     } else {
+        let update_fields = entity.update_fields();
+        let field_names: Vec<String> = update_fields.iter().map(|f| f.name_str()).collect();
+        let field_refs: Vec<&str> = field_names.iter().map(String::as_str).collect();
+        let set_clause = ctx.dialect.set_clause(&field_refs);
+        let where_placeholder = ctx.dialect.placeholder(update_fields.len() + 1);
+        let update_bindings = super::sql::postgres::helpers::update_bindings(&update_fields);
+
         quote! {
             /// Update an entity within the transaction.
             pub async fn update(
@@ -90,8 +118,33 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
                 id: #id_type,
                 dto: #update_dto
             ) -> Result<#entity_name, sqlx::Error> {
-                todo!("Transaction update not yet implemented")
+                let row: #row_name = sqlx::query_as(
+                    &format!("UPDATE {} SET {} WHERE {} = {} RETURNING *",
+                        #table, #set_clause, stringify!(#id_name), #where_placeholder)
+                )
+                    #(#update_bindings)*
+                    .bind(&id)
+                    .fetch_one(&mut **self.tx).await?;
+                Ok(#entity_name::from(row))
             }
+        }
+    };
+
+    let delete_sql = if soft_delete {
+        quote! {
+            let result = sqlx::query(&format!(
+                "UPDATE {} SET deleted_at = NOW() WHERE {} = $1 AND deleted_at IS NULL",
+                #table, stringify!(#id_name)
+            )).bind(&id).execute(&mut **self.tx).await?;
+            Ok(result.rows_affected() > 0)
+        }
+    } else {
+        quote! {
+            let result = sqlx::query(&format!(
+                "DELETE FROM {} WHERE {} = $1",
+                #table, stringify!(#id_name)
+            )).bind(&id).execute(&mut **self.tx).await?;
+            Ok(result.rows_affected() > 0)
         }
     };
 
@@ -119,7 +172,11 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
                 &mut self,
                 id: #id_type
             ) -> Result<Option<#entity_name>, sqlx::Error> {
-                todo!("Transaction find_by_id not yet implemented")
+                let row: Option<#row_name> = sqlx::query_as(
+                    &format!("SELECT {} FROM {} WHERE {} = $1{}",
+                        #columns_str, #table, stringify!(#id_name), #deleted_filter)
+                ).bind(&id).fetch_optional(&mut **self.tx).await?;
+                Ok(row.map(#entity_name::from))
             }
 
             #update_method
@@ -129,7 +186,7 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
                 &mut self,
                 id: #id_type
             ) -> Result<bool, sqlx::Error> {
-                todo!("Transaction delete not yet implemented")
+                #delete_sql
             }
 
             /// List entities within the transaction.
@@ -138,7 +195,12 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
                 limit: i64,
                 offset: i64
             ) -> Result<Vec<#entity_name>, sqlx::Error> {
-                todo!("Transaction list not yet implemented")
+                let where_clause = if #soft_delete { "WHERE deleted_at IS NULL " } else { "" };
+                let rows: Vec<#row_name> = sqlx::query_as(
+                    &format!("SELECT {} FROM {} {}ORDER BY {} DESC LIMIT $1 OFFSET $2",
+                        #columns_str, #table, where_clause, stringify!(#id_name))
+                ).bind(limit).bind(offset).fetch_all(&mut **self.tx).await?;
+                Ok(rows.into_iter().map(#entity_name::from).collect())
             }
         }
     }
