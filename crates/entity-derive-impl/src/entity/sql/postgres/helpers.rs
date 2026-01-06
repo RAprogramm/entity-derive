@@ -176,7 +176,12 @@ pub fn generate_query_bindings(fields: &[&FieldDef]) -> TokenStream {
                 FilterType::Like => {
                     vec![quote! {
                         if let Some(ref v) = query.#name {
-                            q = q.bind(format!("%{}%", v));
+                            // Escape SQL LIKE wildcards to prevent injection
+                            let escaped = v
+                                .replace('\\', "\\\\")
+                                .replace('%', "\\%")
+                                .replace('_', "\\_");
+                            q = q.bind(format!("%{}%", escaped));
                         }
                     }]
                 }
