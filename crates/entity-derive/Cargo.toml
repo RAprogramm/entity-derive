@@ -24,8 +24,8 @@ api = []
 validate = []
 
 [dependencies]
-entity-core = { path = "../entity-core", version = "0.2.0" }
-entity-derive-impl = { path = "../entity-derive-impl", version = "0.2.0" }
+entity-core = { path = "../entity-core", version = "0.3.0" }
+entity-derive-impl = { path = "../entity-derive-impl", version = "0.3.0" }
 
 [dev-dependencies]
 trybuild = "1"
