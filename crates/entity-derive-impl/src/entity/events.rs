@@ -45,7 +45,9 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     let entity_name = entity.name();
     let event_name = format_ident!("{}Event", entity_name);
 
-    let id_type = entity.id_field().ty();
+    let id_field = entity.id_field();
+    let id_type = id_field.ty();
+    let id_name = id_field.name();
 
     let soft_delete_variants = if entity.is_soft_delete() {
         quote! {
@@ -145,8 +147,8 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
 
             fn entity_id(&self) -> &Self::Id {
                 match self {
-                    Self::Created(e) => &e.id,
-                    Self::Updated { new, .. } => &new.id,
+                    Self::Created(e) => &e.#id_name,
+                    Self::Updated { new, .. } => &new.#id_name,
                     Self::HardDeleted { id } => id,
                     #soft_delete_id_arms
                 }
