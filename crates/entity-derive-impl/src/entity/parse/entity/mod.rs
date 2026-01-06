@@ -34,8 +34,9 @@
 mod attrs;
 mod projection;
 
-pub use attrs::{EntityAttrs, default_error_type};
-use convert_case::{Case, Casing};
+pub use attrs::EntityAttrs;
+#[cfg(test)]
+use attrs::default_error_type;
 use darling::FromDeriveInput;
 use proc_macro2::Span;
 pub use projection::{ProjectionDef, parse_projection_attrs};
@@ -417,24 +418,6 @@ impl EntityDef {
         self.ident.to_string()
     }
 
-    /// Get the entity name in snake_case.
-    ///
-    /// Useful for generating function names, variable names, etc.
-    ///
-    /// # Returns
-    ///
-    /// Snake case version of the entity name.
-    ///
-    /// # Example
-    ///
-    /// ```rust,ignore
-    /// entity.snake_name() // "user", "user_profile", "order_item"
-    /// ```
-    #[allow(dead_code)]
-    pub fn snake_name(&self) -> String {
-        self.name_str().to_case(Case::Snake)
-    }
-
     /// Get the fully qualified table name with schema.
     ///
     /// # Returns
@@ -490,19 +473,6 @@ impl EntityDef {
         &self.error
     }
 
-    /// Check if a custom error type is specified.
-    ///
-    /// Returns `true` if the error type is not the default `sqlx::Error`.
-    ///
-    /// # Returns
-    ///
-    /// `true` if custom error type is used.
-    #[allow(dead_code)]
-    pub fn has_custom_error(&self) -> bool {
-        let default = default_error_type();
-        self.error != default
-    }
-
     /// Check if soft delete is enabled for this entity.
     ///
     /// # Returns
@@ -556,31 +526,5 @@ mod tests {
         let error_path = entity.error_type();
         let path_str = quote::quote!(#error_path).to_string();
         assert!(path_str.contains("sqlx"));
-    }
-
-    #[test]
-    fn entity_def_default_has_no_custom_error() {
-        let input: DeriveInput = syn::parse_quote! {
-            #[entity(table = "users")]
-            pub struct User {
-                #[id]
-                pub id: uuid::Uuid,
-            }
-        };
-        let entity = EntityDef::from_derive_input(&input).unwrap();
-        assert!(!entity.has_custom_error());
-    }
-
-    #[test]
-    fn entity_def_custom_error_detected() {
-        let input: DeriveInput = syn::parse_quote! {
-            #[entity(table = "users", error = "MyError")]
-            pub struct User {
-                #[id]
-                pub id: uuid::Uuid,
-            }
-        };
-        let entity = EntityDef::from_derive_input(&input).unwrap();
-        assert!(entity.has_custom_error());
     }
 }

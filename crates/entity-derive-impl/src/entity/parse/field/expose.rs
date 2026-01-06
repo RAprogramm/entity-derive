@@ -79,15 +79,6 @@ impl ExposeConfig {
     pub fn in_update(&self) -> bool {
         !self.skip && self.update
     }
-
-    /// Check if field should appear in Response.
-    ///
-    /// Note: ID fields are always included regardless of this flag.
-    #[must_use]
-    #[allow(dead_code)]
-    pub fn in_response(&self) -> bool {
-        !self.skip && self.response
-    }
 }
 
 #[cfg(test)]
@@ -113,6 +104,7 @@ mod tests {
         };
         assert!(!config.in_create());
         assert!(!config.in_update());
-        assert!(!config.in_response());
+        // response check is done via FieldDef::in_response() which includes ID logic
+        assert!(config.skip);
     }
 }
