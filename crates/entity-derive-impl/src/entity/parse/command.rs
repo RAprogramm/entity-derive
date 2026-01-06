@@ -315,11 +315,6 @@ fn parse_single_command(attr: &Attribute) -> syn::Result<CommandDef> {
 mod tests {
     use super::*;
 
-    fn parse_attr(tokens: &str) -> Vec<CommandDef> {
-        let attr: Attribute = syn::parse_quote!(#[command(#tokens)]);
-        parse_command_attrs(&[attr])
-    }
-
     #[test]
     fn parse_simple_command() {
         let input: syn::DeriveInput = syn::parse_quote! {
