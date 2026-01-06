@@ -59,10 +59,10 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             /// Try to receive an event without blocking.
             ///
             /// Returns `None` if no event is immediately available.
-            pub fn try_recv(
+            pub async fn try_recv(
                 &mut self,
             ) -> Result<Option<#event_name>, ::entity_core::stream::StreamError<::sqlx::Error>> {
-                match self.listener.try_recv() {
+                match self.listener.try_recv().await {
                     Ok(Some(notification)) => {
                         let event = ::serde_json::from_str(notification.payload())
                             .map_err(|e| {

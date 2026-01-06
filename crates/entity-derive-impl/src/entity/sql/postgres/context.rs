@@ -73,7 +73,10 @@ pub struct Context<'a> {
     pub soft_delete: bool,
 
     /// RETURNING clause mode.
-    pub returning: ReturningMode
+    pub returning: ReturningMode,
+
+    /// Whether streams (LISTEN/NOTIFY) is enabled.
+    pub streams: bool
 }
 
 impl<'a> Context<'a> {
@@ -98,7 +101,8 @@ impl<'a> Context<'a> {
             columns_str: join_columns(fields),
             placeholders_str: dialect.placeholders(fields.len()),
             soft_delete: entity.is_soft_delete(),
-            returning: entity.returning.clone()
+            returning: entity.returning.clone(),
+            streams: entity.has_streams()
         }
     }
 }
