@@ -270,7 +270,8 @@ pub trait TransactionRunner<'p, Repos>: Sized {
         E: From<TransactionError<Self::DbError>>;
 }
 
-// sqlx implementations
+// sqlx implementations (requires database for testing)
+// LCOV_EXCL_START
 #[cfg(feature = "postgres")]
 mod postgres_impl {
     use sqlx::{PgPool, Postgres};
@@ -333,6 +334,7 @@ mod postgres_impl {
         }
     }
 }
+// LCOV_EXCL_STOP
 
 #[cfg(test)]
 mod tests {
