@@ -88,18 +88,30 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
 }
 
 /// Generate all schema types (DTOs, commands).
+///
+/// Only registers schemas for enabled handlers to keep OpenAPI spec clean.
 fn generate_all_schema_types(entity: &EntityDef) -> TokenStream {
     let entity_name_str = entity.name_str();
     let mut types: Vec<TokenStream> = Vec::new();
 
-    // CRUD DTOs
-    if entity.api_config().has_handlers() {
+    // CRUD DTOs - only include schemas for enabled handlers
+    let handlers = entity.api_config().handlers();
+    if handlers.any() {
+        // Response is always needed (for get, list, create, update responses)
         let response = entity.ident_with("", "Response");
-        let create = entity.ident_with("Create", "Request");
-        let update = entity.ident_with("Update", "Request");
         types.push(quote! { #response });
-        types.push(quote! { #create });
-        types.push(quote! { #update });
+
+        // CreateRequest only if create handler is enabled
+        if handlers.create {
+            let create = entity.ident_with("Create", "Request");
+            types.push(quote! { #create });
+        }
+
+        // UpdateRequest only if update handler is enabled
+        if handlers.update {
+            let update = entity.ident_with("Update", "Request");
+            types.push(quote! { #update });
+        }
     }
 
     // Command structs
@@ -842,5 +854,69 @@ mod tests {
         let entity = EntityDef::from_derive_input(&input).unwrap();
         let path = build_item_path(&entity);
         assert_eq!(path, "/users/{id}");
+    }
+
+    #[test]
+    fn selective_handlers_schemas_get_list_only() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(tag = "Users", handlers(get, list)))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, update, response)]
+                pub name: String,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let tokens = generate(&entity);
+        let output = tokens.to_string();
+        // Response should be included (needed for get/list)
+        assert!(output.contains("UserResponse"));
+        // CreateRequest should NOT be included (no create handler)
+        assert!(!output.contains("CreateUserRequest"));
+        // UpdateRequest should NOT be included (no update handler)
+        assert!(!output.contains("UpdateUserRequest"));
+    }
+
+    #[test]
+    fn selective_handlers_schemas_create_only() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(tag = "Users", handlers(create)))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, update, response)]
+                pub name: String,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let tokens = generate(&entity);
+        let output = tokens.to_string();
+        // Response should be included (create returns response)
+        assert!(output.contains("UserResponse"));
+        // CreateRequest should be included
+        assert!(output.contains("CreateUserRequest"));
+        // UpdateRequest should NOT be included
+        assert!(!output.contains("UpdateUserRequest"));
+    }
+
+    #[test]
+    fn selective_handlers_all_schemas() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(tag = "Users", handlers(create, update)))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, update, response)]
+                pub name: String,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let tokens = generate(&entity);
+        let output = tokens.to_string();
+        // All schemas should be included
+        assert!(output.contains("UserResponse"));
+        assert!(output.contains("CreateUserRequest"));
+        assert!(output.contains("UpdateUserRequest"));
     }
 }
