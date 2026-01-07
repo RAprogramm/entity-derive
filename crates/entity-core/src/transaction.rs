@@ -37,7 +37,9 @@
 //! }
 //! ```
 
-use std::{error::Error as StdError, fmt, future::Future};
+use std::{error::Error as StdError, fmt};
+#[cfg(feature = "postgres")]
+use std::future::Future;
 
 /// Transaction builder for composing multi-entity operations.
 ///
