@@ -268,3 +268,254 @@ pub fn generate_info_code(entity: &EntityDef) -> TokenStream {
         #deprecated_code
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn generate_info_empty_config() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(tag = "Users", handlers))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let output = generate_info_code(&entity);
+        assert!(output.is_empty() || output.to_string().is_empty());
+    }
+
+    #[test]
+    fn generate_info_with_title() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(tag = "Users", title = "User API", handlers))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let output = generate_info_code(&entity);
+        let output_str = output.to_string();
+        assert!(output_str.contains("openapi . info . title"));
+        assert!(output_str.contains("User API"));
+    }
+
+    #[test]
+    fn generate_info_with_description() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(tag = "Users", description = "Manage users", handlers))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let output = generate_info_code(&entity);
+        let output_str = output.to_string();
+        assert!(output_str.contains("openapi . info . description"));
+        assert!(output_str.contains("Manage users"));
+    }
+
+    #[test]
+    fn generate_info_with_version() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(tag = "Users", api_version = "2.0.0", handlers))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let output = generate_info_code(&entity);
+        let output_str = output.to_string();
+        assert!(output_str.contains("openapi . info . version"));
+        assert!(output_str.contains("2.0.0"));
+    }
+
+    #[test]
+    fn generate_info_with_license() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(tag = "Users", license = "MIT", handlers))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let output = generate_info_code(&entity);
+        let output_str = output.to_string();
+        assert!(output_str.contains("openapi . info . license"));
+        assert!(output_str.contains("MIT"));
+    }
+
+    #[test]
+    fn generate_info_with_license_and_url() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(
+                tag = "Users",
+                license = "MIT",
+                license_url = "https://opensource.org/licenses/MIT",
+                handlers
+            ))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let output = generate_info_code(&entity);
+        let output_str = output.to_string();
+        assert!(output_str.contains("LicenseBuilder"));
+        assert!(output_str.contains("MIT"));
+        assert!(output_str.contains("opensource.org"));
+    }
+
+    #[test]
+    fn generate_info_with_contact_name() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(tag = "Users", contact_name = "API Team", handlers))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let output = generate_info_code(&entity);
+        let output_str = output.to_string();
+        assert!(output_str.contains("openapi . info . contact"));
+        assert!(output_str.contains("ContactBuilder"));
+        assert!(output_str.contains("API Team"));
+    }
+
+    #[test]
+    fn generate_info_with_contact_email() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(
+                tag = "Users",
+                contact_name = "Support",
+                contact_email = "support@example.com",
+                handlers
+            ))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let output = generate_info_code(&entity);
+        let output_str = output.to_string();
+        assert!(output_str.contains("email"));
+        assert!(output_str.contains("support@example.com"));
+    }
+
+    #[test]
+    fn generate_info_with_contact_url() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(
+                tag = "Users",
+                contact_name = "Support",
+                contact_url = "https://example.com/support",
+                handlers
+            ))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let output = generate_info_code(&entity);
+        let output_str = output.to_string();
+        assert!(output_str.contains("url"));
+        assert!(output_str.contains("example.com/support"));
+    }
+
+    #[test]
+    fn generate_info_with_full_contact() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(
+                tag = "Users",
+                contact_name = "API Team",
+                contact_email = "api@example.com",
+                contact_url = "https://example.com",
+                handlers
+            ))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let output = generate_info_code(&entity);
+        let output_str = output.to_string();
+        assert!(output_str.contains("ContactBuilder"));
+        assert!(output_str.contains("API Team"));
+        assert!(output_str.contains("api@example.com"));
+        assert!(output_str.contains("example.com"));
+    }
+
+    #[test]
+    fn generate_info_deprecated() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(tag = "Users", deprecated_in = "2.0", handlers))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let output = generate_info_code(&entity);
+        let output_str = output.to_string();
+        assert!(output_str.contains("DEPRECATED"));
+        assert!(output_str.contains("2.0"));
+    }
+
+    #[test]
+    fn generate_info_full_config() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(
+                tag = "Users",
+                title = "User API",
+                description = "User management endpoints",
+                api_version = "1.0.0",
+                license = "MIT",
+                license_url = "https://opensource.org/licenses/MIT",
+                contact_name = "Dev Team",
+                contact_email = "dev@example.com",
+                contact_url = "https://example.com",
+                handlers
+            ))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let output = generate_info_code(&entity);
+        let output_str = output.to_string();
+        assert!(output_str.contains("User API"));
+        assert!(output_str.contains("User management endpoints"));
+        assert!(output_str.contains("1.0.0"));
+        assert!(output_str.contains("MIT"));
+        assert!(output_str.contains("Dev Team"));
+    }
+
+    #[test]
+    fn generate_info_uses_entity_doc_as_description() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            /// User entity for managing accounts.
+            #[entity(table = "users", api(tag = "Users", handlers))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let output = generate_info_code(&entity);
+        let output_str = output.to_string();
+        assert!(output_str.contains("openapi . info . description"));
+        assert!(output_str.contains("User entity"));
+    }
+}

@@ -267,7 +267,22 @@ fn axum_method_for_command(cmd: &CommandDef) -> syn::Ident {
 
 #[cfg(test)]
 mod tests {
+    use proc_macro2::Span;
+    use syn::Ident;
+
     use super::*;
+    use crate::entity::parse::{CommandKindHint, CommandSource};
+
+    fn create_test_command(name: &str, requires_id: bool, kind: CommandKindHint) -> CommandDef {
+        CommandDef {
+            name: Ident::new(name, Span::call_site()),
+            source: CommandSource::Create,
+            requires_id,
+            result_type: None,
+            kind,
+            security: None
+        }
+    }
 
     #[test]
     fn crud_collection_path() {
@@ -309,5 +324,187 @@ mod tests {
         let entity = EntityDef::from_derive_input(&input).unwrap();
         let path = build_crud_collection_path(&entity);
         assert_eq!(path, "/api/v1/users");
+    }
+
+    #[test]
+    fn command_path_without_id() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", commands, api(tag = "Users"))]
+            #[command(Register)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let cmd = create_test_command("Register", false, CommandKindHint::Create);
+        let path = build_command_path(&entity, &cmd);
+        assert_eq!(path, "/users/register");
+    }
+
+    #[test]
+    fn command_path_with_id() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", commands, api(tag = "Users"))]
+            #[command(UpdateEmail: email)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let cmd = create_test_command("UpdateEmail", true, CommandKindHint::Update);
+        let path = build_command_path(&entity, &cmd);
+        assert_eq!(path, "/users/{id}/update-email");
+    }
+
+    #[test]
+    fn command_path_with_prefix() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", commands, api(tag = "Users", path_prefix = "/api/v2"))]
+            #[command(Register)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let cmd = create_test_command("Register", false, CommandKindHint::Create);
+        let path = build_command_path(&entity, &cmd);
+        assert_eq!(path, "/api/v2/users/register");
+    }
+
+    #[test]
+    fn command_handler_name_simple() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", commands, api(tag = "Users"))]
+            #[command(Register)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let cmd = create_test_command("Register", false, CommandKindHint::Create);
+        let name = command_handler_name(&entity, &cmd);
+        assert_eq!(name.to_string(), "register_user");
+    }
+
+    #[test]
+    fn command_handler_name_multi_word() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", commands, api(tag = "Users"))]
+            #[command(UpdateEmail: email)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let cmd = create_test_command("UpdateEmail", true, CommandKindHint::Update);
+        let name = command_handler_name(&entity, &cmd);
+        assert_eq!(name.to_string(), "update_email_user");
+    }
+
+    #[test]
+    fn axum_method_create() {
+        let cmd = create_test_command("Register", false, CommandKindHint::Create);
+        assert_eq!(axum_method_for_command(&cmd).to_string(), "post");
+    }
+
+    #[test]
+    fn axum_method_update() {
+        let cmd = create_test_command("Update", true, CommandKindHint::Update);
+        assert_eq!(axum_method_for_command(&cmd).to_string(), "put");
+    }
+
+    #[test]
+    fn axum_method_delete() {
+        let cmd = create_test_command("Delete", true, CommandKindHint::Delete);
+        assert_eq!(axum_method_for_command(&cmd).to_string(), "delete");
+    }
+
+    #[test]
+    fn axum_method_custom() {
+        let cmd = create_test_command("Transfer", false, CommandKindHint::Custom);
+        assert_eq!(axum_method_for_command(&cmd).to_string(), "post");
+    }
+
+    #[test]
+    fn generate_no_handlers_returns_empty() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(tag = "Users"))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let output = generate_crud_router(&entity);
+        assert!(output.is_empty());
+    }
+
+    #[test]
+    fn generate_no_commands_returns_empty() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(tag = "Users", handlers))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let output = generate_commands_router(&entity);
+        assert!(output.is_empty());
+    }
+
+    #[test]
+    fn generate_crud_router_produces_output() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(tag = "Users", handlers))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let output = generate_crud_router(&entity);
+        let output_str = output.to_string();
+        assert!(output_str.contains("user_router"));
+        assert!(output_str.contains("UserRepository"));
+    }
+
+    #[test]
+    fn generate_commands_router_produces_output() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", commands, api(tag = "Users"))]
+            #[command(Register)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let output = generate_commands_router(&entity);
+        let output_str = output.to_string();
+        assert!(output_str.contains("user_commands_router"));
+        assert!(output_str.contains("UserCommandHandler"));
+    }
+
+    #[test]
+    fn generate_crud_routes_with_specific_handlers() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(tag = "Users", handlers(create, get)))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let routes = generate_crud_routes(&entity);
+        let routes_str = routes.to_string();
+        assert!(routes_str.contains("create_user"));
+        assert!(routes_str.contains("get_user"));
+        assert!(!routes_str.contains("delete_user"));
     }
 }

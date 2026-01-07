@@ -308,7 +308,7 @@ mod tests {
     use syn::Ident;
 
     use super::*;
-    use crate::entity::parse::{CommandDef, CommandSource};
+    use crate::entity::parse::{CommandDef, CommandKindHint, CommandSource, EntityDef};
 
     fn create_test_command(name: &str, requires_id: bool, kind: CommandKindHint) -> CommandDef {
         CommandDef {
@@ -316,6 +316,37 @@ mod tests {
             source: CommandSource::Create,
             requires_id,
             result_type: None,
+            kind,
+            security: None
+        }
+    }
+
+    fn create_command_with_security(
+        name: &str,
+        requires_id: bool,
+        kind: CommandKindHint,
+        security: Option<String>
+    ) -> CommandDef {
+        CommandDef {
+            name: Ident::new(name, Span::call_site()),
+            source: CommandSource::Create,
+            requires_id,
+            result_type: None,
+            kind,
+            security
+        }
+    }
+
+    fn create_command_with_result(
+        name: &str,
+        kind: CommandKindHint,
+        result_type: syn::Type
+    ) -> CommandDef {
+        CommandDef {
+            name: Ident::new(name, Span::call_site()),
+            source: CommandSource::Create,
+            requires_id: false,
+            result_type: Some(result_type),
             kind,
             security: None
         }
@@ -368,5 +399,282 @@ mod tests {
     #[test]
     fn security_scheme_unknown_defaults_to_bearer() {
         assert_eq!(security_scheme_name("unknown"), "bearer_auth");
+    }
+
+    #[test]
+    fn handler_function_name_simple() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", commands, api(tag = "Users"))]
+            #[command(Register)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let cmd = create_test_command("Register", false, CommandKindHint::Create);
+        let name = handler_function_name(&entity, &cmd);
+        assert_eq!(name.to_string(), "register_user");
+    }
+
+    #[test]
+    fn handler_function_name_camel_case() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", commands, api(tag = "Users"))]
+            #[command(UpdateEmail: email)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let cmd = create_test_command("UpdateEmail", true, CommandKindHint::Update);
+        let name = handler_function_name(&entity, &cmd);
+        assert_eq!(name.to_string(), "update_email_user");
+    }
+
+    #[test]
+    fn build_path_without_id() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", commands, api(tag = "Users"))]
+            #[command(Register)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let cmd = create_test_command("Register", false, CommandKindHint::Create);
+        let path = build_path(&entity, &cmd);
+        assert_eq!(path, "/user/register");
+    }
+
+    #[test]
+    fn build_path_with_id() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", commands, api(tag = "Users"))]
+            #[command(UpdateEmail: email)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let cmd = create_test_command("UpdateEmail", true, CommandKindHint::Update);
+        let path = build_path(&entity, &cmd);
+        assert_eq!(path, "/user/{id}/update-email");
+    }
+
+    #[test]
+    fn build_path_with_prefix() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", commands, api(tag = "Users", path_prefix = "/api/v1"))]
+            #[command(Register)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let cmd = create_test_command("Register", false, CommandKindHint::Create);
+        let path = build_path(&entity, &cmd);
+        assert_eq!(path, "/api/v1/user/register");
+    }
+
+    #[test]
+    fn response_type_delete() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", commands, api(tag = "Users"))]
+            #[command(Delete, requires_id, kind = "delete")]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let cmd = create_test_command("Delete", true, CommandKindHint::Delete);
+        let (resp_type, _) = response_type_for_command(&entity, &cmd);
+        assert_eq!(resp_type.to_string(), "()");
+    }
+
+    #[test]
+    fn response_type_create() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", commands, api(tag = "Users"))]
+            #[command(Register)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let cmd = create_test_command("Register", false, CommandKindHint::Create);
+        let (resp_type, _) = response_type_for_command(&entity, &cmd);
+        assert_eq!(resp_type.to_string(), "User");
+    }
+
+    #[test]
+    fn response_type_custom_result() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", commands, api(tag = "Users"))]
+            #[command(Register)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let result_type: syn::Type = syn::parse_quote!(CustomResult);
+        let cmd = create_command_with_result("Transfer", CommandKindHint::Custom, result_type);
+        let (resp_type, _) = response_type_for_command(&entity, &cmd);
+        assert_eq!(resp_type.to_string(), "CustomResult");
+    }
+
+    #[test]
+    fn generate_empty_for_no_commands() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(tag = "Users"))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let output = generate(&entity);
+        assert!(output.is_empty());
+    }
+
+    #[test]
+    fn generate_handler_without_id() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", commands, api(tag = "Users"))]
+            #[command(Register)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let cmd = create_test_command("Register", false, CommandKindHint::Create);
+        let output = generate_handler(&entity, &cmd);
+        let output_str = output.to_string();
+        assert!(output_str.contains("register_user"));
+        assert!(output_str.contains("UserCommandHandler"));
+    }
+
+    #[test]
+    fn generate_handler_with_id() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", commands, api(tag = "Users"))]
+            #[command(UpdateEmail: email)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let cmd = create_test_command("UpdateEmail", true, CommandKindHint::Update);
+        let output = generate_handler(&entity, &cmd);
+        let output_str = output.to_string();
+        assert!(output_str.contains("update_email_user"));
+        assert!(output_str.contains("Path"));
+        assert!(output_str.contains("cmd . id = id"));
+    }
+
+    #[test]
+    fn generate_handler_with_security() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", commands, api(tag = "Users", security = "bearer"))]
+            #[command(Register)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let cmd = create_test_command("Register", false, CommandKindHint::Create);
+        let output = generate_handler(&entity, &cmd);
+        let output_str = output.to_string();
+        assert!(output_str.contains("security"));
+        assert!(output_str.contains("bearer_auth"));
+    }
+
+    #[test]
+    fn generate_handler_public_command() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", commands, api(tag = "Users", security = "bearer"))]
+            #[command(Register)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let cmd = create_command_with_security(
+            "Register",
+            false,
+            CommandKindHint::Create,
+            Some("none".to_string())
+        );
+        let output = generate_handler(&entity, &cmd);
+        let output_str = output.to_string();
+        assert!(!output_str.contains("security"));
+    }
+
+    #[test]
+    fn generate_handler_command_level_security() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", commands, api(tag = "Users"))]
+            #[command(AdminDelete, requires_id, security = "admin")]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let cmd = create_command_with_security(
+            "AdminDelete",
+            true,
+            CommandKindHint::Delete,
+            Some("admin".to_string())
+        );
+        let output = generate_handler(&entity, &cmd);
+        let output_str = output.to_string();
+        assert!(output_str.contains("admin_auth"));
+    }
+
+    #[test]
+    fn generate_handler_deprecated() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", commands, api(tag = "Users", deprecated_in = "2.0"))]
+            #[command(Register)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let cmd = create_test_command("Register", false, CommandKindHint::Create);
+        let output = generate_handler(&entity, &cmd);
+        let output_str = output.to_string();
+        assert!(output_str.contains("deprecated = true"));
+    }
+
+    #[test]
+    fn generate_all_handlers() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", commands, api(tag = "Users"))]
+            #[command(Register)]
+            #[command(UpdateEmail: email)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let output = generate(&entity);
+        let output_str = output.to_string();
+        assert!(output_str.contains("register_user"));
+        assert!(output_str.contains("update_email_user"));
     }
 }

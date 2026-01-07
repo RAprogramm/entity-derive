@@ -278,3 +278,181 @@ pub fn build_deprecated_attr(entity: &EntityDef) -> TokenStream {
         TokenStream::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn collection_path_simple() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(tag = "Users", handlers))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let path = build_collection_path(&entity);
+        assert_eq!(path, "/users");
+    }
+
+    #[test]
+    fn collection_path_with_prefix() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(tag = "Users", path_prefix = "/api/v1", handlers))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let path = build_collection_path(&entity);
+        assert_eq!(path, "/api/v1/users");
+    }
+
+    #[test]
+    fn collection_path_kebab_case() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "user_profiles", api(tag = "UserProfiles", handlers))]
+            pub struct UserProfile {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let path = build_collection_path(&entity);
+        assert_eq!(path, "/user-profiles");
+    }
+
+    #[test]
+    fn item_path_simple() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(tag = "Users", handlers))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let path = build_item_path(&entity);
+        assert_eq!(path, "/users/{id}");
+    }
+
+    #[test]
+    fn item_path_with_prefix() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(tag = "Users", path_prefix = "/api/v2", handlers))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let path = build_item_path(&entity);
+        assert_eq!(path, "/api/v2/users/{id}");
+    }
+
+    #[test]
+    fn security_attr_bearer() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(tag = "Users", security = "bearer", handlers))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let attr = build_security_attr(&entity);
+        let attr_str = attr.to_string();
+        assert!(attr_str.contains("bearerAuth"));
+    }
+
+    #[test]
+    fn security_attr_cookie() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(tag = "Users", security = "cookie", handlers))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let attr = build_security_attr(&entity);
+        let attr_str = attr.to_string();
+        assert!(attr_str.contains("cookieAuth"));
+    }
+
+    #[test]
+    fn security_attr_api_key() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(tag = "Users", security = "api_key", handlers))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let attr = build_security_attr(&entity);
+        let attr_str = attr.to_string();
+        assert!(attr_str.contains("apiKey"));
+    }
+
+    #[test]
+    fn security_attr_unknown_defaults_to_cookie() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(tag = "Users", security = "custom", handlers))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let attr = build_security_attr(&entity);
+        let attr_str = attr.to_string();
+        assert!(attr_str.contains("cookieAuth"));
+    }
+
+    #[test]
+    fn security_attr_none() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(tag = "Users", handlers))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let attr = build_security_attr(&entity);
+        assert!(attr.is_empty());
+    }
+
+    #[test]
+    fn deprecated_attr_present() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(tag = "Users", deprecated_in = "2.0", handlers))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let attr = build_deprecated_attr(&entity);
+        let attr_str = attr.to_string();
+        assert!(attr_str.contains("deprecated = true"));
+    }
+
+    #[test]
+    fn deprecated_attr_absent() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(tag = "Users", handlers))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let attr = build_deprecated_attr(&entity);
+        assert!(attr.is_empty());
+    }
+}

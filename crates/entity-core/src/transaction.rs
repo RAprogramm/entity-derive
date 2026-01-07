@@ -298,6 +298,8 @@ impl<'p> Transaction<'p, sqlx::PgPool> {
 
 #[cfg(test)]
 mod tests {
+    use std::error::Error;
+
     use super::*;
 
     #[test]
@@ -337,8 +339,23 @@ mod tests {
         let operation: TransactionError<&str> = TransactionError::Operation("e");
 
         assert!(begin.is_begin());
+        assert!(!begin.is_commit());
+        assert!(!begin.is_rollback());
+        assert!(!begin.is_operation());
+
+        assert!(!commit.is_begin());
         assert!(commit.is_commit());
+        assert!(!commit.is_rollback());
+        assert!(!commit.is_operation());
+
+        assert!(!rollback.is_begin());
+        assert!(!rollback.is_commit());
         assert!(rollback.is_rollback());
+        assert!(!rollback.is_operation());
+
+        assert!(!operation.is_begin());
+        assert!(!operation.is_commit());
+        assert!(!operation.is_rollback());
         assert!(operation.is_operation());
     }
 
@@ -346,5 +363,79 @@ mod tests {
     fn transaction_error_into_inner() {
         let err: TransactionError<&str> = TransactionError::Operation("test");
         assert_eq!(err.into_inner(), "test");
+    }
+
+    #[test]
+    fn transaction_error_into_inner_begin() {
+        let err: TransactionError<&str> = TransactionError::Begin("begin_err");
+        assert_eq!(err.into_inner(), "begin_err");
+    }
+
+    #[test]
+    fn transaction_error_into_inner_commit() {
+        let err: TransactionError<&str> = TransactionError::Commit("commit_err");
+        assert_eq!(err.into_inner(), "commit_err");
+    }
+
+    #[test]
+    fn transaction_error_into_inner_rollback() {
+        let err: TransactionError<&str> = TransactionError::Rollback("rollback_err");
+        assert_eq!(err.into_inner(), "rollback_err");
+    }
+
+    #[test]
+    fn transaction_error_source_begin() {
+        let err: TransactionError<std::io::Error> =
+            TransactionError::Begin(std::io::Error::other("src"));
+        assert!(err.source().is_some());
+    }
+
+    #[test]
+    fn transaction_error_source_commit() {
+        let err: TransactionError<std::io::Error> =
+            TransactionError::Commit(std::io::Error::other("src"));
+        assert!(err.source().is_some());
+    }
+
+    #[test]
+    fn transaction_error_source_rollback() {
+        let err: TransactionError<std::io::Error> =
+            TransactionError::Rollback(std::io::Error::other("src"));
+        assert!(err.source().is_some());
+    }
+
+    #[test]
+    fn transaction_error_source_operation() {
+        let err: TransactionError<std::io::Error> =
+            TransactionError::Operation(std::io::Error::other("src"));
+        assert!(err.source().is_some());
+    }
+
+    #[test]
+    fn transaction_builder_new() {
+        struct MockPool;
+        let pool = MockPool;
+        let tx = Transaction::new(&pool);
+        let _ = tx.pool();
+    }
+
+    #[test]
+    fn transaction_builder_pool_accessor() {
+        struct MockPool {
+            id: u32
+        }
+        let pool = MockPool {
+            id: 42
+        };
+        let tx = Transaction::new(&pool);
+        assert_eq!(tx.pool().id, 42);
+    }
+
+    #[test]
+    fn transaction_error_debug() {
+        let err: TransactionError<&str> = TransactionError::Begin("test");
+        let debug_str = format!("{:?}", err);
+        assert!(debug_str.contains("Begin"));
+        assert!(debug_str.contains("test"));
     }
 }
