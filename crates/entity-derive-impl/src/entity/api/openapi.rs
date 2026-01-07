@@ -43,9 +43,12 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
 
     // Tag for OpenAPI grouping
     let tag = api_config.tag_or_default(&entity.name_str());
+
+    // Tag description: explicit > entity doc comment > default
     let tag_description = api_config
         .tag_description
         .clone()
+        .or_else(|| entity.doc().map(String::from))
         .unwrap_or_else(|| format!("{} management", entity_name));
 
     // Handler function names for paths
