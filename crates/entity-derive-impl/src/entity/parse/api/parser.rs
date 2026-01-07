@@ -297,3 +297,212 @@ pub fn parse_api_config(meta: &syn::Meta) -> syn::Result<ApiConfig> {
 
     Ok(config)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_path_only_fails() {
+        let attr: syn::Attribute = syn::parse_quote!(#[api]);
+        let result = parse_api_config(&attr.meta);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("requires parameters"));
+    }
+
+    #[test]
+    fn parse_name_value_fails() {
+        let attr: syn::Attribute = syn::parse_quote!(#[api = "value"]);
+        let result = parse_api_config(&attr.meta);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("parentheses"));
+    }
+
+    #[test]
+    fn parse_tag() {
+        let attr: syn::Attribute = syn::parse_quote!(#[api(tag = "Users")]);
+        let config = parse_api_config(&attr.meta).unwrap();
+        assert_eq!(config.tag, Some("Users".to_string()));
+    }
+
+    #[test]
+    fn parse_tag_description() {
+        let attr: syn::Attribute = syn::parse_quote!(#[api(tag_description = "User management")]);
+        let config = parse_api_config(&attr.meta).unwrap();
+        assert_eq!(config.tag_description, Some("User management".to_string()));
+    }
+
+    #[test]
+    fn parse_path_prefix() {
+        let attr: syn::Attribute = syn::parse_quote!(#[api(path_prefix = "/api/v1")]);
+        let config = parse_api_config(&attr.meta).unwrap();
+        assert_eq!(config.path_prefix, Some("/api/v1".to_string()));
+    }
+
+    #[test]
+    fn parse_security() {
+        let attr: syn::Attribute = syn::parse_quote!(#[api(security = "bearer")]);
+        let config = parse_api_config(&attr.meta).unwrap();
+        assert_eq!(config.security, Some("bearer".to_string()));
+    }
+
+    #[test]
+    fn parse_version() {
+        let attr: syn::Attribute = syn::parse_quote!(#[api(version = "v2")]);
+        let config = parse_api_config(&attr.meta).unwrap();
+        assert_eq!(config.version, Some("v2".to_string()));
+    }
+
+    #[test]
+    fn parse_deprecated_in() {
+        let attr: syn::Attribute = syn::parse_quote!(#[api(deprecated_in = "2.0")]);
+        let config = parse_api_config(&attr.meta).unwrap();
+        assert_eq!(config.deprecated_in, Some("2.0".to_string()));
+    }
+
+    #[test]
+    fn parse_handlers_flag() {
+        let attr: syn::Attribute = syn::parse_quote!(#[api(handlers)]);
+        let config = parse_api_config(&attr.meta).unwrap();
+        assert!(config.handlers.any());
+        assert!(config.handlers.create);
+        assert!(config.handlers.get);
+        assert!(config.handlers.update);
+        assert!(config.handlers.delete);
+        assert!(config.handlers.list);
+    }
+
+    #[test]
+    fn parse_handlers_true() {
+        let attr: syn::Attribute = syn::parse_quote!(#[api(handlers = true)]);
+        let config = parse_api_config(&attr.meta).unwrap();
+        assert!(config.handlers.any());
+    }
+
+    #[test]
+    fn parse_handlers_false() {
+        let attr: syn::Attribute = syn::parse_quote!(#[api(handlers = false)]);
+        let config = parse_api_config(&attr.meta).unwrap();
+        assert!(!config.handlers.any());
+    }
+
+    #[test]
+    fn parse_handlers_selective() {
+        let attr: syn::Attribute = syn::parse_quote!(#[api(handlers(create, get))]);
+        let config = parse_api_config(&attr.meta).unwrap();
+        assert!(config.handlers.create);
+        assert!(config.handlers.get);
+        assert!(!config.handlers.update);
+        assert!(!config.handlers.delete);
+        assert!(!config.handlers.list);
+    }
+
+    #[test]
+    fn parse_handlers_all_selective() {
+        let attr: syn::Attribute = syn::parse_quote!(#[api(handlers(create, get, update, delete, list))]);
+        let config = parse_api_config(&attr.meta).unwrap();
+        assert!(config.handlers.create);
+        assert!(config.handlers.get);
+        assert!(config.handlers.update);
+        assert!(config.handlers.delete);
+        assert!(config.handlers.list);
+    }
+
+    #[test]
+    fn parse_handlers_invalid() {
+        let attr: syn::Attribute = syn::parse_quote!(#[api(handlers(invalid))]);
+        let result = parse_api_config(&attr.meta);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("unknown handler"));
+    }
+
+    #[test]
+    fn parse_title() {
+        let attr: syn::Attribute = syn::parse_quote!(#[api(title = "My API")]);
+        let config = parse_api_config(&attr.meta).unwrap();
+        assert_eq!(config.title, Some("My API".to_string()));
+    }
+
+    #[test]
+    fn parse_description() {
+        let attr: syn::Attribute = syn::parse_quote!(#[api(description = "API description")]);
+        let config = parse_api_config(&attr.meta).unwrap();
+        assert_eq!(config.description, Some("API description".to_string()));
+    }
+
+    #[test]
+    fn parse_api_version() {
+        let attr: syn::Attribute = syn::parse_quote!(#[api(api_version = "1.0.0")]);
+        let config = parse_api_config(&attr.meta).unwrap();
+        assert_eq!(config.api_version, Some("1.0.0".to_string()));
+    }
+
+    #[test]
+    fn parse_license() {
+        let attr: syn::Attribute = syn::parse_quote!(#[api(license = "MIT")]);
+        let config = parse_api_config(&attr.meta).unwrap();
+        assert_eq!(config.license, Some("MIT".to_string()));
+    }
+
+    #[test]
+    fn parse_license_url() {
+        let attr: syn::Attribute = syn::parse_quote!(#[api(license_url = "https://mit.edu/license")]);
+        let config = parse_api_config(&attr.meta).unwrap();
+        assert_eq!(config.license_url, Some("https://mit.edu/license".to_string()));
+    }
+
+    #[test]
+    fn parse_contact_name() {
+        let attr: syn::Attribute = syn::parse_quote!(#[api(contact_name = "John Doe")]);
+        let config = parse_api_config(&attr.meta).unwrap();
+        assert_eq!(config.contact_name, Some("John Doe".to_string()));
+    }
+
+    #[test]
+    fn parse_contact_email() {
+        let attr: syn::Attribute = syn::parse_quote!(#[api(contact_email = "john@example.com")]);
+        let config = parse_api_config(&attr.meta).unwrap();
+        assert_eq!(config.contact_email, Some("john@example.com".to_string()));
+    }
+
+    #[test]
+    fn parse_contact_url() {
+        let attr: syn::Attribute = syn::parse_quote!(#[api(contact_url = "https://example.com")]);
+        let config = parse_api_config(&attr.meta).unwrap();
+        assert_eq!(config.contact_url, Some("https://example.com".to_string()));
+    }
+
+    #[test]
+    fn parse_unknown_option() {
+        let attr: syn::Attribute = syn::parse_quote!(#[api(unknown_option = "value")]);
+        let result = parse_api_config(&attr.meta);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("unknown api option"));
+    }
+
+    #[test]
+    fn parse_multiple_options() {
+        let attr: syn::Attribute = syn::parse_quote!(#[api(
+            tag = "Users",
+            path_prefix = "/api/v1",
+            security = "bearer",
+            handlers(create, get)
+        )]);
+        let config = parse_api_config(&attr.meta).unwrap();
+        assert_eq!(config.tag, Some("Users".to_string()));
+        assert_eq!(config.path_prefix, Some("/api/v1".to_string()));
+        assert_eq!(config.security, Some("bearer".to_string()));
+        assert!(config.handlers.create);
+        assert!(config.handlers.get);
+        assert!(!config.handlers.update);
+    }
+
+    #[test]
+    fn parse_public_commands() {
+        let attr: syn::Attribute = syn::parse_quote!(#[api(public = [Login, Register])]);
+        let config = parse_api_config(&attr.meta).unwrap();
+        assert_eq!(config.public_commands.len(), 2);
+        assert!(config.public_commands.iter().any(|i| i == "Login"));
+        assert!(config.public_commands.iter().any(|i| i == "Register"));
+    }
+}

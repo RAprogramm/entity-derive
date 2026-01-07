@@ -99,3 +99,93 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
         #openapi
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::entity::parse::EntityDef;
+
+    #[test]
+    fn generate_no_api_returns_empty() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users")]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let output = generate(&entity);
+        assert!(output.is_empty());
+    }
+
+    #[test]
+    fn generate_api_no_handlers_no_commands() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(tag = "Users"))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let output = generate(&entity);
+        assert!(output.is_empty());
+    }
+
+    #[test]
+    fn generate_with_handlers() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(tag = "Users", handlers))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, update, response)]
+                pub name: String,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let output = generate(&entity);
+        assert!(!output.is_empty());
+        let output_str = output.to_string();
+        assert!(output_str.contains("user_router"));
+        assert!(output_str.contains("UserApi"));
+    }
+
+    #[test]
+    fn generate_with_commands() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", commands, api(tag = "Users"))]
+            #[command(Register)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                pub name: String,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let output = generate(&entity);
+        assert!(!output.is_empty());
+    }
+
+    #[test]
+    fn generate_with_both_handlers_and_commands() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", commands, api(tag = "Users", handlers))]
+            #[command(Activate)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, update, response)]
+                pub name: String,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let output = generate(&entity);
+        assert!(!output.is_empty());
+        let output_str = output.to_string();
+        assert!(output_str.contains("user_router"));
+        assert!(output_str.contains("UserApi"));
+    }
+}

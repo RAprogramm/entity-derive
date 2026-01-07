@@ -266,3 +266,69 @@ pub fn security_scheme_name(security: &str) -> &'static str {
         _ => "cookieAuth"
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn security_code_none() {
+        let code = generate_security_code(None);
+        assert!(code.is_empty());
+    }
+
+    #[test]
+    fn security_code_cookie() {
+        let code = generate_security_code(Some("cookie"));
+        let code_str = code.to_string();
+        assert!(code_str.contains("cookieAuth"));
+        assert!(code_str.contains("Cookie"));
+        assert!(code_str.contains("token"));
+    }
+
+    #[test]
+    fn security_code_bearer() {
+        let code = generate_security_code(Some("bearer"));
+        let code_str = code.to_string();
+        assert!(code_str.contains("bearerAuth"));
+        assert!(code_str.contains("Bearer"));
+        assert!(code_str.contains("JWT"));
+    }
+
+    #[test]
+    fn security_code_api_key() {
+        let code = generate_security_code(Some("api_key"));
+        let code_str = code.to_string();
+        assert!(code_str.contains("apiKey"));
+        assert!(code_str.contains("Header"));
+        assert!(code_str.contains("X-API-Key"));
+    }
+
+    #[test]
+    fn security_code_unknown_returns_empty() {
+        let code = generate_security_code(Some("unknown"));
+        assert!(code.is_empty());
+    }
+
+    #[test]
+    fn scheme_name_cookie() {
+        assert_eq!(security_scheme_name("cookie"), "cookieAuth");
+    }
+
+    #[test]
+    fn scheme_name_bearer() {
+        assert_eq!(security_scheme_name("bearer"), "bearerAuth");
+    }
+
+    #[test]
+    fn scheme_name_api_key() {
+        assert_eq!(security_scheme_name("api_key"), "apiKey");
+    }
+
+    #[test]
+    fn scheme_name_unknown_defaults_to_cookie() {
+        assert_eq!(security_scheme_name("unknown"), "cookieAuth");
+        assert_eq!(security_scheme_name(""), "cookieAuth");
+        assert_eq!(security_scheme_name("jwt"), "cookieAuth");
+    }
+}

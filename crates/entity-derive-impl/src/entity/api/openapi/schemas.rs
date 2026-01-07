@@ -289,3 +289,92 @@ pub fn generate_common_schemas_code() -> TokenStream {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::entity::parse::EntityDef;
+
+    #[test]
+    fn schema_types_no_handlers() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(tag = "Users"))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let types = generate_all_schema_types(&entity);
+        assert!(types.is_empty());
+    }
+
+    #[test]
+    fn schema_types_with_all_handlers() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(tag = "Users", handlers))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, update, response)]
+                pub name: String,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let types = generate_all_schema_types(&entity);
+        let types_str = types.to_string();
+        assert!(types_str.contains("UserResponse"));
+        assert!(types_str.contains("CreateUserRequest"));
+        assert!(types_str.contains("UpdateUserRequest"));
+    }
+
+    #[test]
+    fn schema_types_create_only() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(tag = "Users", handlers(create)))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                pub name: String,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let types = generate_all_schema_types(&entity);
+        let types_str = types.to_string();
+        assert!(types_str.contains("UserResponse"));
+        assert!(types_str.contains("CreateUserRequest"));
+        assert!(!types_str.contains("UpdateUserRequest"));
+    }
+
+    #[test]
+    fn schema_types_with_commands() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", commands, api(tag = "Users"))]
+            #[command(Ban)]
+            #[command(Activate)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                pub name: String,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let types = generate_all_schema_types(&entity);
+        let types_str = types.to_string();
+        assert!(types_str.contains("BanUser"));
+        assert!(types_str.contains("ActivateUser"));
+    }
+
+    #[test]
+    fn common_schemas_code_generated() {
+        let code = generate_common_schemas_code();
+        let code_str = code.to_string();
+        assert!(code_str.contains("ErrorResponse"));
+        assert!(code_str.contains("PaginationQuery"));
+        assert!(code_str.contains("RFC 7807"));
+        assert!(code_str.contains("limit"));
+        assert!(code_str.contains("offset"));
+    }
+}

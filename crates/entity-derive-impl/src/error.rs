@@ -213,4 +213,120 @@ mod tests {
         let result = generate(&input);
         assert!(result.is_err());
     }
+
+    #[test]
+    fn generate_empty_variants_returns_empty() {
+        let input: DeriveInput = syn::parse_quote! {
+            enum EmptyError {
+                NoStatus,
+            }
+        };
+
+        let result = generate(&input);
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_empty());
+    }
+
+    #[test]
+    fn generate_multiple_variants() {
+        let input: DeriveInput = syn::parse_quote! {
+            enum UserError {
+                /// User not found
+                #[status(404)]
+                NotFound,
+                /// Already exists
+                #[status(409)]
+                AlreadyExists,
+                /// Internal error
+                #[status(500)]
+                Internal,
+            }
+        };
+
+        let result = generate(&input);
+        assert!(result.is_ok());
+        let output = result.unwrap().to_string();
+        assert!(output.contains("UserErrorResponses"));
+        assert!(output.contains("status_codes"));
+        assert!(output.contains("descriptions"));
+        assert!(output.contains("utoipa_responses"));
+        assert!(output.contains("404"));
+        assert!(output.contains("409"));
+        assert!(output.contains("500"));
+    }
+
+    #[test]
+    fn parse_variant_without_doc_uses_default() {
+        let input: DeriveInput = syn::parse_quote! {
+            enum Error {
+                #[status(400)]
+                BadRequest,
+            }
+        };
+
+        if let syn::Data::Enum(data) = &input.data {
+            let variant = &data.variants[0];
+            let parsed = parse_error_variant(variant).unwrap();
+            assert_eq!(parsed.status, 400);
+            assert!(parsed.description.contains("BadRequest"));
+        }
+    }
+
+    #[test]
+    fn generate_public_visibility() {
+        let input: DeriveInput = syn::parse_quote! {
+            pub enum ApiError {
+                /// Not found
+                #[status(404)]
+                NotFound,
+            }
+        };
+
+        let result = generate(&input);
+        assert!(result.is_ok());
+        let output = result.unwrap().to_string();
+        assert!(output.contains("pub struct ApiErrorResponses"));
+    }
+
+    #[test]
+    fn generate_private_visibility() {
+        let input: DeriveInput = syn::parse_quote! {
+            enum PrivateError {
+                /// Error
+                #[status(500)]
+                Internal,
+            }
+        };
+
+        let result = generate(&input);
+        assert!(result.is_ok());
+        let output = result.unwrap().to_string();
+        assert!(output.contains("struct PrivateErrorResponses"));
+        assert!(!output.contains("pub struct PrivateErrorResponses"));
+    }
+
+    #[test]
+    fn status_code_parsing_various_codes() {
+        let codes = [200_u16, 201, 400, 401, 403, 404, 409, 422, 500, 502, 503];
+        for code in codes {
+            let code_str = code.to_string();
+            let input: DeriveInput = syn::parse_quote! {
+                enum Error {
+                    /// Test
+                    #[status(#code)]
+                    Test,
+                }
+            };
+
+            if let syn::Data::Enum(data) = &input.data {
+                let variant = &data.variants[0];
+                let result = parse_status_attr(&variant.attrs);
+                assert!(
+                    result.is_ok(),
+                    "Should parse status code {}",
+                    code_str
+                );
+            }
+        }
+    }
 }
