@@ -29,11 +29,13 @@
 mod expose;
 mod filter;
 mod storage;
+mod validation;
 
 pub use expose::ExposeConfig;
 pub use filter::{FilterConfig, FilterType};
 pub use storage::StorageConfig;
 use syn::{Attribute, Field, Ident, Type};
+pub use validation::ValidationConfig;
 
 use crate::utils::docs::extract_doc_comments;
 
@@ -83,7 +85,13 @@ pub struct FieldDef {
     ///
     /// Extracted from `///` comments for use in OpenAPI descriptions.
     #[allow(dead_code)] // Will be used for schema field descriptions (#78)
-    pub doc: Option<String>
+    pub doc: Option<String>,
+
+    /// Validation configuration from `#[validate(...)]` attributes.
+    ///
+    /// Parsed for OpenAPI schema constraints and DTO validation.
+    #[allow(dead_code)] // Will be used for OpenAPI schema constraints (#79)
+    pub validation: ValidationConfig
 }
 
 impl FieldDef {
@@ -101,6 +109,7 @@ impl FieldDef {
         })?;
         let ty = field.ty.clone();
         let doc = extract_doc_comments(&field.attrs);
+        let validation = validation::parse_validation_attrs(&field.attrs);
 
         let mut expose = ExposeConfig::default();
         let mut storage = StorageConfig::default();
@@ -126,7 +135,8 @@ impl FieldDef {
             expose,
             storage,
             filter,
-            doc
+            doc,
+            validation
         })
     }
 
@@ -228,5 +238,21 @@ impl FieldDef {
     #[allow(dead_code)] // Will be used for schema field descriptions (#78)
     pub fn doc(&self) -> Option<&str> {
         self.doc.as_deref()
+    }
+
+    /// Get the validation configuration.
+    ///
+    /// Returns the parsed validation rules for OpenAPI constraints.
+    #[must_use]
+    #[allow(dead_code)] // Will be used for OpenAPI schema constraints (#79)
+    pub fn validation(&self) -> &ValidationConfig {
+        &self.validation
+    }
+
+    /// Check if this field has validation rules.
+    #[must_use]
+    #[allow(dead_code)] // Will be used for OpenAPI schema constraints (#79)
+    pub fn has_validation(&self) -> bool {
+        self.validation.has_validation()
     }
 }
