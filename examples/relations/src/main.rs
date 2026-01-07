@@ -108,17 +108,14 @@ async fn get_author_with_posts(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    let author = state
-        .pool
-        .find_by_id(id)
+    // Use fully qualified syntax when multiple Repository traits are in scope
+    let author = AuthorRepository::find_by_id(&*state.pool, id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .ok_or(StatusCode::NOT_FOUND)?;
 
-    // Use generated find_posts method
-    let posts: Vec<Post> = state
-        .pool
-        .find_posts(id)
+    // Use generated find_posts method (from has_many)
+    let posts = AuthorRepository::find_posts(&*state.pool, id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -133,24 +130,19 @@ async fn get_post_with_details(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    let post = state
-        .pool
-        .find_by_id(id)
+    // Use fully qualified syntax when multiple Repository traits are in scope
+    let post = PostRepository::find_by_id(&*state.pool, id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .ok_or(StatusCode::NOT_FOUND)?;
 
     // Use generated find_author method (from belongs_to)
-    let author: Option<Author> = state
-        .pool
-        .find_author(post.author_id)
+    let author = PostRepository::find_author(&*state.pool, post.author_id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     // Use generated find_comments method (from has_many)
-    let comments: Vec<Comment> = state
-        .pool
-        .find_comments(id)
+    let comments = PostRepository::find_comments(&*state.pool, id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -165,9 +157,8 @@ async fn get_post_with_details(
 async fn list_authors(
     State(state): State<AppState>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    let authors = state
-        .pool
-        .list(100, 0)
+    // Use fully qualified syntax when multiple Repository traits are in scope
+    let authors = AuthorRepository::list(&*state.pool, 100, 0)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 

@@ -1,3 +1,6 @@
+-- SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
+-- SPDX-License-Identifier: MIT
+
 -- Create tables for transactions example
 
 CREATE TABLE IF NOT EXISTS bank_accounts (

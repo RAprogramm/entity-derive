@@ -1,3 +1,6 @@
+-- SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
+-- SPDX-License-Identifier: MIT
+
 -- Create accounts table for commands example
 
 CREATE TABLE IF NOT EXISTS accounts (

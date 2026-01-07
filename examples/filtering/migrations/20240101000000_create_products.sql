@@ -1,3 +1,6 @@
+-- SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
+-- SPDX-License-Identifier: MIT
+
 -- Create products table for filtering example
 CREATE TABLE IF NOT EXISTS products (
     id UUID PRIMARY KEY,

@@ -8,8 +8,14 @@ edition = "2024"
 publish = false
 description = "Lifecycle hooks example with entity-derive"
 
+[features]
+default = ["postgres", "api"]
+postgres = []
+api = []
+validate = []
+
 [dependencies]
-entity-derive = { path = "../..", features = ["postgres", "api"] }
+entity-derive = { path = "../../crates/entity-derive", features = ["postgres", "api"] }
 axum = "0.8"
 tokio = { version = "1", features = ["full"] }
 sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "uuid", "chrono"] }

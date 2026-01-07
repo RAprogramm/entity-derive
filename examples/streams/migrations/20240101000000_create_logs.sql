@@ -1,3 +1,6 @@
+-- SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
+-- SPDX-License-Identifier: MIT
+
 -- Create logs table for streams example
 
 CREATE TABLE IF NOT EXISTS audit_logs (

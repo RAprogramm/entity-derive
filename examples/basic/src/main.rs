@@ -16,7 +16,7 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{delete, get, patch, post},
+    routing::{get, post},
 };
 use chrono::{DateTime, Utc};
 use entity_derive::Entity;
@@ -133,6 +133,15 @@ impl IntoResponse for AppError {
 // ============================================================================
 
 /// Create a new user.
+#[utoipa::path(
+    post,
+    path = "/users",
+    request_body = CreateUserRequest,
+    responses(
+        (status = 201, description = "User created", body = UserResponse),
+        (status = 500, description = "Internal error"),
+    )
+)]
 async fn create_user(
     State(state): State<AppState>,
     Json(dto): Json<CreateUserRequest>,
@@ -142,6 +151,15 @@ async fn create_user(
 }
 
 /// Get user by ID.
+#[utoipa::path(
+    get,
+    path = "/users/{id}",
+    params(("id" = Uuid, Path, description = "User ID")),
+    responses(
+        (status = 200, description = "User found", body = UserResponse),
+        (status = 404, description = "User not found"),
+    )
+)]
 async fn get_user(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -151,6 +169,16 @@ async fn get_user(
 }
 
 /// Update user by ID.
+#[utoipa::path(
+    patch,
+    path = "/users/{id}",
+    params(("id" = Uuid, Path, description = "User ID")),
+    request_body = UpdateUserRequest,
+    responses(
+        (status = 200, description = "User updated", body = UserResponse),
+        (status = 404, description = "User not found"),
+    )
+)]
 async fn update_user(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -161,6 +189,15 @@ async fn update_user(
 }
 
 /// Delete user by ID.
+#[utoipa::path(
+    delete,
+    path = "/users/{id}",
+    params(("id" = Uuid, Path, description = "User ID")),
+    responses(
+        (status = 204, description = "User deleted"),
+        (status = 404, description = "User not found"),
+    )
+)]
 async fn delete_user(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -174,6 +211,17 @@ async fn delete_user(
 }
 
 /// List users with pagination.
+#[utoipa::path(
+    get,
+    path = "/users",
+    params(
+        ("limit" = Option<i64>, Query, description = "Max results"),
+        ("offset" = Option<i64>, Query, description = "Skip results"),
+    ),
+    responses(
+        (status = 200, description = "List of users", body = Vec<UserResponse>),
+    )
+)]
 async fn list_users(
     State(state): State<AppState>,
     Query(params): Query<ListParams>,

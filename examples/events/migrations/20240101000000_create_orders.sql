@@ -1,3 +1,6 @@
+-- SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
+-- SPDX-License-Identifier: MIT
+
 -- Create orders table for events example
 
 CREATE TABLE IF NOT EXISTS orders (

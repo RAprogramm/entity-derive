@@ -110,13 +110,15 @@ impl From<ProductQueryParams> for ProductQuery {
         Self {
             name: p.name,
             category: p.category,
-            price_min: p.price_min,
-            price_max: p.price_max,
-            stock_min: p.stock_min,
-            stock_max: None,
+            price_from: p.price_min,
+            price_to: p.price_max,
+            stock_from: p.stock_min,
+            stock_to: None,
             active: p.active,
-            created_at_min: None,
-            created_at_max: None,
+            created_at_from: None,
+            created_at_to: None,
+            limit: Some(p.limit),
+            offset: Some(p.offset),
         }
     }
 }
@@ -135,13 +137,13 @@ async fn list_products(
     State(state): State<AppState>,
     Query(params): Query<ProductQueryParams>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    let limit = params.limit;
-    let offset = params.offset;
+    // Convert to generated ProductQuery (includes limit/offset)
     let query: ProductQuery = params.into();
 
+    // Use generated query method for type-safe filtering with pagination
     let products = state
         .pool
-        .list_filtered(&query, limit, offset)
+        .query(query)
         .await
         .map_err(|e| {
             tracing::error!("Database error: {e}");

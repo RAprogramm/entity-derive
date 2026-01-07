@@ -4,6 +4,18 @@
 [workspace]
 resolver = "3"
 members = ["crates/*"]
+exclude = [
+    "examples/basic",
+    "examples/filtering",
+    "examples/relations",
+    "examples/events",
+    "examples/hooks",
+    "examples/commands",
+    "examples/transactions",
+    "examples/soft-delete",
+    "examples/streams",
+    "examples/full-app",
+]
 
 [workspace.package]
 version = "0.3.0"
