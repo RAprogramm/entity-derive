@@ -3,22 +3,38 @@
 
 //! Router factory generation.
 //!
-//! Generates a function that creates an axum Router with all entity endpoints.
+//! Generates functions that create axum Routers for entity endpoints.
 //!
-//! # Generated Code
+//! # Generated Routers
 //!
-//! For `User` entity with Register and UpdateEmail commands:
+//! | Configuration | Generated Function | Type Parameter |
+//! |---------------|-------------------|----------------|
+//! | `handlers` | `{entity}_router<R>` | Repository trait |
+//! | `commands` | `{entity}_commands_router<H>` | CommandHandler trait |
+//!
+//! # Example
+//!
+//! For `User` entity with both handlers and commands:
 //!
 //! ```rust,ignore
-//! /// Create router for User entity endpoints.
-//! pub fn user_router<H>() -> axum::Router
+//! // CRUD router
+//! pub fn user_router<R>() -> axum::Router<Arc<R>>
+//! where
+//!     R: UserRepository + 'static,
+//! {
+//!     axum::Router::new()
+//!         .route("/users", post(create_user::<R>).get(list_user::<R>))
+//!         .route("/users/:id", get(get_user::<R>).patch(update_user::<R>).delete(delete_user::<R>))
+//! }
+//!
+//! // Commands router
+//! pub fn user_commands_router<H>() -> axum::Router
 //! where
 //!     H: UserCommandHandler + 'static,
 //!     H::Context: Default,
 //! {
 //!     axum::Router::new()
-//!         .route("/api/v1/users/register", axum::routing::post(register_user::<H>))
-//!         .route("/api/v1/users/:id/update-email", axum::routing::put(update_email_user::<H>))
+//!         .route("/users/register", post(register_user::<H>))
 //! }
 //! ```
 
@@ -28,8 +44,93 @@ use quote::{format_ident, quote};
 
 use crate::entity::parse::{CommandDef, CommandKindHint, EntityDef};
 
-/// Generate the router factory function.
+/// Generate all router factory functions.
 pub fn generate(entity: &EntityDef) -> TokenStream {
+    let crud_router = generate_crud_router(entity);
+    let commands_router = generate_commands_router(entity);
+
+    quote! {
+        #crud_router
+        #commands_router
+    }
+}
+
+/// Generate CRUD router for repository-based handlers.
+fn generate_crud_router(entity: &EntityDef) -> TokenStream {
+    if !entity.api_config().has_handlers() {
+        return TokenStream::new();
+    }
+
+    let vis = &entity.vis;
+    let entity_name = entity.name();
+    let entity_name_str = entity.name_str();
+    let entity_snake = entity_name_str.to_case(Case::Snake);
+
+    let router_fn = format_ident!("{}_router", entity_snake);
+    let repo_trait = format_ident!("{}Repository", entity_name);
+
+    let crud_routes = generate_crud_routes(entity);
+
+    let doc = format!(
+        "Create axum router for {} CRUD endpoints.\n\n\
+         # Usage\n\n\
+         ```rust,ignore\n\
+         let pool = Arc::new(PgPool::connect(url).await?);\n\
+         let app = Router::new()\n\
+             .merge({}::<PgPool>())\n\
+             .with_state(pool);\n\
+         ```",
+        entity_name, router_fn
+    );
+
+    quote! {
+        #[doc = #doc]
+        #vis fn #router_fn<R>() -> axum::Router<std::sync::Arc<R>>
+        where
+            R: #repo_trait + 'static,
+        {
+            axum::Router::new()
+                #crud_routes
+        }
+    }
+}
+
+/// Generate CRUD route definitions.
+fn generate_crud_routes(entity: &EntityDef) -> TokenStream {
+    let snake = entity.name_str().to_case(Case::Snake);
+    let collection_path = build_crud_collection_path(entity);
+    let item_path = build_crud_item_path(entity);
+
+    let create_handler = format_ident!("create_{}", snake);
+    let get_handler = format_ident!("get_{}", snake);
+    let update_handler = format_ident!("update_{}", snake);
+    let delete_handler = format_ident!("delete_{}", snake);
+    let list_handler = format_ident!("list_{}", snake);
+
+    quote! {
+        .route(#collection_path, axum::routing::post(#create_handler::<R>).get(#list_handler::<R>))
+        .route(#item_path, axum::routing::get(#get_handler::<R>).patch(#update_handler::<R>).delete(#delete_handler::<R>))
+    }
+}
+
+/// Build CRUD collection path (e.g., `/api/v1/users`).
+fn build_crud_collection_path(entity: &EntityDef) -> String {
+    let api_config = entity.api_config();
+    let prefix = api_config.full_path_prefix();
+    let entity_path = entity.name_str().to_case(Case::Kebab);
+
+    let path = format!("{}/{}s", prefix, entity_path);
+    path.replace("//", "/")
+}
+
+/// Build CRUD item path (e.g., `/api/v1/users/:id`).
+fn build_crud_item_path(entity: &EntityDef) -> String {
+    let collection = build_crud_collection_path(entity);
+    format!("{}/:id", collection)
+}
+
+/// Generate commands router for command handler.
+fn generate_commands_router(entity: &EntityDef) -> TokenStream {
     let commands = entity.command_defs();
     if commands.is_empty() {
         return TokenStream::new();
@@ -40,17 +141,13 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     let entity_name_str = entity.name_str();
     let entity_snake = entity_name_str.to_case(Case::Snake);
 
-    // Router function name: user_router
-    let router_fn = format_ident!("{}_router", entity_snake);
-
-    // Handler trait name: UserCommandHandler
+    let router_fn = format_ident!("{}_commands_router", entity_snake);
     let handler_trait = format_ident!("{}CommandHandler", entity_name);
 
-    // Generate route definitions
-    let routes = generate_routes(entity, commands);
+    let routes = generate_command_routes(entity, commands);
 
     let doc = format!(
-        "Create axum router for {} entity endpoints.\n\n\
+        "Create axum router for {} command endpoints.\n\n\
          # Usage\n\n\
          ```rust,ignore\n\
          let handler = Arc::new(MyHandler::new());\n\
@@ -74,20 +171,20 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     }
 }
 
-/// Generate all route definitions.
-fn generate_routes(entity: &EntityDef, commands: &[CommandDef]) -> TokenStream {
+/// Generate command route definitions.
+fn generate_command_routes(entity: &EntityDef, commands: &[CommandDef]) -> TokenStream {
     let routes: Vec<TokenStream> = commands
         .iter()
-        .map(|cmd| generate_route(entity, cmd))
+        .map(|cmd| generate_command_route(entity, cmd))
         .collect();
 
     quote! { #(#routes)* }
 }
 
-/// Generate a single route definition.
-fn generate_route(entity: &EntityDef, cmd: &CommandDef) -> TokenStream {
-    let path = build_axum_path(entity, cmd);
-    let handler_name = handler_function_name(entity, cmd);
+/// Generate a single command route definition.
+fn generate_command_route(entity: &EntityDef, cmd: &CommandDef) -> TokenStream {
+    let path = build_command_path(entity, cmd);
+    let handler_name = command_handler_name(entity, cmd);
     let method = axum_method_for_command(cmd);
 
     quote! {
@@ -95,8 +192,8 @@ fn generate_route(entity: &EntityDef, cmd: &CommandDef) -> TokenStream {
     }
 }
 
-/// Build the axum-style path (uses :id instead of {id}).
-fn build_axum_path(entity: &EntityDef, cmd: &CommandDef) -> String {
+/// Build command path (uses :id instead of {id}).
+fn build_command_path(entity: &EntityDef, cmd: &CommandDef) -> String {
     let api_config = entity.api_config();
     let prefix = api_config.full_path_prefix();
     let entity_path = entity.name_str().to_case(Case::Kebab);
@@ -108,23 +205,69 @@ fn build_axum_path(entity: &EntityDef, cmd: &CommandDef) -> String {
         format!("{}/{}s/{}", prefix, entity_path, cmd_path)
     };
 
-    // Normalize double slashes that can appear when prefix is empty
     path.replace("//", "/")
 }
 
-/// Get the handler function name.
-fn handler_function_name(entity: &EntityDef, cmd: &CommandDef) -> syn::Ident {
+/// Get command handler function name.
+fn command_handler_name(entity: &EntityDef, cmd: &CommandDef) -> syn::Ident {
     let entity_snake = entity.name_str().to_case(Case::Snake);
     let cmd_snake = cmd.name.to_string().to_case(Case::Snake);
     format_ident!("{}_{}", cmd_snake, entity_snake)
 }
 
-/// Get the axum routing method for a command.
+/// Get axum routing method for a command.
 fn axum_method_for_command(cmd: &CommandDef) -> syn::Ident {
     match cmd.kind {
         CommandKindHint::Create => format_ident!("post"),
         CommandKindHint::Update => format_ident!("put"),
         CommandKindHint::Delete => format_ident!("delete"),
         CommandKindHint::Custom => format_ident!("post")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn crud_collection_path() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(tag = "Users", handlers))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let path = build_crud_collection_path(&entity);
+        assert_eq!(path, "/users");
+    }
+
+    #[test]
+    fn crud_item_path() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(tag = "Users", handlers))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let path = build_crud_item_path(&entity);
+        assert_eq!(path, "/users/:id");
+    }
+
+    #[test]
+    fn crud_path_with_prefix() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(tag = "Users", path_prefix = "/api/v1", handlers))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let path = build_crud_collection_path(&entity);
+        assert_eq!(path, "/api/v1/users");
     }
 }

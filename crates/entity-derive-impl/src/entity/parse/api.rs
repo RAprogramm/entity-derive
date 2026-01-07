@@ -73,7 +73,17 @@ pub struct ApiConfig {
     /// Version in which this API is deprecated.
     ///
     /// Marks all endpoints with `deprecated = true` in OpenAPI.
-    pub deprecated_in: Option<String>
+    pub deprecated_in: Option<String>,
+
+    /// Generate CRUD handlers for REST API.
+    ///
+    /// When `true`, generates:
+    /// - `create_{entity}` - POST handler
+    /// - `get_{entity}` - GET by ID handler
+    /// - `update_{entity}` - PATCH handler
+    /// - `delete_{entity}` - DELETE handler
+    /// - `list_{entity}` - GET list handler
+    pub handlers: bool
 }
 
 impl ApiConfig {
@@ -119,6 +129,11 @@ impl ApiConfig {
     /// Check if API is marked as deprecated.
     pub fn is_deprecated(&self) -> bool {
         self.deprecated_in.is_some()
+    }
+
+    /// Check if CRUD handlers should be generated.
+    pub fn has_handlers(&self) -> bool {
+        self.handlers
     }
 
     /// Get security scheme for a command.
@@ -209,12 +224,22 @@ pub fn parse_api_config(meta: &syn::Meta) -> syn::Result<ApiConfig> {
                 let value: syn::LitStr = nested.value()?.parse()?;
                 config.deprecated_in = Some(value.value());
             }
+            "handlers" => {
+                // Support both `handlers` (flag) and `handlers = true`
+                if nested.input.peek(syn::Token![=]) {
+                    let _: syn::Token![=] = nested.input.parse()?;
+                    let value: syn::LitBool = nested.input.parse()?;
+                    config.handlers = value.value();
+                } else {
+                    config.handlers = true;
+                }
+            }
             _ => {
                 return Err(syn::Error::new(
                     ident.span(),
                     format!(
                         "unknown api option '{}', expected: tag, tag_description, path_prefix, \
-                         security, public, version, deprecated_in",
+                         security, public, version, deprecated_in, handlers",
                         ident_str
                     )
                 ));
@@ -342,5 +367,29 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(config.full_path_prefix(), "/api/v1");
+    }
+
+    #[test]
+    fn parse_handlers_flag() {
+        let config = parse_test_config(r#"api(tag = "Users", handlers)"#);
+        assert!(config.has_handlers());
+    }
+
+    #[test]
+    fn parse_handlers_true() {
+        let config = parse_test_config(r#"api(tag = "Users", handlers = true)"#);
+        assert!(config.has_handlers());
+    }
+
+    #[test]
+    fn parse_handlers_false() {
+        let config = parse_test_config(r#"api(tag = "Users", handlers = false)"#);
+        assert!(!config.has_handlers());
+    }
+
+    #[test]
+    fn default_handlers_false() {
+        let config = parse_test_config(r#"api(tag = "Users")"#);
+        assert!(!config.has_handlers());
     }
 }

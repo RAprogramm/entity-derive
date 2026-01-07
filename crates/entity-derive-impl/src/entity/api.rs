@@ -11,7 +11,8 @@
 //! ```text
 //! api/
 //! ├── mod.rs         — Orchestrator (this file)
-//! ├── handlers.rs    — Axum handler functions with #[utoipa::path]
+//! ├── crud.rs        — CRUD handler functions (create, get, update, delete, list)
+//! ├── handlers.rs    — Command handler functions with #[utoipa::path]
 //! ├── router.rs      — Router factory function
 //! └── openapi.rs     — OpenApi struct for Swagger UI
 //! ```
@@ -58,6 +59,7 @@
 //! let openapi = UserApi::openapi();
 //! ```
 
+mod crud;
 mod handlers;
 mod openapi;
 mod router;
@@ -69,24 +71,30 @@ use super::parse::EntityDef;
 
 /// Main entry point for API code generation.
 ///
-/// Returns empty `TokenStream` if `api(...)` is not configured
-/// or no commands are defined.
+/// Returns empty `TokenStream` if `api(...)` is not configured.
+/// Generates CRUD handlers if `handlers` is enabled, and command handlers
+/// if commands are defined.
 pub fn generate(entity: &EntityDef) -> TokenStream {
     if !entity.has_api() {
         return TokenStream::new();
     }
 
-    // API generation requires commands to be enabled
-    if !entity.has_commands() || entity.command_defs().is_empty() {
+    let has_crud = entity.api_config().has_handlers();
+    let has_commands = entity.has_commands() && !entity.command_defs().is_empty();
+
+    // Need at least one type of handler to generate API
+    if !has_crud && !has_commands {
         return TokenStream::new();
     }
 
-    let handlers = handlers::generate(entity);
+    let crud_handlers = crud::generate(entity);
+    let command_handlers = handlers::generate(entity);
     let router = router::generate(entity);
     let openapi = openapi::generate(entity);
 
     quote! {
-        #handlers
+        #crud_handlers
+        #command_handlers
         #router
         #openapi
     }
