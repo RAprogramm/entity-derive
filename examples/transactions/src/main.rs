@@ -184,9 +184,7 @@ async fn transfer(
 async fn list_accounts(
     State(state): State<AppState>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    let accounts = state
-        .pool
-        .list(100, 0)
+    let accounts = BankAccountRepository::list(&*state.pool, 100, 0)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -200,9 +198,7 @@ async fn get_account(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    let account = state
-        .pool
-        .find_by_id(id)
+    let account = BankAccountRepository::find_by_id(&*state.pool, id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .ok_or(StatusCode::NOT_FOUND)?;
@@ -215,9 +211,7 @@ async fn create_account(
     State(state): State<AppState>,
     Json(dto): Json<CreateBankAccountRequest>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    let account = state
-        .pool
-        .create(dto)
+    let account = BankAccountRepository::create(&*state.pool, dto)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -228,9 +222,7 @@ async fn create_account(
 async fn list_transfers(
     State(state): State<AppState>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    let logs: Vec<TransferLog> = state
-        .pool
-        .list(100, 0)
+    let logs = TransferLogRepository::list(&*state.pool, 100, 0)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
