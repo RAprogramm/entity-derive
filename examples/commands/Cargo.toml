@@ -2,10 +2,11 @@
 # SPDX-License-Identifier: MIT
 
 [package]
-name = "axum-crud-example"
+name = "example-commands"
 version = "0.1.0"
 edition = "2024"
 publish = false
+description = "CQRS commands example with entity-derive"
 
 [dependencies]
 entity-derive = { path = "../..", features = ["postgres", "api"] }
@@ -17,8 +18,5 @@ chrono = { version = "0.4", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 async-trait = "0.1"
-tower-http = { version = "0.6", features = ["trace"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-utoipa = { version = "5", features = ["axum_extras", "chrono", "uuid"] }
-utoipa-swagger-ui = { version = "9", features = ["axum"] }
