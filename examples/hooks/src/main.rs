@@ -9,18 +9,19 @@
 //! - before_update, after_update
 //! - before_delete, after_delete
 
+use std::sync::Arc;
+
+use async_trait::async_trait;
 use axum::{
     Json, Router,
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{get, post, patch, delete},
+    routing::{patch, post}
 };
-use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use entity_derive::Entity;
 use sqlx::PgPool;
-use std::sync::Arc;
 use uuid::Uuid;
 
 // ============================================================================
@@ -45,20 +46,20 @@ pub struct User {
 
     #[field(response)]
     #[auto]
-    pub created_at: DateTime<Utc>,
+    pub created_at: DateTime<Utc>
 }
 
 // Generated trait by macro:
 // #[async_trait]
 // pub trait UserHooks: Send + Sync {
 //     type Error: std::error::Error + Send + Sync;
-//     async fn before_create(&self, dto: &mut CreateUserRequest) -> Result<(), Self::Error>;
-//     async fn after_create(&self, entity: &User) -> Result<(), Self::Error>;
-//     async fn before_update(&self, id: &Uuid, dto: &mut UpdateUserRequest) -> Result<(), Self::Error>;
-//     async fn after_update(&self, entity: &User) -> Result<(), Self::Error>;
-//     async fn before_delete(&self, id: &Uuid) -> Result<(), Self::Error>;
-//     async fn after_delete(&self, id: &Uuid) -> Result<(), Self::Error>;
-// }
+//     async fn before_create(&self, dto: &mut CreateUserRequest) -> Result<(),
+// Self::Error>;     async fn after_create(&self, entity: &User) -> Result<(),
+// Self::Error>;     async fn before_update(&self, id: &Uuid, dto: &mut
+// UpdateUserRequest) -> Result<(), Self::Error>;     async fn
+// after_update(&self, entity: &User) -> Result<(), Self::Error>;     async fn
+// before_delete(&self, id: &Uuid) -> Result<(), Self::Error>;     async fn
+// after_delete(&self, id: &Uuid) -> Result<(), Self::Error>; }
 
 // ============================================================================
 // Hooks Implementation
@@ -103,7 +104,11 @@ impl UserHooks for MyUserHooks {
         Ok(())
     }
 
-    async fn before_update(&self, id: &Uuid, dto: &mut UpdateUserRequest) -> Result<(), Self::Error> {
+    async fn before_update(
+        &self,
+        id: &Uuid,
+        dto: &mut UpdateUserRequest
+    ) -> Result<(), Self::Error> {
         if let Some(ref mut email) = dto.email {
             *email = email.to_lowercase();
         }
@@ -135,8 +140,8 @@ impl UserHooks for MyUserHooks {
 
 #[derive(Clone)]
 struct AppState {
-    pool: Arc<PgPool>,
-    hooks: Arc<MyUserHooks>,
+    pool:  Arc<PgPool>,
+    hooks: Arc<MyUserHooks>
 }
 
 // ============================================================================
@@ -145,7 +150,7 @@ struct AppState {
 
 async fn create_user(
     State(state): State<AppState>,
-    Json(mut dto): Json<CreateUserRequest>,
+    Json(mut dto): Json<CreateUserRequest>
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
     // Run before_create hook
     state
@@ -173,7 +178,7 @@ async fn create_user(
 async fn update_user(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
-    Json(mut dto): Json<UpdateUserRequest>,
+    Json(mut dto): Json<UpdateUserRequest>
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
     // Run before_update hook
     state
@@ -200,7 +205,7 @@ async fn update_user(
 
 async fn delete_user(
     State(state): State<AppState>,
-    Path(id): Path<Uuid>,
+    Path(id): Path<Uuid>
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
     // Run before_delete hook
     state
@@ -229,9 +234,7 @@ async fn delete_user(
     }
 }
 
-async fn list_users(
-    State(state): State<AppState>,
-) -> Result<impl IntoResponse, StatusCode> {
+async fn list_users(State(state): State<AppState>) -> Result<impl IntoResponse, StatusCode> {
     let users = state
         .pool
         .list(100, 0)
@@ -276,8 +279,8 @@ async fn main() {
         .expect("Failed to run migrations");
 
     let state = AppState {
-        pool: Arc::new(pool),
-        hooks: Arc::new(MyUserHooks),
+        pool:  Arc::new(pool),
+        hooks: Arc::new(MyUserHooks)
     };
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
