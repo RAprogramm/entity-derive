@@ -51,6 +51,7 @@ use super::{
     sql_level::SqlLevel,
     uuid_version::UuidVersion
 };
+use crate::utils::docs::extract_doc_comments;
 
 /// Parse `#[has_many(Entity)]` attributes from struct attributes.
 ///
@@ -286,7 +287,12 @@ pub struct EntityDef {
     ///
     /// When enabled via `#[entity(api(...))]`, generates axum handlers
     /// with OpenAPI documentation via utoipa.
-    pub api_config: ApiConfig
+    pub api_config: ApiConfig,
+
+    /// Documentation comment from the entity struct.
+    ///
+    /// Extracted from `///` comments for use in OpenAPI tag descriptions.
+    pub doc: Option<String>
 }
 
 impl EntityDef {
@@ -353,6 +359,7 @@ impl EntityDef {
         let projections = parse_projection_attrs(&input.attrs);
         let command_defs = parse_command_attrs(&input.attrs);
         let api_config = parse_api_attr(&input.attrs);
+        let doc = extract_doc_comments(&input.attrs);
 
         let id_field_index = fields.iter().position(|f| f.is_id()).ok_or_else(|| {
             darling::Error::custom("Entity must have exactly one field with #[id] attribute")
@@ -381,7 +388,8 @@ impl EntityDef {
             policy: attrs.policy,
             streams: attrs.streams,
             transactions: attrs.transactions,
-            api_config
+            api_config,
+            doc
         })
     }
 
@@ -683,6 +691,15 @@ impl EntityDef {
     #[allow(dead_code)]
     pub fn api_config(&self) -> &ApiConfig {
         &self.api_config
+    }
+
+    /// Get the documentation comment if present.
+    ///
+    /// Returns the extracted doc comment for use in OpenAPI descriptions.
+    #[must_use]
+    #[allow(dead_code)]
+    pub fn doc(&self) -> Option<&str> {
+        self.doc.as_deref()
     }
 }
 
