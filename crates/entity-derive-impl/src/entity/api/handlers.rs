@@ -116,6 +116,13 @@ fn generate_handler(entity: &EntityDef, cmd: &CommandDef) -> TokenStream {
     // Determine response type
     let (response_type, response_body) = response_type_for_command(entity, cmd);
 
+    // Deprecated flag from api config
+    let deprecated_attr = if api_config.is_deprecated() {
+        quote! { , deprecated = true }
+    } else {
+        quote! {}
+    };
+
     // Build utoipa path attribute
     let utoipa_attr = if security_attr.is_empty() {
         quote! {
@@ -129,6 +136,7 @@ fn generate_handler(entity: &EntityDef, cmd: &CommandDef) -> TokenStream {
                     (status = 400, description = "Validation error"),
                     (status = 500, description = "Internal server error")
                 )
+                #deprecated_attr
             )]
         }
     } else {
@@ -145,6 +153,7 @@ fn generate_handler(entity: &EntityDef, cmd: &CommandDef) -> TokenStream {
                     (status = 500, description = "Internal server error")
                 ),
                 #security_attr
+                #deprecated_attr
             )]
         }
     };
@@ -356,5 +365,30 @@ mod tests {
     fn http_method_custom() {
         let cmd = create_test_command("Transfer", false, CommandKindHint::Custom);
         assert_eq!(http_method_for_command(&cmd), "post");
+    }
+
+    #[test]
+    fn security_scheme_bearer() {
+        assert_eq!(security_scheme_name("bearer"), "bearer_auth");
+    }
+
+    #[test]
+    fn security_scheme_api_key() {
+        assert_eq!(security_scheme_name("api_key"), "api_key");
+    }
+
+    #[test]
+    fn security_scheme_admin() {
+        assert_eq!(security_scheme_name("admin"), "admin_auth");
+    }
+
+    #[test]
+    fn security_scheme_oauth2() {
+        assert_eq!(security_scheme_name("oauth2"), "oauth2");
+    }
+
+    #[test]
+    fn security_scheme_unknown_defaults_to_bearer() {
+        assert_eq!(security_scheme_name("unknown"), "bearer_auth");
     }
 }
