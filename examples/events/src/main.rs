@@ -13,7 +13,7 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{get, post, patch, delete},
+    routing::{get, post},
 };
 use chrono::{DateTime, Utc};
 use entity_derive::Entity;
@@ -28,7 +28,7 @@ use uuid::Uuid;
 // ============================================================================
 
 /// Order entity with lifecycle events.
-#[derive(Debug, Clone, Entity)]
+#[derive(Debug, Clone, PartialEq, Entity)]
 #[entity(table = "orders", events)]
 pub struct Order {
     #[id]
@@ -85,23 +85,23 @@ fn handle_event(event: &OrderEvent) -> String {
                 order.id, order.customer_name, order.product
             )
         }
-        OrderEvent::Updated { id, changes } => {
+        OrderEvent::Updated { old, new } => {
             let mut changed = Vec::new();
-            if changes.customer_name.is_some() {
+            if old.customer_name != new.customer_name {
                 changed.push("customer_name");
             }
-            if changes.product.is_some() {
+            if old.product != new.product {
                 changed.push("product");
             }
-            if changes.quantity.is_some() {
+            if old.quantity != new.quantity {
                 changed.push("quantity");
             }
-            if changes.status.is_some() {
+            if old.status != new.status {
                 changed.push("status");
             }
-            format!("[AUDIT] Order updated: id={}, changed={:?}", id, changed)
+            format!("[AUDIT] Order updated: id={}, changed={:?}", new.id, changed)
         }
-        OrderEvent::Deleted(id) => {
+        OrderEvent::HardDeleted { id } => {
             format!("[AUDIT] Order deleted: id={}", id)
         }
     }
@@ -149,37 +149,39 @@ async fn update_order(
     Path(id): Path<Uuid>,
     Json(dto): Json<UpdateOrderRequest>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    // Emit event before update
+    // Fetch old order for event
+    let old = OrderRepository::find_by_id(&*state.pool, id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::NOT_FOUND)?;
+
+    let new = OrderRepository::update(&*state.pool, id, dto)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    // Emit event with old and new values
     let event = OrderEvent::Updated {
-        id,
-        changes: dto.clone(),
+        old: old.clone(),
+        new: new.clone(),
     };
     let log = handle_event(&event);
     tracing::info!("{}", log);
     let _ = state.events.send(log);
 
-    let order = state
-        .pool
-        .update(id, dto)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    Ok(Json(OrderResponse::from(order)))
+    Ok(Json(OrderResponse::from(new)))
 }
 
 async fn delete_order(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    let deleted = state
-        .pool
-        .delete(id)
+    let deleted = OrderRepository::delete(&*state.pool, id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     if deleted {
         // Emit event
-        let event = OrderEvent::Deleted(id);
+        let event = OrderEvent::HardDeleted { id };
         let log = handle_event(&event);
         tracing::info!("{}", log);
         let _ = state.events.send(log);
