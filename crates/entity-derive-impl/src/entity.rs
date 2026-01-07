@@ -61,6 +61,7 @@
 //! | `impl From<...>` | Conversions between types |
 //! | `impl UserRepository for PgPool` | PostgreSQL implementation |
 
+mod api;
 mod commands;
 mod dto;
 mod events;
@@ -103,6 +104,7 @@ fn generate(entity: EntityDef) -> TokenStream {
     let policy = policy::generate(&entity);
     let streams = streams::generate(&entity);
     let transaction = transaction::generate(&entity);
+    let api = api::generate(&entity);
     let repository = repository::generate(&entity);
     let row = row::generate(&entity);
     let insertable = insertable::generate(&entity);
@@ -119,6 +121,7 @@ fn generate(entity: EntityDef) -> TokenStream {
         #policy
         #streams
         #transaction
+        #api
         #repository
         #row
         #insertable
