@@ -69,9 +69,16 @@ conventional_commits = true
 filter_unconventional = true
 split_commits = false
 commit_preprocessors = [
+    # Link issue references
     { pattern = '\((\w+)\s?\#([0-9]+)\)', replace = "([#${2}](https://github.com/RAprogramm/entity-derive/issues/${2}))" },
 ]
 commit_parsers = [
+    # Skip noise
+    { message = "^chore\\(release\\)", skip = true },
+    { message = "^chore\\(deps\\)", skip = true },
+    { message = "^chore: update CHANGELOG", skip = true },
+    { message = "^Release v", skip = true },
+    # Standard conventional commits
     { message = "^feat", group = "✨ Features" },
     { message = "^fix", group = "🐛 Bug Fixes" },
     { message = "^doc", group = "📚 Documentation" },
@@ -79,11 +86,16 @@ commit_parsers = [
     { message = "^refactor", group = "♻️ Refactor" },
     { message = "^style", group = "🎨 Styling" },
     { message = "^test", group = "🧪 Testing" },
-    { message = "^chore\\(release\\)", skip = true },
-    { message = "^chore\\(deps\\)", skip = true },
-    { message = "^chore\\(pr\\)", skip = true },
-    { message = "^chore\\(pull\\)", skip = true },
-    { message = "^chore: update CHANGELOG", skip = true },
+    # Issue-prefixed commits: #XX type: description
+    { message = "^#\\d+\\s+feat", group = "✨ Features" },
+    { message = "^#\\d+\\s+fix", group = "🐛 Bug Fixes" },
+    { message = "^#\\d+\\s+doc", group = "📚 Documentation" },
+    { message = "^#\\d+\\s+perf", group = "⚡ Performance" },
+    { message = "^#\\d+\\s+refactor", group = "♻️ Refactor" },
+    { message = "^#\\d+\\s+style", group = "🎨 Styling" },
+    { message = "^#\\d+\\s+test", group = "🧪 Testing" },
+    { message = "^#\\d+\\s+chore", group = "🔧 Miscellaneous" },
+    # Fallback
     { message = "^chore|^ci", group = "🔧 Miscellaneous" },
     { body = ".*security", group = "🛡️ Security" },
     { message = "^revert", group = "⏪ Reverted" },
