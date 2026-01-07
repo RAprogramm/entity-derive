@@ -551,13 +551,11 @@ jobs:
               echo "**Full Changelog**: https://github.com/$GITHUB_REPOSITORY/compare/$LATEST_TAG...$TAG" >> /tmp/release_notes.md
             else
               # Ultimate fallback
-              cat > /tmp/release_notes.md << EOF
-## Release $VERSION
-
-Published crates: $PUBLISHED_CRATES
-
-**Full Changelog**: https://github.com/$GITHUB_REPOSITORY/compare/$LATEST_TAG...$TAG
-EOF
+              echo "## Release $VERSION" > /tmp/release_notes.md
+              echo "" >> /tmp/release_notes.md
+              echo "Published crates: $PUBLISHED_CRATES" >> /tmp/release_notes.md
+              echo "" >> /tmp/release_notes.md
+              echo "**Full Changelog**: https://github.com/$GITHUB_REPOSITORY/compare/$LATEST_TAG...$TAG" >> /tmp/release_notes.md
             fi
           else
             echo "$NOTES" > /tmp/release_notes.md
