@@ -193,3 +193,126 @@ impl Context<'_> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::entity::parse::EntityDef;
+
+    #[test]
+    fn query_method_no_filters_returns_empty() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users")]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                pub name: String,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let ctx = Context::new(&entity);
+        let method = ctx.query_method();
+        assert!(method.is_empty());
+    }
+
+    #[test]
+    fn query_method_with_filter() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users")]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                #[filter]
+                pub name: String,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let ctx = Context::new(&entity);
+        let method = ctx.query_method();
+        let method_str = method.to_string();
+        assert!(method_str.contains("async fn query"));
+        assert!(method_str.contains("UserQuery"));
+        assert!(method_str.contains("conditions"));
+        assert!(method_str.contains("where_clause"));
+    }
+
+    #[test]
+    fn query_method_with_soft_delete() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", soft_delete)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                #[filter]
+                pub name: String,
+                #[field(response)]
+                #[auto]
+                pub deleted_at: Option<chrono::DateTime<chrono::Utc>>,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let ctx = Context::new(&entity);
+        let method = ctx.query_method();
+        let method_str = method.to_string();
+        assert!(method_str.contains("deleted_at"));
+    }
+
+    #[test]
+    fn stream_filtered_no_streams_returns_empty() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users")]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                #[filter]
+                pub name: String,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let ctx = Context::new(&entity);
+        let method = ctx.stream_filtered_method();
+        assert!(method.is_empty());
+    }
+
+    #[test]
+    fn stream_filtered_no_filters_returns_empty() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", streams)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                pub name: String,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let ctx = Context::new(&entity);
+        let method = ctx.stream_filtered_method();
+        assert!(method.is_empty());
+    }
+
+    #[test]
+    fn stream_filtered_with_streams_and_filters() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", streams)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                #[filter]
+                pub name: String,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let ctx = Context::new(&entity);
+        let method = ctx.stream_filtered_method();
+        let method_str = method.to_string();
+        assert!(method_str.contains("stream_filtered"));
+        assert!(method_str.contains("UserFilter"));
+        assert!(method_str.contains("futures"));
+    }
+}

@@ -48,3 +48,54 @@ fn generate_channel_const(entity: &EntityDef) -> TokenStream {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn generate_no_streams_returns_empty() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users")]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let output = generate(&entity);
+        assert!(output.is_empty());
+    }
+
+    #[test]
+    fn generate_with_streams() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", streams)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let output = generate(&entity);
+        let output_str = output.to_string();
+        assert!(output_str.contains("CHANNEL"));
+        assert!(output_str.contains("entity_users"));
+        assert!(output_str.contains("UserSubscriber"));
+    }
+
+    #[test]
+    fn channel_const_format() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "blog_posts", streams)]
+            pub struct BlogPost {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let output = generate_channel_const(&entity);
+        let output_str = output.to_string();
+        assert!(output_str.contains("entity_blog_posts"));
+    }
+}
