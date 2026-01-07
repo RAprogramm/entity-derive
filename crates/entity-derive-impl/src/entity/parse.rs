@@ -106,6 +106,7 @@
 //! pub struct Product { /* ... */ }
 //! ```
 
+mod api;
 mod command;
 mod dialect;
 mod entity;
@@ -114,6 +115,9 @@ mod returning;
 mod sql_level;
 mod uuid_version;
 
+// Re-exported for handler generation (#77)
+#[allow(unused_imports)]
+pub use api::ApiConfig;
 pub use command::{CommandDef, CommandKindHint, CommandSource};
 pub use dialect::DatabaseDialect;
 pub use entity::{EntityDef, ProjectionDef};

@@ -65,7 +65,7 @@ pub fn default_error_type() -> syn::Path {
 /// )]
 /// ```
 #[derive(Debug, FromDeriveInput)]
-#[darling(attributes(entity), supports(struct_named))]
+#[darling(attributes(entity), supports(struct_named), allow_unknown_fields)]
 pub struct EntityAttrs {
     /// Struct identifier (e.g., `User`).
     pub ident: Ident,

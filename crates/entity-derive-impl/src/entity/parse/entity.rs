@@ -43,6 +43,7 @@ pub use projection::{ProjectionDef, parse_projection_attrs};
 use syn::{Attribute, DeriveInput, Ident, Visibility};
 
 use super::{
+    api::{ApiConfig, parse_api_config},
     command::{CommandDef, parse_command_attrs},
     dialect::DatabaseDialect,
     field::FieldDef,
@@ -81,6 +82,75 @@ fn parse_has_many_attrs(attrs: &[Attribute]) -> Vec<Ident> {
         .filter(|attr| attr.path().is_ident("has_many"))
         .filter_map(|attr| attr.parse_args::<Ident>().ok())
         .collect()
+}
+
+/// Parse `api(...)` from `#[entity(...)]` attribute.
+///
+/// Searches for the `api` key within the entity attribute and parses
+/// its nested configuration.
+///
+/// # Arguments
+///
+/// * `attrs` - Slice of syn Attributes from the struct
+///
+/// # Returns
+///
+/// `ApiConfig` with parsed values, or default if not present.
+fn parse_api_attr(attrs: &[Attribute]) -> ApiConfig {
+    for attr in attrs {
+        if !attr.path().is_ident("entity") {
+            continue;
+        }
+
+        // Parse the attribute content manually
+        let result: syn::Result<Option<ApiConfig>> =
+            attr.parse_args_with(|input: syn::parse::ParseStream<'_>| {
+                while !input.is_empty() {
+                    let ident: Ident = input.parse()?;
+
+                    if ident == "api" {
+                        // Found api(...), parse the nested content
+                        let content;
+                        syn::parenthesized!(content in input);
+
+                        // Build a Meta::List from the content
+                        let tokens = content.parse::<proc_macro2::TokenStream>()?;
+                        let meta_list = syn::Meta::List(syn::MetaList {
+                            path: syn::parse_quote!(api),
+                            delimiter: syn::MacroDelimiter::Paren(syn::token::Paren::default()),
+                            tokens
+                        });
+
+                        if let Ok(config) = parse_api_config(&meta_list) {
+                            return Ok(Some(config));
+                        }
+                    } else {
+                        // Skip other attributes (table = "...", schema = "...", etc.)
+                        if input.peek(syn::Token![=]) {
+                            let _: syn::Token![=] = input.parse()?;
+                            // Skip the value
+                            let _ = input.parse::<syn::Expr>()?;
+                        } else if input.peek(syn::token::Paren) {
+                            let content;
+                            syn::parenthesized!(content in input);
+                            let _ = content.parse::<proc_macro2::TokenStream>()?;
+                        }
+                    }
+
+                    // Skip comma if present
+                    if input.peek(syn::Token![,]) {
+                        let _: syn::Token![,] = input.parse()?;
+                    }
+                }
+                Ok(None)
+            });
+
+        if let Ok(Some(config)) = result {
+            return config;
+        }
+    }
+
+    ApiConfig::default()
 }
 
 /// Complete parsed entity definition.
@@ -210,7 +280,13 @@ pub struct EntityDef {
     ///
     /// When `true`, generates transaction repository adapter and builder
     /// methods.
-    pub transactions: bool
+    pub transactions: bool,
+
+    /// API configuration for HTTP handler generation.
+    ///
+    /// When enabled via `#[entity(api(...))]`, generates axum handlers
+    /// with OpenAPI documentation via utoipa.
+    pub api_config: ApiConfig
 }
 
 impl EntityDef {
@@ -276,6 +352,7 @@ impl EntityDef {
         let has_many = parse_has_many_attrs(&input.attrs);
         let projections = parse_projection_attrs(&input.attrs);
         let command_defs = parse_command_attrs(&input.attrs);
+        let api_config = parse_api_attr(&input.attrs);
 
         let id_field_index = fields.iter().position(|f| f.is_id()).ok_or_else(|| {
             darling::Error::custom("Entity must have exactly one field with #[id] attribute")
@@ -303,7 +380,8 @@ impl EntityDef {
             command_defs,
             policy: attrs.policy,
             streams: attrs.streams,
-            transactions: attrs.transactions
+            transactions: attrs.transactions,
+            api_config
         })
     }
 
@@ -582,6 +660,30 @@ impl EntityDef {
     pub fn has_transactions(&self) -> bool {
         self.transactions
     }
+
+    /// Check if API generation is enabled.
+    ///
+    /// # Returns
+    ///
+    /// `true` if `#[entity(api(...))]` is present with a tag.
+    ///
+    /// Used by handler generation (#77).
+    #[allow(dead_code)]
+    pub fn has_api(&self) -> bool {
+        self.api_config.is_enabled()
+    }
+
+    /// Get API configuration.
+    ///
+    /// # Returns
+    ///
+    /// Reference to the API configuration.
+    ///
+    /// Used by handler generation (#77).
+    #[allow(dead_code)]
+    pub fn api_config(&self) -> &ApiConfig {
+        &self.api_config
+    }
 }
 
 #[cfg(test)]
@@ -609,5 +711,79 @@ mod tests {
         let error_path = entity.error_type();
         let path_str = quote::quote!(#error_path).to_string();
         assert!(path_str.contains("sqlx"));
+    }
+
+    #[test]
+    fn entity_def_without_api() {
+        let input: DeriveInput = syn::parse_quote! {
+            #[entity(table = "users")]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        assert!(!entity.has_api());
+    }
+
+    #[test]
+    fn entity_def_with_api() {
+        let input: DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", api(tag = "Users"))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        assert!(entity.has_api());
+        assert_eq!(entity.api_config().tag, Some("Users".to_string()));
+    }
+
+    #[test]
+    fn entity_def_with_full_api_config() {
+        let input: DeriveInput = syn::parse_quote! {
+            #[entity(
+                table = "users",
+                api(
+                    tag = "Users",
+                    tag_description = "User management",
+                    path_prefix = "/api/v1",
+                    security = "bearer"
+                )
+            )]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        assert!(entity.has_api());
+        let config = entity.api_config();
+        assert_eq!(config.tag, Some("Users".to_string()));
+        assert_eq!(config.tag_description, Some("User management".to_string()));
+        assert_eq!(config.path_prefix, Some("/api/v1".to_string()));
+        assert_eq!(config.security, Some("bearer".to_string()));
+    }
+
+    #[test]
+    fn entity_def_api_with_public_commands() {
+        let input: DeriveInput = syn::parse_quote! {
+            #[entity(
+                table = "users",
+                api(tag = "Users", security = "bearer", public = [Register, Login])
+            )]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let config = entity.api_config();
+        assert!(config.is_public_command("Register"));
+        assert!(config.is_public_command("Login"));
+        assert!(!config.is_public_command("Update"));
+        assert_eq!(config.security_for_command("Register"), None);
+        assert_eq!(config.security_for_command("Update"), Some("bearer"));
     }
 }
