@@ -14,5 +14,9 @@ pub use crate::stream::StreamError;
 pub use crate::{
     CommandKind, EntityCommand, EntityEvent, EventKind, Pagination, Repository, SortDirection,
     async_trait,
-    policy::{PolicyError, PolicyOperation}
+    policy::{PolicyError, PolicyOperation},
+    transaction::{
+        Transaction, TransactionContext, TransactionError, TransactionOps, TransactionRunner,
+        Transactional
+    }
 };

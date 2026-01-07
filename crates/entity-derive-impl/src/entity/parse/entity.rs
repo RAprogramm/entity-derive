@@ -204,7 +204,13 @@ pub struct EntityDef {
     /// Whether to enable real-time streaming.
     ///
     /// When `true`, generates `{Entity}Subscriber` and NOTIFY calls.
-    pub streams: bool
+    pub streams: bool,
+
+    /// Whether to generate transaction support.
+    ///
+    /// When `true`, generates transaction repository adapter and builder
+    /// methods.
+    pub transactions: bool
 }
 
 impl EntityDef {
@@ -296,7 +302,8 @@ impl EntityDef {
             commands: attrs.commands,
             command_defs,
             policy: attrs.policy,
-            streams: attrs.streams
+            streams: attrs.streams,
+            transactions: attrs.transactions
         })
     }
 
@@ -565,6 +572,15 @@ impl EntityDef {
     /// `true` if `#[entity(streams)]` is present.
     pub fn has_streams(&self) -> bool {
         self.streams
+    }
+
+    /// Check if transaction support should be generated.
+    ///
+    /// # Returns
+    ///
+    /// `true` if `#[entity(transactions)]` is present.
+    pub fn has_transactions(&self) -> bool {
+        self.transactions
     }
 }
 

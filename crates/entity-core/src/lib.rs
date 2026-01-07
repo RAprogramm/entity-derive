@@ -35,6 +35,7 @@ pub mod policy;
 pub mod prelude;
 #[cfg(feature = "streams")]
 pub mod stream;
+pub mod transaction;
 
 /// Re-export async_trait for generated code.
 pub use async_trait::async_trait;

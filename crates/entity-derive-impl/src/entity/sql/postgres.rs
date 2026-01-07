@@ -61,12 +61,13 @@
 
 mod context;
 mod crud;
-mod helpers;
 mod notify;
 mod projections;
 mod query;
 mod relations;
 mod soft_delete;
+
+pub mod helpers;
 
 pub use context::Context;
 use proc_macro2::TokenStream;

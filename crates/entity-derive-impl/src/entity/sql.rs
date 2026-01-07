@@ -25,7 +25,8 @@
 
 mod clickhouse;
 mod mongodb;
-mod postgres;
+
+pub mod postgres;
 
 use proc_macro2::TokenStream;
 

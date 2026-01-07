@@ -221,5 +221,29 @@ pub struct EntityAttrs {
     /// - NOTIFY calls in CRUD operations
     /// - `CHANNEL` constant with notification channel name
     #[darling(default)]
-    pub streams: bool
+    pub streams: bool,
+
+    /// Enable transaction support.
+    ///
+    /// When enabled, generates:
+    /// - `{Entity}TransactionRepo` adapter for use in transactions
+    /// - `with_{entity}()` method on `Transaction` builder
+    /// - Accessor methods on `TransactionContext`
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// #[entity(table = "accounts", transactions)]
+    /// pub struct Account { ... }
+    ///
+    /// // Usage:
+    /// Transaction::new(&pool)
+    ///     .with_accounts()
+    ///     .run(|mut ctx| async move {
+    ///         ctx.accounts().create(dto).await
+    ///     })
+    ///     .await?;
+    /// ```
+    #[darling(default)]
+    pub transactions: bool
 }
