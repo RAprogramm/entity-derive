@@ -511,10 +511,8 @@ jobs:
 
             if [ -n "$MERGE_COMMITS" ]; then
               echo "Found PRs: $MERGE_COMMITS"
-              cat > /tmp/release_notes.md << 'HEADER'
-## What's Changed
-
-HEADER
+              echo "## What's Changed" > /tmp/release_notes.md
+              echo "" >> /tmp/release_notes.md
               for PR_NUM in $MERGE_COMMITS; do
                 echo "Fetching PR #$PR_NUM commits..."
                 # Get PR commits with conventional commit format
