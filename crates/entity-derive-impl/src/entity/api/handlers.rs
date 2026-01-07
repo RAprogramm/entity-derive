@@ -93,14 +93,21 @@ fn generate_handler(entity: &EntityDef, cmd: &CommandDef) -> TokenStream {
     let tag = api_config.tag_or_default(&entity_name_str);
 
     // Security configuration
-    let security_attr = if api_config.is_public_command(&cmd.name.to_string()) {
+    // Priority: command-level override > entity-level public list > entity-level
+    // default
+    let security_attr = if cmd.is_public() {
+        // Command explicitly marked as public
+        quote! {}
+    } else if let Some(cmd_security) = cmd.security() {
+        // Command has explicit security override
+        let security_name = security_scheme_name(cmd_security);
+        quote! { security(#security_name = []) }
+    } else if api_config.is_public_command(&cmd.name.to_string()) {
+        // Command is in entity-level public list
         quote! {}
     } else if let Some(security) = &api_config.security {
-        let security_name = match security.as_str() {
-            "bearer" => "bearer_auth",
-            "api_key" => "api_key",
-            _ => "bearer_auth"
-        };
+        // Use entity-level default security
+        let security_name = security_scheme_name(security);
         quote! { security(#security_name = []) }
     } else {
         quote! {}
@@ -283,6 +290,17 @@ fn http_method_for_command(cmd: &CommandDef) -> &'static str {
     }
 }
 
+/// Map security scheme name to OpenAPI security scheme identifier.
+fn security_scheme_name(scheme: &str) -> &'static str {
+    match scheme {
+        "bearer" => "bearer_auth",
+        "api_key" => "api_key",
+        "admin" => "admin_auth",
+        "oauth2" => "oauth2",
+        _ => "bearer_auth"
+    }
+}
+
 /// Get the response type for a command.
 fn response_type_for_command(entity: &EntityDef, cmd: &CommandDef) -> (TokenStream, TokenStream) {
     let entity_name = entity.name();
@@ -311,7 +329,8 @@ mod tests {
             source: CommandSource::Create,
             requires_id,
             result_type: None,
-            kind
+            kind,
+            security: None
         }
     }
 

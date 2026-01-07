@@ -123,7 +123,13 @@ pub struct CommandDef {
     pub result_type: Option<Type>,
 
     /// Kind hint for command categorization.
-    pub kind: CommandKindHint
+    pub kind: CommandKindHint,
+
+    /// Security scheme override for this command.
+    ///
+    /// When set, overrides the entity-level default security.
+    /// Use `"none"` to make a command public.
+    pub security: Option<String>
 }
 
 impl CommandDef {
@@ -138,7 +144,8 @@ impl CommandDef {
             source: CommandSource::default(),
             requires_id: false,
             result_type: None,
-            kind: CommandKindHint::default()
+            kind: CommandKindHint::default(),
+            security: None
         }
     }
 
@@ -168,6 +175,29 @@ impl CommandDef {
         use convert_case::{Case, Casing};
         let snake = self.name.to_string().to_case(Case::Snake);
         Ident::new(&format!("handle_{}", snake), Span::call_site())
+    }
+
+    /// Check if this command has explicit security override.
+    #[must_use]
+    #[allow(dead_code)] // Used in tests and for API inspection
+    pub fn has_security_override(&self) -> bool {
+        self.security.is_some()
+    }
+
+    /// Check if this command is explicitly marked as public.
+    ///
+    /// Returns `true` if `security = "none"` is set.
+    #[must_use]
+    pub fn is_public(&self) -> bool {
+        self.security.as_deref() == Some("none")
+    }
+
+    /// Get the security scheme for this command.
+    ///
+    /// Returns command-level override if set, otherwise `None`.
+    #[must_use]
+    pub fn security(&self) -> Option<&str> {
+        self.security.as_deref()
     }
 }
 
@@ -294,12 +324,17 @@ fn parse_single_command(attr: &Attribute) -> syn::Result<CommandDef> {
                         }
                     }
                 }
+                "security" => {
+                    let _: syn::Token![=] = input.parse()?;
+                    let security_lit: syn::LitStr = input.parse()?;
+                    cmd.security = Some(security_lit.value());
+                }
                 _ => {
                     return Err(syn::Error::new(
                         option_name.span(),
                         format!(
                             "unknown command option '{}', expected: requires_id, source, \
-                             payload, result, kind",
+                             payload, result, kind, security",
                             option_str
                         )
                     ));
@@ -554,5 +589,42 @@ mod tests {
         };
         let cmds = parse_command_attrs(&input.attrs);
         assert!(cmds.is_empty());
+    }
+
+    #[test]
+    fn parse_security_bearer() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[command(AdminDelete, requires_id, security = "admin")]
+            struct User {}
+        };
+        let cmds = parse_command_attrs(&input.attrs);
+        assert_eq!(cmds.len(), 1);
+        assert_eq!(cmds[0].security(), Some("admin"));
+        assert!(!cmds[0].is_public());
+    }
+
+    #[test]
+    fn parse_security_none() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[command(PublicList, security = "none")]
+            struct User {}
+        };
+        let cmds = parse_command_attrs(&input.attrs);
+        assert_eq!(cmds.len(), 1);
+        assert!(cmds[0].is_public());
+        assert!(cmds[0].has_security_override());
+    }
+
+    #[test]
+    fn default_no_security_override() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[command(Register)]
+            struct User {}
+        };
+        let cmds = parse_command_attrs(&input.attrs);
+        assert_eq!(cmds.len(), 1);
+        assert!(!cmds[0].has_security_override());
+        assert!(!cmds[0].is_public());
+        assert_eq!(cmds[0].security(), None);
     }
 }
