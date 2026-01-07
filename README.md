@@ -32,6 +32,9 @@
   <a href="https://api.reuse.software/info/github.com/RAprogramm/entity-derive">
     <img src="https://img.shields.io/reuse/compliance/github.com%2FRAprogramm%2Fentity-derive?style=for-the-badge" alt="REUSE Compliant"/>
   </a>
+  <a href="https://github.com/RAprogramm/entity-derive/wiki">
+    <img src="https://img.shields.io/badge/Wiki-Documentation-green?style=for-the-badge&logo=github" alt="Wiki"/>
+  </a>
 </p>
 
 ---

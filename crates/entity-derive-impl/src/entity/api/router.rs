@@ -95,8 +95,9 @@ fn generate_crud_router(entity: &EntityDef) -> TokenStream {
     }
 }
 
-/// Generate CRUD route definitions.
+/// Generate CRUD route definitions based on enabled handlers.
 fn generate_crud_routes(entity: &EntityDef) -> TokenStream {
+    let handlers = entity.api_config().handlers();
     let snake = entity.name_str().to_case(Case::Snake);
     let collection_path = build_crud_collection_path(entity);
     let item_path = build_crud_item_path(entity);
@@ -107,9 +108,51 @@ fn generate_crud_routes(entity: &EntityDef) -> TokenStream {
     let delete_handler = format_ident!("delete_{}", snake);
     let list_handler = format_ident!("list_{}", snake);
 
+    // Build collection route methods (POST, GET)
+    let mut collection_methods = Vec::new();
+    if handlers.create {
+        collection_methods.push(quote! { post(#create_handler::<R>) });
+    }
+    if handlers.list {
+        collection_methods.push(quote! { get(#list_handler::<R>) });
+    }
+
+    // Build item route methods (GET, PATCH, DELETE)
+    let mut item_methods = Vec::new();
+    if handlers.get {
+        item_methods.push(quote! { get(#get_handler::<R>) });
+    }
+    if handlers.update {
+        item_methods.push(quote! { patch(#update_handler::<R>) });
+    }
+    if handlers.delete {
+        item_methods.push(quote! { delete(#delete_handler::<R>) });
+    }
+
+    // Generate routes only for non-empty method lists
+    let collection_route = if !collection_methods.is_empty() {
+        let first = &collection_methods[0];
+        let rest: Vec<_> = collection_methods.iter().skip(1).collect();
+        quote! {
+            .route(#collection_path, axum::routing::#first #(.#rest)*)
+        }
+    } else {
+        TokenStream::new()
+    };
+
+    let item_route = if !item_methods.is_empty() {
+        let first = &item_methods[0];
+        let rest: Vec<_> = item_methods.iter().skip(1).collect();
+        quote! {
+            .route(#item_path, axum::routing::#first #(.#rest)*)
+        }
+    } else {
+        TokenStream::new()
+    };
+
     quote! {
-        .route(#collection_path, axum::routing::post(#create_handler::<R>).get(#list_handler::<R>))
-        .route(#item_path, axum::routing::get(#get_handler::<R>).patch(#update_handler::<R>).delete(#delete_handler::<R>))
+        #collection_route
+        #item_route
     }
 }
 
@@ -123,10 +166,10 @@ fn build_crud_collection_path(entity: &EntityDef) -> String {
     path.replace("//", "/")
 }
 
-/// Build CRUD item path (e.g., `/api/v1/users/:id`).
+/// Build CRUD item path (e.g., `/api/v1/users/{id}`).
 fn build_crud_item_path(entity: &EntityDef) -> String {
     let collection = build_crud_collection_path(entity);
-    format!("{}/:id", collection)
+    format!("{}/{{id}}", collection)
 }
 
 /// Generate commands router for command handler.
@@ -192,7 +235,7 @@ fn generate_command_route(entity: &EntityDef, cmd: &CommandDef) -> TokenStream {
     }
 }
 
-/// Build command path (uses :id instead of {id}).
+/// Build command path (e.g., `/users/{id}/activate`).
 fn build_command_path(entity: &EntityDef, cmd: &CommandDef) -> String {
     let api_config = entity.api_config();
     let prefix = api_config.full_path_prefix();
@@ -200,7 +243,7 @@ fn build_command_path(entity: &EntityDef, cmd: &CommandDef) -> String {
     let cmd_path = cmd.name.to_string().to_case(Case::Kebab);
 
     let path = if cmd.requires_id {
-        format!("{}/{}s/:id/{}", prefix, entity_path, cmd_path)
+        format!("{}/{}s/{{id}}/{}", prefix, entity_path, cmd_path)
     } else {
         format!("{}/{}s/{}", prefix, entity_path, cmd_path)
     };
@@ -254,7 +297,7 @@ mod tests {
         };
         let entity = EntityDef::from_derive_input(&input).unwrap();
         let path = build_crud_item_path(&entity);
-        assert_eq!(path, "/users/:id");
+        assert_eq!(path, "/users/{id}");
     }
 
     #[test]

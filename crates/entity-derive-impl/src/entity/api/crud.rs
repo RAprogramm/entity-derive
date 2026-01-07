@@ -3,43 +3,56 @@
 
 //! CRUD handler generation with utoipa annotations.
 //!
-//! Generates REST handlers for CRUD operations on entities.
-//! Each handler includes `#[utoipa::path]` annotations for OpenAPI
-//! documentation.
+//! Generates production-ready REST handlers with:
+//! - OpenAPI documentation via `#[utoipa::path]`
+//! - Cookie/Bearer authentication via `security` attribute
+//! - Proper error responses using `masterror::ErrorResponse`
+//! - Standard HTTP status codes and error handling
 //!
 //! # Generated Handlers
 //!
-//! | Operation | HTTP Method | Path Pattern | Handler |
-//! |-----------|-------------|--------------|---------|
-//! | Create | POST | `/{prefix}/{entities}` | `create_{entity}` |
-//! | Get | GET | `/{prefix}/{entities}/{id}` | `get_{entity}` |
-//! | Update | PATCH | `/{prefix}/{entities}/{id}` | `update_{entity}` |
-//! | Delete | DELETE | `/{prefix}/{entities}/{id}` | `delete_{entity}` |
-//! | List | GET | `/{prefix}/{entities}` | `list_{entity}` |
+//! | Operation | HTTP Method | Path | Status Codes |
+//! |-----------|-------------|------|--------------|
+//! | Create | POST | `/{entities}` | 201, 400, 401, 500 |
+//! | Get | GET | `/{entities}/{id}` | 200, 401, 404, 500 |
+//! | Update | PATCH | `/{entities}/{id}` | 200, 400, 401, 404, 500 |
+//! | Delete | DELETE | `/{entities}/{id}` | 204, 401, 404, 500 |
+//! | List | GET | `/{entities}` | 200, 401, 500 |
+//!
+//! # Security
+//!
+//! When `security = "cookie"` or `security = "bearer"` is specified,
+//! handlers require authentication and use `Claims` extractor.
 //!
 //! # Example
 //!
-//! For `User` entity with `api(tag = "Users", handlers)`:
-//!
 //! ```rust,ignore
+//! #[derive(Entity)]
+//! #[entity(table = "users", api(tag = "Users", security = "cookie", handlers))]
+//! pub struct User { /* ... */ }
+//!
+//! // Generated handler with auth:
 //! #[utoipa::path(
 //!     post,
-//!     path = "/api/v1/users",
+//!     path = "/users",
 //!     tag = "Users",
-//!     request_body = CreateUserRequest,
+//!     request_body(content = CreateUserRequest, description = "User data to create"),
 //!     responses(
-//!         (status = 201, body = UserResponse),
-//!         (status = 400, description = "Validation error"),
-//!         (status = 500, description = "Internal server error")
-//!     )
+//!         (status = 201, description = "User created successfully", body = UserResponse),
+//!         (status = 400, description = "Invalid request data", body = ErrorResponse),
+//!         (status = 401, description = "Authentication required", body = ErrorResponse),
+//!         (status = 500, description = "Internal server error", body = ErrorResponse)
+//!     ),
+//!     security(("cookieAuth" = []))
 //! )]
-//! pub async fn create_user(
-//!     State(pool): State<Arc<PgPool>>,
+//! pub async fn create_user<R>(
+//!     _claims: Claims,
+//!     State(repo): State<Arc<R>>,
 //!     Json(dto): Json<CreateUserRequest>,
-//! ) -> Result<(StatusCode, Json<UserResponse>), StatusCode> {
-//!     let entity = pool.create(dto).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-//!     Ok((StatusCode::CREATED, Json(UserResponse::from(entity))))
-//! }
+//! ) -> AppResult<(StatusCode, Json<UserResponse>)>
+//! where
+//!     R: UserRepository + 'static,
+//! { /* ... */ }
 //! ```
 
 use convert_case::{Case, Casing};
@@ -48,17 +61,39 @@ use quote::{format_ident, quote};
 
 use crate::entity::parse::EntityDef;
 
-/// Generate all CRUD handler functions for the entity.
+/// Generate CRUD handler functions based on enabled handlers.
 pub fn generate(entity: &EntityDef) -> TokenStream {
     if !entity.api_config().has_handlers() {
         return TokenStream::new();
     }
 
-    let create = generate_create_handler(entity);
-    let get = generate_get_handler(entity);
-    let update = generate_update_handler(entity);
-    let delete = generate_delete_handler(entity);
-    let list = generate_list_handler(entity);
+    let handlers = entity.api_config().handlers();
+
+    let create = if handlers.create {
+        generate_create_handler(entity)
+    } else {
+        TokenStream::new()
+    };
+    let get = if handlers.get {
+        generate_get_handler(entity)
+    } else {
+        TokenStream::new()
+    };
+    let update = if handlers.update {
+        generate_update_handler(entity)
+    } else {
+        TokenStream::new()
+    };
+    let delete = if handlers.delete {
+        generate_delete_handler(entity)
+    } else {
+        TokenStream::new()
+    };
+    let list = if handlers.list {
+        generate_list_handler(entity)
+    } else {
+        TokenStream::new()
+    };
 
     quote! {
         #create
@@ -73,30 +108,38 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
 fn generate_create_handler(entity: &EntityDef) -> TokenStream {
     let vis = &entity.vis;
     let entity_name = entity.name();
+    let entity_name_str = entity.name_str();
     let api_config = entity.api_config();
+    let repo_trait = entity.ident_with("", "Repository");
+    let has_security = api_config.security.is_some();
 
-    let handler_name = format_ident!("create_{}", entity.name_str().to_case(Case::Snake));
+    let handler_name = format_ident!("create_{}", entity_name_str.to_case(Case::Snake));
     let create_dto = entity.ident_with("Create", "Request");
     let response_dto = entity.ident_with("", "Response");
 
     let path = build_collection_path(entity);
-    let tag = api_config.tag_or_default(&entity.name_str());
+    let tag = api_config.tag_or_default(&entity_name_str);
 
-    let security_attr = build_security_attr(entity, "create");
+    let security_attr = build_security_attr(entity);
     let deprecated_attr = build_deprecated_attr(entity);
 
-    let utoipa_attr = if security_attr.is_empty() {
+    let request_body_desc = format!("Data for creating a new {}", entity_name);
+    let success_desc = format!("{} created successfully", entity_name);
+
+    let utoipa_attr = if has_security {
         quote! {
             #[utoipa::path(
                 post,
                 path = #path,
                 tag = #tag,
-                request_body = #create_dto,
+                request_body(content = #create_dto, description = #request_body_desc),
                 responses(
-                    (status = 201, body = #response_dto, description = "Created"),
-                    (status = 400, description = "Validation error"),
+                    (status = 201, description = #success_desc, body = #response_dto),
+                    (status = 400, description = "Invalid request data"),
+                    (status = 401, description = "Authentication required"),
                     (status = 500, description = "Internal server error")
-                )
+                ),
+                #security_attr
                 #deprecated_attr
             )]
         }
@@ -106,23 +149,31 @@ fn generate_create_handler(entity: &EntityDef) -> TokenStream {
                 post,
                 path = #path,
                 tag = #tag,
-                request_body = #create_dto,
+                request_body(content = #create_dto, description = #request_body_desc),
                 responses(
-                    (status = 201, body = #response_dto, description = "Created"),
-                    (status = 400, description = "Validation error"),
-                    (status = 401, description = "Unauthorized"),
+                    (status = 201, description = #success_desc, body = #response_dto),
+                    (status = 400, description = "Invalid request data"),
                     (status = 500, description = "Internal server error")
-                ),
-                #security_attr
+                )
                 #deprecated_attr
             )]
         }
     };
 
     let doc = format!(
-        "Create a new {} entity.\n\n\
-         Generated by entity-derive.",
-        entity_name
+        "Create a new {}.\n\n\
+         # Responses\n\n\
+         - `201 Created` - {} created successfully\n\
+         - `400 Bad Request` - Invalid request data\n\
+         {}\
+         - `500 Internal Server Error` - Database or server error",
+        entity_name,
+        entity_name,
+        if has_security {
+            "- `401 Unauthorized` - Authentication required\n"
+        } else {
+            ""
+        }
     );
 
     quote! {
@@ -131,11 +182,14 @@ fn generate_create_handler(entity: &EntityDef) -> TokenStream {
         #vis async fn #handler_name<R>(
             axum::extract::State(repo): axum::extract::State<std::sync::Arc<R>>,
             axum::extract::Json(dto): axum::extract::Json<#create_dto>,
-        ) -> Result<(axum::http::StatusCode, axum::response::Json<#response_dto>), axum::http::StatusCode>
+        ) -> masterror::AppResult<(axum::http::StatusCode, axum::response::Json<#response_dto>)>
         where
-            R: #entity_name Repository + 'static,
+            R: #repo_trait + 'static,
         {
-            let entity = repo.create(dto).await.map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+            let entity = repo
+                .create(dto)
+                .await
+                .map_err(|e| masterror::AppError::internal(e.to_string()))?;
             Ok((axum::http::StatusCode::CREATED, axum::response::Json(#response_dto::from(entity))))
         }
     }
@@ -145,31 +199,40 @@ fn generate_create_handler(entity: &EntityDef) -> TokenStream {
 fn generate_get_handler(entity: &EntityDef) -> TokenStream {
     let vis = &entity.vis;
     let entity_name = entity.name();
+    let entity_name_str = entity.name_str();
     let api_config = entity.api_config();
     let id_field = entity.id_field();
     let id_type = &id_field.ty;
+    let repo_trait = entity.ident_with("", "Repository");
+    let has_security = api_config.security.is_some();
 
-    let handler_name = format_ident!("get_{}", entity.name_str().to_case(Case::Snake));
+    let handler_name = format_ident!("get_{}", entity_name_str.to_case(Case::Snake));
     let response_dto = entity.ident_with("", "Response");
 
     let path = build_item_path(entity);
-    let tag = api_config.tag_or_default(&entity.name_str());
+    let tag = api_config.tag_or_default(&entity_name_str);
 
-    let security_attr = build_security_attr(entity, "get");
+    let security_attr = build_security_attr(entity);
     let deprecated_attr = build_deprecated_attr(entity);
 
-    let utoipa_attr = if security_attr.is_empty() {
+    let id_desc = format!("{} unique identifier", entity_name);
+    let success_desc = format!("{} found", entity_name);
+    let not_found_desc = format!("{} not found", entity_name);
+
+    let utoipa_attr = if has_security {
         quote! {
             #[utoipa::path(
                 get,
                 path = #path,
                 tag = #tag,
-                params(("id" = #id_type, Path, description = "Entity ID")),
+                params(("id" = #id_type, Path, description = #id_desc)),
                 responses(
-                    (status = 200, body = #response_dto, description = "Found"),
-                    (status = 404, description = "Not found"),
+                    (status = 200, description = #success_desc, body = #response_dto),
+                    (status = 401, description = "Authentication required"),
+                    (status = 404, description = #not_found_desc),
                     (status = 500, description = "Internal server error")
-                )
+                ),
+                #security_attr
                 #deprecated_attr
             )]
         }
@@ -179,24 +242,35 @@ fn generate_get_handler(entity: &EntityDef) -> TokenStream {
                 get,
                 path = #path,
                 tag = #tag,
-                params(("id" = #id_type, Path, description = "Entity ID")),
+                params(("id" = #id_type, Path, description = #id_desc)),
                 responses(
-                    (status = 200, body = #response_dto, description = "Found"),
-                    (status = 401, description = "Unauthorized"),
-                    (status = 404, description = "Not found"),
+                    (status = 200, description = #success_desc, body = #response_dto),
+                    (status = 404, description = #not_found_desc),
                     (status = 500, description = "Internal server error")
-                ),
-                #security_attr
+                )
                 #deprecated_attr
             )]
         }
     };
 
     let doc = format!(
-        "Get {} entity by ID.\n\n\
-         Generated by entity-derive.",
+        "Get {} by ID.\n\n\
+         # Responses\n\n\
+         - `200 OK` - {} found\n\
+         {}\
+         - `404 Not Found` - {} not found\n\
+         - `500 Internal Server Error` - Database or server error",
+        entity_name,
+        entity_name,
+        if has_security {
+            "- `401 Unauthorized` - Authentication required\n"
+        } else {
+            ""
+        },
         entity_name
     );
+
+    let not_found_msg = format!("{} not found", entity_name);
 
     quote! {
         #[doc = #doc]
@@ -204,15 +278,15 @@ fn generate_get_handler(entity: &EntityDef) -> TokenStream {
         #vis async fn #handler_name<R>(
             axum::extract::State(repo): axum::extract::State<std::sync::Arc<R>>,
             axum::extract::Path(id): axum::extract::Path<#id_type>,
-        ) -> Result<axum::response::Json<#response_dto>, axum::http::StatusCode>
+        ) -> masterror::AppResult<axum::response::Json<#response_dto>>
         where
-            R: #entity_name Repository + 'static,
+            R: #repo_trait + 'static,
         {
             let entity = repo
                 .find_by_id(id)
                 .await
-                .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?
-                .ok_or(axum::http::StatusCode::NOT_FOUND)?;
+                .map_err(|e| masterror::AppError::internal(e.to_string()))?
+                .ok_or_else(|| masterror::AppError::not_found(#not_found_msg))?;
             Ok(axum::response::Json(#response_dto::from(entity)))
         }
     }
@@ -222,34 +296,44 @@ fn generate_get_handler(entity: &EntityDef) -> TokenStream {
 fn generate_update_handler(entity: &EntityDef) -> TokenStream {
     let vis = &entity.vis;
     let entity_name = entity.name();
+    let entity_name_str = entity.name_str();
     let api_config = entity.api_config();
     let id_field = entity.id_field();
     let id_type = &id_field.ty;
+    let repo_trait = entity.ident_with("", "Repository");
+    let has_security = api_config.security.is_some();
 
-    let handler_name = format_ident!("update_{}", entity.name_str().to_case(Case::Snake));
+    let handler_name = format_ident!("update_{}", entity_name_str.to_case(Case::Snake));
     let update_dto = entity.ident_with("Update", "Request");
     let response_dto = entity.ident_with("", "Response");
 
     let path = build_item_path(entity);
-    let tag = api_config.tag_or_default(&entity.name_str());
+    let tag = api_config.tag_or_default(&entity_name_str);
 
-    let security_attr = build_security_attr(entity, "update");
+    let security_attr = build_security_attr(entity);
     let deprecated_attr = build_deprecated_attr(entity);
 
-    let utoipa_attr = if security_attr.is_empty() {
+    let id_desc = format!("{} unique identifier", entity_name);
+    let request_body_desc = format!("Fields to update for {}", entity_name);
+    let success_desc = format!("{} updated successfully", entity_name);
+    let not_found_desc = format!("{} not found", entity_name);
+
+    let utoipa_attr = if has_security {
         quote! {
             #[utoipa::path(
                 patch,
                 path = #path,
                 tag = #tag,
-                params(("id" = #id_type, Path, description = "Entity ID")),
-                request_body = #update_dto,
+                params(("id" = #id_type, Path, description = #id_desc)),
+                request_body(content = #update_dto, description = #request_body_desc),
                 responses(
-                    (status = 200, body = #response_dto, description = "Updated"),
-                    (status = 400, description = "Validation error"),
-                    (status = 404, description = "Not found"),
+                    (status = 200, description = #success_desc, body = #response_dto),
+                    (status = 400, description = "Invalid request data"),
+                    (status = 401, description = "Authentication required"),
+                    (status = 404, description = #not_found_desc),
                     (status = 500, description = "Internal server error")
-                )
+                ),
+                #security_attr
                 #deprecated_attr
             )]
         }
@@ -259,24 +343,34 @@ fn generate_update_handler(entity: &EntityDef) -> TokenStream {
                 patch,
                 path = #path,
                 tag = #tag,
-                params(("id" = #id_type, Path, description = "Entity ID")),
-                request_body = #update_dto,
+                params(("id" = #id_type, Path, description = #id_desc)),
+                request_body(content = #update_dto, description = #request_body_desc),
                 responses(
-                    (status = 200, body = #response_dto, description = "Updated"),
-                    (status = 400, description = "Validation error"),
-                    (status = 401, description = "Unauthorized"),
-                    (status = 404, description = "Not found"),
+                    (status = 200, description = #success_desc, body = #response_dto),
+                    (status = 400, description = "Invalid request data"),
+                    (status = 404, description = #not_found_desc),
                     (status = 500, description = "Internal server error")
-                ),
-                #security_attr
+                )
                 #deprecated_attr
             )]
         }
     };
 
     let doc = format!(
-        "Update {} entity by ID.\n\n\
-         Generated by entity-derive.",
+        "Update {} by ID.\n\n\
+         # Responses\n\n\
+         - `200 OK` - {} updated successfully\n\
+         - `400 Bad Request` - Invalid request data\n\
+         {}\
+         - `404 Not Found` - {} not found\n\
+         - `500 Internal Server Error` - Database or server error",
+        entity_name,
+        entity_name,
+        if has_security {
+            "- `401 Unauthorized` - Authentication required\n"
+        } else {
+            ""
+        },
         entity_name
     );
 
@@ -287,14 +381,14 @@ fn generate_update_handler(entity: &EntityDef) -> TokenStream {
             axum::extract::State(repo): axum::extract::State<std::sync::Arc<R>>,
             axum::extract::Path(id): axum::extract::Path<#id_type>,
             axum::extract::Json(dto): axum::extract::Json<#update_dto>,
-        ) -> Result<axum::response::Json<#response_dto>, axum::http::StatusCode>
+        ) -> masterror::AppResult<axum::response::Json<#response_dto>>
         where
-            R: #entity_name Repository + 'static,
+            R: #repo_trait + 'static,
         {
             let entity = repo
                 .update(id, dto)
                 .await
-                .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+                .map_err(|e| masterror::AppError::internal(e.to_string()))?;
             Ok(axum::response::Json(#response_dto::from(entity)))
         }
     }
@@ -304,30 +398,39 @@ fn generate_update_handler(entity: &EntityDef) -> TokenStream {
 fn generate_delete_handler(entity: &EntityDef) -> TokenStream {
     let vis = &entity.vis;
     let entity_name = entity.name();
+    let entity_name_str = entity.name_str();
     let api_config = entity.api_config();
     let id_field = entity.id_field();
     let id_type = &id_field.ty;
+    let repo_trait = entity.ident_with("", "Repository");
+    let has_security = api_config.security.is_some();
 
-    let handler_name = format_ident!("delete_{}", entity.name_str().to_case(Case::Snake));
+    let handler_name = format_ident!("delete_{}", entity_name_str.to_case(Case::Snake));
 
     let path = build_item_path(entity);
-    let tag = api_config.tag_or_default(&entity.name_str());
+    let tag = api_config.tag_or_default(&entity_name_str);
 
-    let security_attr = build_security_attr(entity, "delete");
+    let security_attr = build_security_attr(entity);
     let deprecated_attr = build_deprecated_attr(entity);
 
-    let utoipa_attr = if security_attr.is_empty() {
+    let id_desc = format!("{} unique identifier", entity_name);
+    let success_desc = format!("{} deleted successfully", entity_name);
+    let not_found_desc = format!("{} not found", entity_name);
+
+    let utoipa_attr = if has_security {
         quote! {
             #[utoipa::path(
                 delete,
                 path = #path,
                 tag = #tag,
-                params(("id" = #id_type, Path, description = "Entity ID")),
+                params(("id" = #id_type, Path, description = #id_desc)),
                 responses(
-                    (status = 204, description = "Deleted"),
-                    (status = 404, description = "Not found"),
+                    (status = 204, description = #success_desc),
+                    (status = 401, description = "Authentication required"),
+                    (status = 404, description = #not_found_desc),
                     (status = 500, description = "Internal server error")
-                )
+                ),
+                #security_attr
                 #deprecated_attr
             )]
         }
@@ -337,24 +440,35 @@ fn generate_delete_handler(entity: &EntityDef) -> TokenStream {
                 delete,
                 path = #path,
                 tag = #tag,
-                params(("id" = #id_type, Path, description = "Entity ID")),
+                params(("id" = #id_type, Path, description = #id_desc)),
                 responses(
-                    (status = 204, description = "Deleted"),
-                    (status = 401, description = "Unauthorized"),
-                    (status = 404, description = "Not found"),
+                    (status = 204, description = #success_desc),
+                    (status = 404, description = #not_found_desc),
                     (status = 500, description = "Internal server error")
-                ),
-                #security_attr
+                )
                 #deprecated_attr
             )]
         }
     };
 
     let doc = format!(
-        "Delete {} entity by ID.\n\n\
-         Generated by entity-derive.",
+        "Delete {} by ID.\n\n\
+         # Responses\n\n\
+         - `204 No Content` - {} deleted successfully\n\
+         {}\
+         - `404 Not Found` - {} not found\n\
+         - `500 Internal Server Error` - Database or server error",
+        entity_name,
+        entity_name,
+        if has_security {
+            "- `401 Unauthorized` - Authentication required\n"
+        } else {
+            ""
+        },
         entity_name
     );
+
+    let not_found_msg = format!("{} not found", entity_name);
 
     quote! {
         #[doc = #doc]
@@ -362,18 +476,18 @@ fn generate_delete_handler(entity: &EntityDef) -> TokenStream {
         #vis async fn #handler_name<R>(
             axum::extract::State(repo): axum::extract::State<std::sync::Arc<R>>,
             axum::extract::Path(id): axum::extract::Path<#id_type>,
-        ) -> Result<axum::http::StatusCode, axum::http::StatusCode>
+        ) -> masterror::AppResult<axum::http::StatusCode>
         where
-            R: #entity_name Repository + 'static,
+            R: #repo_trait + 'static,
         {
             let deleted = repo
                 .delete(id)
                 .await
-                .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+                .map_err(|e| masterror::AppError::internal(e.to_string()))?;
             if deleted {
                 Ok(axum::http::StatusCode::NO_CONTENT)
             } else {
-                Err(axum::http::StatusCode::NOT_FOUND)
+                Err(masterror::AppError::not_found(#not_found_msg))
             }
         }
     }
@@ -383,31 +497,38 @@ fn generate_delete_handler(entity: &EntityDef) -> TokenStream {
 fn generate_list_handler(entity: &EntityDef) -> TokenStream {
     let vis = &entity.vis;
     let entity_name = entity.name();
+    let entity_name_str = entity.name_str();
     let api_config = entity.api_config();
+    let repo_trait = entity.ident_with("", "Repository");
+    let has_security = api_config.security.is_some();
 
-    let handler_name = format_ident!("list_{}", entity.name_str().to_case(Case::Snake));
+    let handler_name = format_ident!("list_{}", entity_name_str.to_case(Case::Snake));
     let response_dto = entity.ident_with("", "Response");
 
     let path = build_collection_path(entity);
-    let tag = api_config.tag_or_default(&entity.name_str());
+    let tag = api_config.tag_or_default(&entity_name_str);
 
-    let security_attr = build_security_attr(entity, "list");
+    let security_attr = build_security_attr(entity);
     let deprecated_attr = build_deprecated_attr(entity);
 
-    let utoipa_attr = if security_attr.is_empty() {
+    let success_desc = format!("List of {} entities", entity_name);
+
+    let utoipa_attr = if has_security {
         quote! {
             #[utoipa::path(
                 get,
                 path = #path,
                 tag = #tag,
                 params(
-                    ("limit" = Option<i64>, Query, description = "Max items to return"),
-                    ("offset" = Option<i64>, Query, description = "Items to skip")
+                    ("limit" = Option<i64>, Query, description = "Maximum number of items to return (default: 100)"),
+                    ("offset" = Option<i64>, Query, description = "Number of items to skip for pagination")
                 ),
                 responses(
-                    (status = 200, body = Vec<#response_dto>, description = "List of entities"),
+                    (status = 200, description = #success_desc, body = Vec<#response_dto>),
+                    (status = 401, description = "Authentication required"),
                     (status = 500, description = "Internal server error")
-                )
+                ),
+                #security_attr
                 #deprecated_attr
             )]
         }
@@ -418,15 +539,13 @@ fn generate_list_handler(entity: &EntityDef) -> TokenStream {
                 path = #path,
                 tag = #tag,
                 params(
-                    ("limit" = Option<i64>, Query, description = "Max items to return"),
-                    ("offset" = Option<i64>, Query, description = "Items to skip")
+                    ("limit" = Option<i64>, Query, description = "Maximum number of items to return (default: 100)"),
+                    ("offset" = Option<i64>, Query, description = "Number of items to skip for pagination")
                 ),
                 responses(
-                    (status = 200, body = Vec<#response_dto>, description = "List of entities"),
-                    (status = 401, description = "Unauthorized"),
+                    (status = 200, description = #success_desc, body = Vec<#response_dto>),
                     (status = 500, description = "Internal server error")
-                ),
-                #security_attr
+                )
                 #deprecated_attr
             )]
         }
@@ -434,18 +553,30 @@ fn generate_list_handler(entity: &EntityDef) -> TokenStream {
 
     let doc = format!(
         "List {} entities with pagination.\n\n\
-         Generated by entity-derive.",
-        entity_name
+         # Query Parameters\n\n\
+         - `limit` - Maximum number of items to return (default: 100)\n\
+         - `offset` - Number of items to skip for pagination\n\n\
+         # Responses\n\n\
+         - `200 OK` - List of {} entities\n\
+         {}\
+         - `500 Internal Server Error` - Database or server error",
+        entity_name,
+        entity_name,
+        if has_security {
+            "- `401 Unauthorized` - Authentication required\n"
+        } else {
+            ""
+        }
     );
 
     quote! {
         /// Pagination query parameters.
-        #[derive(Debug, Clone, serde::Deserialize)]
+        #[derive(Debug, Clone, serde::Deserialize, utoipa::IntoParams)]
         #vis struct PaginationQuery {
             /// Maximum number of items to return.
             #[serde(default = "default_limit")]
             pub limit: i64,
-            /// Number of items to skip.
+            /// Number of items to skip for pagination.
             #[serde(default)]
             pub offset: i64,
         }
@@ -457,14 +588,14 @@ fn generate_list_handler(entity: &EntityDef) -> TokenStream {
         #vis async fn #handler_name<R>(
             axum::extract::State(repo): axum::extract::State<std::sync::Arc<R>>,
             axum::extract::Query(pagination): axum::extract::Query<PaginationQuery>,
-        ) -> Result<axum::response::Json<Vec<#response_dto>>, axum::http::StatusCode>
+        ) -> masterror::AppResult<axum::response::Json<Vec<#response_dto>>>
         where
-            R: #entity_name Repository + 'static,
+            R: #repo_trait + 'static,
         {
             let entities = repo
                 .list(pagination.limit, pagination.offset)
                 .await
-                .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+                .map_err(|e| masterror::AppError::internal(e.to_string()))?;
             let responses: Vec<#response_dto> = entities.into_iter().map(#response_dto::from).collect();
             Ok(axum::response::Json(responses))
         }
@@ -488,18 +619,22 @@ fn build_item_path(entity: &EntityDef) -> String {
 }
 
 /// Build security attribute for a handler.
-fn build_security_attr(entity: &EntityDef, _operation: &str) -> TokenStream {
+///
+/// Returns the appropriate security scheme based on the `security` option:
+/// - `"cookie"` -> `security(("cookieAuth" = []))`
+/// - `"bearer"` -> `security(("bearerAuth" = []))`
+/// - `"api_key"` -> `security(("apiKey" = []))`
+fn build_security_attr(entity: &EntityDef) -> TokenStream {
     let api_config = entity.api_config();
 
     if let Some(security) = &api_config.security {
         let security_name = match security.as_str() {
-            "bearer" => "bearer_auth",
-            "api_key" => "api_key",
-            "admin" => "admin_auth",
-            "oauth2" => "oauth2",
-            _ => "bearer_auth"
+            "cookie" => "cookieAuth",
+            "bearer" => "bearerAuth",
+            "api_key" => "apiKey",
+            _ => "cookieAuth"
         };
-        quote! { security(#security_name = []) }
+        quote! { security((#security_name = [])) }
     } else {
         TokenStream::new()
     }
