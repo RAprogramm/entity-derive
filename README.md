@@ -77,7 +77,7 @@ pub struct User {
 
 ```toml
 [dependencies]
-entity-derive = { version = "0.3", features = ["postgres"] }
+entity-derive = { version = "0.4", features = ["postgres", "api"] }
 ```
 
 ---
@@ -88,9 +88,11 @@ entity-derive = { version = "0.3", features = ["postgres"] }
 |---------|-------------|
 | **Zero Runtime Cost** | All code generation at compile time |
 | **Type Safe** | Change a field once, everything updates |
+| **Auto HTTP Handlers** | `api(handlers)` generates CRUD endpoints + router |
+| **OpenAPI Docs** | Auto-generated Swagger/OpenAPI documentation |
 | **Query Filtering** | Type-safe `#[filter]`, `#[filter(like)]`, `#[filter(range)]` |
 | **Relations** | `#[belongs_to]` and `#[has_many]` |
-| **Projections** | Partial views with optimized SELECT |
+| **Transactions** | Multi-entity atomic operations |
 | **Lifecycle Events** | `Created`, `Updated`, `Deleted` events |
 | **Real-Time Streams** | Postgres LISTEN/NOTIFY integration |
 | **Lifecycle Hooks** | `before_create`, `after_update`, etc. |
@@ -134,6 +136,14 @@ entity-derive = { version = "0.3", features = ["postgres"] }
     streams,                   // Optional: real-time Postgres NOTIFY
     hooks,                     // Optional: before/after lifecycle hooks
     commands,                  // Optional: CQRS command pattern
+    transactions,              // Optional: multi-entity transaction support
+    api(                       // Optional: generate HTTP handlers + OpenAPI
+        tag = "Users",
+        handlers,              // All CRUD, or handlers(get, list, create)
+        security = "bearer",   // cookie, bearer, api_key, or none
+        title = "My API",
+        api_version = "1.0.0",
+    ),
 )]
 ```
 
