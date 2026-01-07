@@ -484,11 +484,12 @@ jobs:
           TAG: ${{ steps.version.outputs.tag }}
           VERSION: ${{ steps.version.outputs.version }}
           PUBLISHED_CRATES: ${{ steps.publish.outputs.published_crates }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git fetch --tags --force
 
           # Generate changelog from last tag
-          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          LATEST_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
           echo "Latest tag: ${LATEST_TAG:-none}"
 
           if [ -n "$LATEST_TAG" ]; then
@@ -497,13 +498,69 @@ jobs:
             NOTES=$(git cliff --config cliff.toml --strip header --tag "$TAG" 2>/dev/null || echo "")
           fi
 
-          # Fallback if changelog is empty
-          if [ -z "$NOTES" ]; then
-            cat > /tmp/release_notes.md << EOF
-          ## Release $VERSION
+          # Fallback: extract from merged PR if changelog is empty
+          if [ -z "$NOTES" ] || [ "$(echo "$NOTES" | wc -w)" -lt 10 ]; then
+            echo "git-cliff output empty, extracting from merged PRs..."
 
-          Published crates: $PUBLISHED_CRATES
-          EOF
+            # Find merged PRs since last tag
+            if [ -n "$LATEST_TAG" ]; then
+              MERGE_COMMITS=$(git log "$LATEST_TAG"..HEAD --merges --oneline | grep -oE '#[0-9]+' | tr -d '#' | sort -u)
+            else
+              MERGE_COMMITS=$(git log --merges --oneline | head -10 | grep -oE '#[0-9]+' | tr -d '#' | sort -u)
+            fi
+
+            if [ -n "$MERGE_COMMITS" ]; then
+              echo "Found PRs: $MERGE_COMMITS"
+              cat > /tmp/release_notes.md << 'HEADER'
+## What's Changed
+
+HEADER
+              for PR_NUM in $MERGE_COMMITS; do
+                echo "Fetching PR #$PR_NUM commits..."
+                # Get PR commits with conventional commit format
+                gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUM/commits" --jq '.[].commit.message' 2>/dev/null | \
+                  grep -E '^(feat|fix|docs|style|refactor|perf|test|chore)' | \
+                  head -1 | while read -r msg; do
+                    # Parse conventional commit
+                    TYPE=$(echo "$msg" | sed -E 's/^([a-z]+)(\([^)]+\))?:.*/\1/')
+                    SCOPE=$(echo "$msg" | sed -E 's/^[a-z]+\(([^)]+)\):.*/\1/' | grep -v '^feat\|^fix')
+                    DESC=$(echo "$msg" | sed -E 's/^[a-z]+(\([^)]+\))?:\s*//')
+
+                    case "$TYPE" in
+                      feat) EMOJI="+" ;;
+                      fix) EMOJI="*" ;;
+                      docs) EMOJI="@" ;;
+                      *) EMOJI="-" ;;
+                    esac
+
+                    if [ -n "$SCOPE" ] && [ "$SCOPE" != "$msg" ]; then
+                      echo "- **$SCOPE:** $DESC ([#$PR_NUM](https://github.com/$GITHUB_REPOSITORY/pull/$PR_NUM))" >> /tmp/release_notes.md
+                    else
+                      echo "- $DESC ([#$PR_NUM](https://github.com/$GITHUB_REPOSITORY/pull/$PR_NUM))" >> /tmp/release_notes.md
+                    fi
+                  done
+
+                # If no conventional commits, use PR title
+                if ! grep -q "#$PR_NUM" /tmp/release_notes.md 2>/dev/null; then
+                  PR_TITLE=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUM" --jq '.title' 2>/dev/null || echo "")
+                  if [ -n "$PR_TITLE" ]; then
+                    echo "- $PR_TITLE ([#$PR_NUM](https://github.com/$GITHUB_REPOSITORY/pull/$PR_NUM))" >> /tmp/release_notes.md
+                  fi
+                fi
+              done
+
+              echo "" >> /tmp/release_notes.md
+              echo "**Full Changelog**: https://github.com/$GITHUB_REPOSITORY/compare/$LATEST_TAG...$TAG" >> /tmp/release_notes.md
+            else
+              # Ultimate fallback
+              cat > /tmp/release_notes.md << EOF
+## Release $VERSION
+
+Published crates: $PUBLISHED_CRATES
+
+**Full Changelog**: https://github.com/$GITHUB_REPOSITORY/compare/$LATEST_TAG...$TAG
+EOF
+            fi
           else
             echo "$NOTES" > /tmp/release_notes.md
           fi
