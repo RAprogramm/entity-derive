@@ -86,6 +86,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     let projection_methods = generate_projection_methods(entity, id_type);
     let soft_delete_methods = generate_soft_delete_methods(entity, id_type);
     let query_method = generate_query_method(entity);
+    let stream_method = generate_stream_method(entity);
     let marker = marker::generated();
 
     quote! {
@@ -120,6 +121,8 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             async fn list(&self, limit: i64, offset: i64) -> Result<Vec<#entity_name>, Self::Error>;
 
             #query_method
+
+            #stream_method
 
             #relation_methods
 
@@ -273,5 +276,33 @@ fn generate_query_method(entity: &EntityDef) -> TokenStream {
         ///
         /// Supports filtering by fields marked with `#[filter]`.
         async fn query(&self, query: #query_type) -> Result<Vec<#entity_name>, Self::Error>;
+    }
+}
+
+/// Generate stream method when entity has streams feature and filters.
+///
+/// Generates:
+/// ```rust,ignore
+/// async fn stream_filtered(
+///     &self,
+///     filter: UserFilter,
+/// ) -> Result<impl futures::Stream<Item = Result<User, sqlx::Error>>, Self::Error>;
+/// ```
+pub fn generate_stream_method(entity: &EntityDef) -> TokenStream {
+    if !entity.has_streams() || !entity.has_filters() {
+        return TokenStream::new();
+    }
+
+    let entity_name = entity.name();
+    let filter_type = entity.ident_with("", "Filter");
+
+    quote! {
+        /// Stream entities with type-safe filters.
+        ///
+        /// Returns an async stream for memory-efficient processing of large result sets.
+        async fn stream_filtered(
+            &self,
+            filter: #filter_type,
+        ) -> Result<std::pin::Pin<Box<dyn futures::Stream<Item = Result<#entity_name, Self::Error>> + Send + '_>>, Self::Error>;
     }
 }

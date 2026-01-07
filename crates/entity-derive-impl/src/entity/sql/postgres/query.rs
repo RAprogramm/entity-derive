@@ -121,4 +121,75 @@ impl Context<'_> {
             }
         }
     }
+
+    /// Generate the `stream_filtered` method implementation.
+    ///
+    /// # Returns
+    ///
+    /// Empty `TokenStream` if entity has no streams or filter fields.
+    pub fn stream_filtered_method(&self) -> TokenStream {
+        if !self.streams || !self.entity.has_filters() {
+            return TokenStream::new();
+        }
+
+        let Self {
+            entity_name,
+            row_name,
+            table,
+            columns_str,
+            id_name,
+            soft_delete,
+            ..
+        } = self;
+
+        let filter_type = self.entity.ident_with("", "Filter");
+        let filter_fields = self.entity.filter_fields();
+
+        let where_conditions = generate_where_conditions(&filter_fields, *soft_delete);
+        let bindings = generate_query_bindings(&filter_fields);
+
+        // For now, generate a simple implementation that fetches all and converts to
+        // stream True streaming would require more complex lifetime handling
+        quote! {
+            async fn stream_filtered(
+                &self,
+                filter: #filter_type,
+            ) -> Result<std::pin::Pin<Box<dyn futures::Stream<Item = Result<#entity_name, Self::Error>> + Send + '_>>, Self::Error> {
+                use futures::StreamExt;
+
+                let mut conditions: Vec<String> = Vec::new();
+                let mut param_idx: usize = 1;
+                // Rename filter to query for binding code compatibility
+                let query = filter;
+
+                #where_conditions
+
+                let where_clause = if conditions.is_empty() {
+                    String::new()
+                } else {
+                    format!("WHERE {}", conditions.join(" AND "))
+                };
+
+                let limit_idx = param_idx;
+                param_idx += 1;
+                let offset_idx = param_idx;
+
+                let sql = format!(
+                    "SELECT {} FROM {} {} ORDER BY {} DESC LIMIT ${} OFFSET ${}",
+                    #columns_str, #table, where_clause, stringify!(#id_name), limit_idx, offset_idx
+                );
+
+                let mut q = sqlx::query_as::<_, #row_name>(&sql);
+                #bindings
+                q = q.bind(query.limit.unwrap_or(10000)).bind(query.offset.unwrap_or(0));
+
+                // Fetch all results and convert to stream for simpler lifetime handling
+                let rows = q.fetch_all(self).await?;
+                let entities: Vec<#entity_name> = rows.into_iter().map(#entity_name::from).collect();
+                let stream = futures::stream::iter(entities.into_iter().map(Ok));
+
+                Ok(Box::pin(stream))
+            }
+        }
+    }
 }
