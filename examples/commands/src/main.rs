@@ -8,18 +8,18 @@
 //! - `#[command(Name)]` defines a command
 //! - `#[command(Name, requires_id)]` for existing entity
 
+use std::sync::Arc;
+
 use axum::{
     Json, Router,
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::post,
+    routing::post
 };
-use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use entity_derive::Entity;
 use sqlx::PgPool;
-use std::sync::Arc;
 use uuid::Uuid;
 
 // ============================================================================
@@ -31,8 +31,9 @@ use uuid::Uuid;
 #[entity(table = "accounts", commands)]
 #[command(Register)]
 #[command(Activate, requires_id)]
+#[allow(clippy::duplicated_attributes)]
 #[command(Deactivate, requires_id)]
-#[command(UpdateEmail, requires_id)]
+#[command(UpdateEmail, source = "update")]
 pub struct Account {
     #[id]
     pub id: Uuid,
@@ -48,7 +49,7 @@ pub struct Account {
 
     #[field(response)]
     #[auto]
-    pub created_at: DateTime<Utc>,
+    pub created_at: DateTime<Utc>
 }
 
 // Generated commands:
@@ -72,22 +73,20 @@ impl std::fmt::Display for CommandError {
 
 impl std::error::Error for CommandError {}
 
-struct AccountCommandHandler {
-    pool: Arc<PgPool>,
+struct MyAccountHandler {
+    pool: Arc<PgPool>
 }
 
-impl AccountCommandHandler {
+impl MyAccountHandler {
     async fn handle_register(&self, cmd: RegisterAccount) -> Result<Account, CommandError> {
         tracing::info!("[CMD] Register: email={}", cmd.email);
 
         let dto = CreateAccountRequest {
             email: cmd.email.to_lowercase(),
-            name: cmd.name,
-            active: false, // New accounts start inactive
+            name:  cmd.name
         };
 
-        self.pool
-            .create(dto)
+        AccountRepository::create(&*self.pool, dto)
             .await
             .map_err(|e| CommandError(e.to_string()))
     }
@@ -96,13 +95,12 @@ impl AccountCommandHandler {
         tracing::info!("[CMD] Activate: id={}", cmd.id);
 
         let dto = UpdateAccountRequest {
-            email: None,
-            name: None,
-            active: Some(true),
+            email:  None,
+            name:   None,
+            active: Some(true)
         };
 
-        self.pool
-            .update(cmd.id, dto)
+        AccountRepository::update(&*self.pool, cmd.id, dto)
             .await
             .map_err(|e| CommandError(e.to_string()))
     }
@@ -111,31 +109,26 @@ impl AccountCommandHandler {
         tracing::info!("[CMD] Deactivate: id={}", cmd.id);
 
         let dto = UpdateAccountRequest {
-            email: None,
-            name: None,
-            active: Some(false),
+            email:  None,
+            name:   None,
+            active: Some(false)
         };
 
-        self.pool
-            .update(cmd.id, dto)
+        AccountRepository::update(&*self.pool, cmd.id, dto)
             .await
             .map_err(|e| CommandError(e.to_string()))
     }
 
-    async fn handle_update_email(
-        &self,
-        cmd: UpdateEmailAccount,
-    ) -> Result<Account, CommandError> {
+    async fn handle_update_email(&self, cmd: UpdateEmailAccount) -> Result<Account, CommandError> {
         tracing::info!("[CMD] UpdateEmail: id={}, email={:?}", cmd.id, cmd.email);
 
         let dto = UpdateAccountRequest {
-            email: cmd.email.map(|e| e.to_lowercase()),
-            name: cmd.name,
-            active: cmd.active,
+            email:  cmd.email.map(|e| e.to_lowercase()),
+            name:   cmd.name,
+            active: cmd.active
         };
 
-        self.pool
-            .update(cmd.id, dto)
+        AccountRepository::update(&*self.pool, cmd.id, dto)
             .await
             .map_err(|e| CommandError(e.to_string()))
     }
@@ -147,17 +140,36 @@ impl AccountCommandHandler {
 
 #[derive(Clone)]
 struct AppState {
-    handler: Arc<AccountCommandHandler>,
+    handler: Arc<MyAccountHandler>
 }
 
 // ============================================================================
 // HTTP Handlers - Command Endpoints
 // ============================================================================
 
+/// Input for register command.
+#[derive(serde::Deserialize)]
+struct RegisterInput {
+    email: String,
+    name:  String
+}
+
+/// Input for update email command.
+#[derive(serde::Deserialize)]
+struct UpdateEmailInput {
+    email:  Option<String>,
+    name:   Option<String>,
+    active: Option<bool>
+}
+
 async fn register(
     State(state): State<AppState>,
-    Json(cmd): Json<RegisterAccount>,
+    Json(input): Json<RegisterInput>
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
+    let cmd = RegisterAccount {
+        email: input.email,
+        name:  input.name
+    };
     let account = state
         .handler
         .handle_register(cmd)
@@ -169,9 +181,11 @@ async fn register(
 
 async fn activate(
     State(state): State<AppState>,
-    Path(id): Path<Uuid>,
+    Path(id): Path<Uuid>
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    let cmd = ActivateAccount { id };
+    let cmd = ActivateAccount {
+        id
+    };
     let account = state
         .handler
         .handle_activate(cmd)
@@ -183,9 +197,11 @@ async fn activate(
 
 async fn deactivate(
     State(state): State<AppState>,
-    Path(id): Path<Uuid>,
+    Path(id): Path<Uuid>
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    let cmd = DeactivateAccount { id };
+    let cmd = DeactivateAccount {
+        id
+    };
     let account = state
         .handler
         .handle_deactivate(cmd)
@@ -198,9 +214,14 @@ async fn deactivate(
 async fn update_email(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
-    Json(mut cmd): Json<UpdateEmailAccount>,
+    Json(input): Json<UpdateEmailInput>
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    cmd.id = id;
+    let cmd = UpdateEmailAccount {
+        id,
+        email: input.email,
+        name: input.name,
+        active: input.active
+    };
     let account = state
         .handler
         .handle_update_email(cmd)
@@ -246,12 +267,12 @@ async fn main() {
         .await
         .expect("Failed to run migrations");
 
-    let handler = AccountCommandHandler {
-        pool: Arc::new(pool),
+    let handler = MyAccountHandler {
+        pool: Arc::new(pool)
     };
 
     let state = AppState {
-        handler: Arc::new(handler),
+        handler: Arc::new(handler)
     };
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
