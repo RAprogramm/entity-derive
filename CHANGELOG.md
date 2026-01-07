@@ -11,7 +11,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.3.2...HEAD)
+## [0.3.3](https://github.com/RAprogramm/entity-derive/releases/tag/v0.3.3) — 2026-01-07
 
 ### ✨ Features
 
@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Resolve doc link and formatting issues ([eae9d6e](https://github.com/RAprogramm/entity-derive/commit/eae9d6e7e7a1191932550fde85a92f407bf97c99)) by [@RAprogramm](https://github.com/RAprogramm)
 
+**Full Changelog**: [`v0.3.2...v0.3.3`](https://github.com/RAprogramm/entity-derive/compare/v0.3.2...v0.3.3)
 ## [0.3.2](https://github.com/RAprogramm/entity-derive/releases/tag/v0.3.2) — 2026-01-06
 
 ### 🐛 Bug Fixes
