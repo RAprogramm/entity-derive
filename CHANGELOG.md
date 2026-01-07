@@ -11,7 +11,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.3.1...HEAD)
+## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.3.2...HEAD)
+
+### ✨ Features
+
+- **transactions:** Add type-safe transaction scripts support ([3a38be3](https://github.com/RAprogramm/entity-derive/commit/3a38be39f7996ba0a08ed1584b8fe7831da85c0f)) by [@RAprogramm](https://github.com/RAprogramm)
+
+
+### 🐛 Bug Fixes
+
+- Resolve doc link and formatting issues ([eae9d6e](https://github.com/RAprogramm/entity-derive/commit/eae9d6e7e7a1191932550fde85a92f407bf97c99)) by [@RAprogramm](https://github.com/RAprogramm)
+
+## [0.3.2](https://github.com/RAprogramm/entity-derive/releases/tag/v0.3.2) — 2026-01-06
 
 ### 🐛 Bug Fixes
 
@@ -22,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add SPDX headers to README files ([5fce943](https://github.com/RAprogramm/entity-derive/commit/5fce9437f7243ba0397d3b0b5b67a697e60ad92a)) by [@RAprogramm](https://github.com/RAprogramm)
 
+**Full Changelog**: [`v0.3.1...v0.3.2`](https://github.com/RAprogramm/entity-derive/compare/v0.3.1...v0.3.2)
 ## [0.3.1](https://github.com/RAprogramm/entity-derive/releases/tag/v0.3.1) — 2026-01-06
 
 ### 🐛 Bug Fixes
