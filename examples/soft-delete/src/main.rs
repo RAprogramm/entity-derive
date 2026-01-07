@@ -15,7 +15,7 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{delete, get, post, patch},
+    routing::{delete, get, post},
 };
 use chrono::{DateTime, Utc};
 use entity_derive::Entity;
