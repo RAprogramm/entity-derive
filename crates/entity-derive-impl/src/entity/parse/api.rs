@@ -30,6 +30,44 @@
 
 use syn::Ident;
 
+/// Handler configuration for selective CRUD generation.
+///
+/// # Syntax
+///
+/// - `handlers` - enables all handlers
+/// - `handlers(create, get, list)` - enables specific handlers
+#[derive(Debug, Clone, Default)]
+pub struct HandlerConfig {
+    /// Generate create handler (POST /collection).
+    pub create: bool,
+    /// Generate get handler (GET /collection/{id}).
+    pub get:    bool,
+    /// Generate update handler (PATCH /collection/{id}).
+    pub update: bool,
+    /// Generate delete handler (DELETE /collection/{id}).
+    pub delete: bool,
+    /// Generate list handler (GET /collection).
+    pub list:   bool
+}
+
+impl HandlerConfig {
+    /// Create config with all handlers enabled.
+    pub fn all() -> Self {
+        Self {
+            create: true,
+            get:    true,
+            update: true,
+            delete: true,
+            list:   true
+        }
+    }
+
+    /// Check if any handler is enabled.
+    pub fn any(&self) -> bool {
+        self.create || self.get || self.update || self.delete || self.list
+    }
+}
+
 /// API configuration parsed from `#[entity(api(...))]`.
 ///
 /// Controls HTTP handler generation and OpenAPI documentation.
@@ -73,7 +111,58 @@ pub struct ApiConfig {
     /// Version in which this API is deprecated.
     ///
     /// Marks all endpoints with `deprecated = true` in OpenAPI.
-    pub deprecated_in: Option<String>
+    pub deprecated_in: Option<String>,
+
+    /// CRUD handlers configuration.
+    ///
+    /// Controls which handlers to generate:
+    /// - `handlers` - all handlers
+    /// - `handlers(create, get, list)` - specific handlers only
+    pub handlers: HandlerConfig,
+
+    /// OpenAPI info: API title.
+    ///
+    /// Overrides the default title in OpenAPI spec.
+    /// Example: `"User Service API"`
+    pub title: Option<String>,
+
+    /// OpenAPI info: API description.
+    ///
+    /// Full description for the API, supports Markdown.
+    /// Example: `"RESTful API for user management"`
+    pub description: Option<String>,
+
+    /// OpenAPI info: API version.
+    ///
+    /// Semantic version string for the API.
+    /// Example: `"1.0.0"`
+    pub api_version: Option<String>,
+
+    /// OpenAPI info: License name.
+    ///
+    /// License under which the API is published.
+    /// Example: `"MIT"`, `"Apache-2.0"`
+    pub license: Option<String>,
+
+    /// OpenAPI info: License URL.
+    ///
+    /// URL to the license text.
+    pub license_url: Option<String>,
+
+    /// OpenAPI info: Contact name.
+    ///
+    /// Name of the API maintainer or team.
+    pub contact_name: Option<String>,
+
+    /// OpenAPI info: Contact email.
+    ///
+    /// Email for API support inquiries.
+    pub contact_email: Option<String>,
+
+    /// OpenAPI info: Contact URL.
+    ///
+    /// URL to API support or documentation.
+    pub contact_url: Option<String>
 }
 
 impl ApiConfig {
@@ -119,6 +208,16 @@ impl ApiConfig {
     /// Check if API is marked as deprecated.
     pub fn is_deprecated(&self) -> bool {
         self.deprecated_in.is_some()
+    }
+
+    /// Check if any CRUD handler should be generated.
+    pub fn has_handlers(&self) -> bool {
+        self.handlers.any()
+    }
+
+    /// Get handler configuration.
+    pub fn handlers(&self) -> &HandlerConfig {
+        &self.handlers
     }
 
     /// Get security scheme for a command.
@@ -209,12 +308,85 @@ pub fn parse_api_config(meta: &syn::Meta) -> syn::Result<ApiConfig> {
                 let value: syn::LitStr = nested.value()?.parse()?;
                 config.deprecated_in = Some(value.value());
             }
+            "handlers" => {
+                // Support:
+                // - `handlers` - all handlers
+                // - `handlers = true/false` - all or none
+                // - `handlers(create, get, list)` - specific handlers
+                if nested.input.peek(syn::Token![=]) {
+                    let _: syn::Token![=] = nested.input.parse()?;
+                    let value: syn::LitBool = nested.input.parse()?;
+                    if value.value() {
+                        config.handlers = HandlerConfig::all();
+                    }
+                } else if nested.input.peek(syn::token::Paren) {
+                    let content;
+                    syn::parenthesized!(content in nested.input);
+                    let handlers =
+                        syn::punctuated::Punctuated::<Ident, syn::Token![,]>::parse_terminated(
+                            &content
+                        )?;
+                    for handler in handlers {
+                        match handler.to_string().as_str() {
+                            "create" => config.handlers.create = true,
+                            "get" => config.handlers.get = true,
+                            "update" => config.handlers.update = true,
+                            "delete" => config.handlers.delete = true,
+                            "list" => config.handlers.list = true,
+                            other => {
+                                return Err(syn::Error::new(
+                                    handler.span(),
+                                    format!(
+                                        "unknown handler '{}', expected: create, get, update, delete, list",
+                                        other
+                                    )
+                                ));
+                            }
+                        }
+                    }
+                } else {
+                    config.handlers = HandlerConfig::all();
+                }
+            }
+            "title" => {
+                let value: syn::LitStr = nested.value()?.parse()?;
+                config.title = Some(value.value());
+            }
+            "description" => {
+                let value: syn::LitStr = nested.value()?.parse()?;
+                config.description = Some(value.value());
+            }
+            "api_version" => {
+                let value: syn::LitStr = nested.value()?.parse()?;
+                config.api_version = Some(value.value());
+            }
+            "license" => {
+                let value: syn::LitStr = nested.value()?.parse()?;
+                config.license = Some(value.value());
+            }
+            "license_url" => {
+                let value: syn::LitStr = nested.value()?.parse()?;
+                config.license_url = Some(value.value());
+            }
+            "contact_name" => {
+                let value: syn::LitStr = nested.value()?.parse()?;
+                config.contact_name = Some(value.value());
+            }
+            "contact_email" => {
+                let value: syn::LitStr = nested.value()?.parse()?;
+                config.contact_email = Some(value.value());
+            }
+            "contact_url" => {
+                let value: syn::LitStr = nested.value()?.parse()?;
+                config.contact_url = Some(value.value());
+            }
             _ => {
                 return Err(syn::Error::new(
                     ident.span(),
                     format!(
                         "unknown api option '{}', expected: tag, tag_description, path_prefix, \
-                         security, public, version, deprecated_in",
+                         security, public, version, deprecated_in, handlers, title, description, \
+                         api_version, license, license_url, contact_name, contact_email, contact_url",
                         ident_str
                     )
                 ));
@@ -342,5 +514,63 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(config.full_path_prefix(), "/api/v1");
+    }
+
+    #[test]
+    fn parse_handlers_flag() {
+        let config = parse_test_config(r#"api(tag = "Users", handlers)"#);
+        assert!(config.has_handlers());
+    }
+
+    #[test]
+    fn parse_handlers_true() {
+        let config = parse_test_config(r#"api(tag = "Users", handlers = true)"#);
+        assert!(config.has_handlers());
+    }
+
+    #[test]
+    fn parse_handlers_false() {
+        let config = parse_test_config(r#"api(tag = "Users", handlers = false)"#);
+        assert!(!config.has_handlers());
+    }
+
+    #[test]
+    fn default_handlers_false() {
+        let config = parse_test_config(r#"api(tag = "Users")"#);
+        assert!(!config.has_handlers());
+    }
+
+    #[test]
+    fn parse_handlers_selective() {
+        let config = parse_test_config(r#"api(tag = "Users", handlers(create, get, list))"#);
+        assert!(config.has_handlers());
+        assert!(config.handlers().create);
+        assert!(config.handlers().get);
+        assert!(!config.handlers().update);
+        assert!(!config.handlers().delete);
+        assert!(config.handlers().list);
+    }
+
+    #[test]
+    fn parse_handlers_single() {
+        let config = parse_test_config(r#"api(tag = "Users", handlers(get))"#);
+        assert!(config.has_handlers());
+        assert!(!config.handlers().create);
+        assert!(config.handlers().get);
+        assert!(!config.handlers().update);
+        assert!(!config.handlers().delete);
+        assert!(!config.handlers().list);
+    }
+
+    #[test]
+    fn parse_handlers_all_explicit() {
+        let config = parse_test_config(
+            r#"api(tag = "Users", handlers(create, get, update, delete, list))"#
+        );
+        assert!(config.handlers().create);
+        assert!(config.handlers().get);
+        assert!(config.handlers().update);
+        assert!(config.handlers().delete);
+        assert!(config.handlers().list);
     }
 }
