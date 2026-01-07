@@ -77,3 +77,87 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn subscriber_struct_generated() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", streams)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let output = generate(&entity);
+        let output_str = output.to_string();
+        assert!(output_str.contains("UserSubscriber"));
+        assert!(output_str.contains("PgListener"));
+    }
+
+    #[test]
+    fn subscriber_has_new_method() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", streams)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let output = generate(&entity);
+        let output_str = output.to_string();
+        assert!(output_str.contains("async fn new"));
+        assert!(output_str.contains("PgPool"));
+    }
+
+    #[test]
+    fn subscriber_has_recv_method() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", streams)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let output = generate(&entity);
+        let output_str = output.to_string();
+        assert!(output_str.contains("async fn recv"));
+        assert!(output_str.contains("UserEvent"));
+    }
+
+    #[test]
+    fn subscriber_has_try_recv_method() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", streams)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let output = generate(&entity);
+        let output_str = output.to_string();
+        assert!(output_str.contains("async fn try_recv"));
+        assert!(output_str.contains("Option"));
+    }
+
+    #[test]
+    fn subscriber_respects_visibility() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", streams)]
+            pub(crate) struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let output = generate(&entity);
+        let output_str = output.to_string();
+        assert!(output_str.contains("pub (crate) struct UserSubscriber"));
+    }
+}

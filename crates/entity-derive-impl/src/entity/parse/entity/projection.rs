@@ -4,21 +4,58 @@
 //! Projection definition and parsing.
 //!
 //! Projections define partial views of an entity, allowing optimized SELECT
-//! queries that only fetch the needed columns.
+//! queries that only fetch the needed columns. This is useful for APIs that
+//! need different levels of detail for different use cases.
 //!
-//! # Syntax
+//! # Architecture
 //!
-//! ```rust,ignore
-//! #[projection(Public: id, name, avatar)]
-//! #[projection(Admin: id, name, email, role)]
+//! ```text
+//! ┌─────────────────────────────────────────────────────────────────────┐
+//! │                    Projection System                                │
+//! ├─────────────────────────────────────────────────────────────────────┤
+//! │                                                                     │
+//! │  Attribute Syntax                                                   │
+//! │                                                                     │
+//! │  #[projection(Public: id, name, avatar)]                           │
+//! │  #[projection(Admin: id, name, email, role, created_at)]           │
+//! │         │           │    └─ field list                              │
+//! │         │           └────── colon separator                         │
+//! │         └──────────────── projection name                           │
+//! │                                                                     │
+//! │  Generated Code                                                     │
+//! │                                                                     │
+//! │  ┌─────────────────┐   ┌─────────────────┐                         │
+//! │  │   UserPublic    │   │    UserAdmin    │                         │
+//! │  │ ├── id: Uuid    │   │ ├── id: Uuid    │                         │
+//! │  │ ├── name: String│   │ ├── name: String│                         │
+//! │  │ └── avatar: Url │   │ ├── email: String│                        │
+//! │  └─────────────────┘   │ ├── role: Role  │                         │
+//! │                        │ └── created_at  │                         │
+//! │                        └─────────────────┘                         │
+//! │                                                                     │
+//! │  Repository Methods                                                 │
+//! │                                                                     │
+//! │  repo.find_by_id_public(id)  → UserPublic                          │
+//! │  repo.find_by_id_admin(id)   → UserAdmin                           │
+//! │                                                                     │
+//! └─────────────────────────────────────────────────────────────────────┘
 //! ```
+//!
+//! # Use Cases
+//!
+//! | Projection | Use Case |
+//! |------------|----------|
+//! | `Public` | User-facing API responses (no sensitive data) |
+//! | `Admin` | Admin panel with full details |
+//! | `List` | Minimal fields for list views |
+//! | `Detail` | Extended fields for detail views |
 //!
 //! # Generated Code
 //!
 //! Each projection generates:
 //! - A struct with the specified fields (e.g., `UserPublic`)
-//! - A `From<Entity>` implementation
-//! - A `find_by_id_{name}` repository method
+//! - A `From<Entity>` implementation for conversion
+//! - A `find_by_id_{name}` repository method with optimized SELECT
 
 use syn::{Attribute, Ident};
 

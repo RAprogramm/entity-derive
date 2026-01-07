@@ -11,7 +11,7 @@
 //! For an entity `User` with `#[entity(transactions)]`:
 //!
 //! - `UserTransactionRepo<'t>` — Repository adapter for transaction context
-//! - `with_users()` — Builder method on `Transaction<..., ()>`
+//! - `with_users()` — Builder method on `Transaction` (fluent, chainable)
 //! - `users()` — Accessor method on `TransactionContext`
 //!
 //! # Example
@@ -45,10 +45,12 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
 
     let repo_adapter = generate_repo_adapter(entity);
     let builder_ext = generate_builder_extension(entity);
+    let context_ext = generate_context_extension(entity);
 
     quote! {
         #repo_adapter
         #builder_ext
+        #context_ext
     }
 }
 
@@ -153,7 +155,7 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
         /// Transaction repository adapter for #entity_name.
         ///
         /// Provides repository operations that execute within an active transaction.
-        /// Created via `Transaction::new(&pool).with_{entities}()`.
+        /// Access via `ctx.{entities}()` within a transaction closure.
         #vis struct #repo_name<'t> {
             tx: &'t mut sqlx::Transaction<'static, sqlx::Postgres>,
         }
@@ -208,29 +210,92 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
 
 /// Generate the builder extension trait.
 ///
-/// Creates an extension trait that adds `with_{entity}()` method to
-/// `Transaction`.
+/// Creates an extension trait that adds `with_{entities}()` method to
+/// `Transaction`. This method is chainable and returns self.
 fn generate_builder_extension(entity: &EntityDef) -> TokenStream {
     let vis = &entity.vis;
     let entity_name = entity.name();
     let entity_snake = entity.name_str().to_case(Case::Snake);
-    let method_name = format_ident!("with_{}", entity_snake);
+    // Pluralize: add 's' for simple pluralization
+    let plural = pluralize(&entity_snake);
+    let method_name = format_ident!("with_{}", plural);
     let trait_name = format_ident!("TransactionWith{}", entity_name);
+    let marker = marker::generated();
+
+    quote! {
+        #marker
+        /// Extension trait to add #entity_name to a transaction builder.
+        ///
+        /// This is a fluent API method - it returns self for chaining.
+        /// The actual repository is accessed via `ctx.{entities}()` in the closure.
+        #vis trait #trait_name<'p> {
+            /// Add #entity_name repository to the transaction.
+            ///
+            /// Returns self for chaining with other `with_*` calls.
+            fn #method_name(self) -> Self;
+        }
+
+        impl<'p> #trait_name<'p> for entity_core::transaction::Transaction<'p, sqlx::PgPool> {
+            fn #method_name(self) -> Self {
+                self
+            }
+        }
+    }
+}
+
+/// Generate the context extension trait.
+///
+/// Creates an extension trait that adds accessor method to
+/// `TransactionContext`.
+fn generate_context_extension(entity: &EntityDef) -> TokenStream {
+    let vis = &entity.vis;
+    let entity_name = entity.name();
+    let entity_snake = entity.name_str().to_case(Case::Snake);
+    let plural = pluralize(&entity_snake);
+    let accessor_name = format_ident!("{}", plural);
+    let trait_name = format_ident!("{}ContextExt", entity_name);
     let repo_name = format_ident!("{}TransactionRepo", entity_name);
     let marker = marker::generated();
 
     quote! {
         #marker
-        /// Extension trait to add #entity_name to a transaction.
-        #vis trait #trait_name<'p> {
-            /// Add #entity_name repository to the transaction.
-            fn #method_name(self) -> entity_core::transaction::Transaction<'p, sqlx::PgPool, #repo_name<'static>>;
+        /// Extension trait providing #entity_name access in transaction context.
+        #vis trait #trait_name {
+            /// Get repository adapter for #entity_name operations.
+            fn #accessor_name(&mut self) -> #repo_name<'_>;
         }
 
-        impl<'p> #trait_name<'p> for entity_core::transaction::Transaction<'p, sqlx::PgPool, ()> {
-            fn #method_name(self) -> entity_core::transaction::Transaction<'p, sqlx::PgPool, #repo_name<'static>> {
-                self.with_repo()
+        impl #trait_name for entity_core::transaction::TransactionContext {
+            fn #accessor_name(&mut self) -> #repo_name<'_> {
+                #repo_name::new(self.transaction())
             }
         }
+    }
+}
+
+/// Simple pluralization - adds 's' to the end.
+///
+/// Handles some common cases:
+/// - Words ending in 's', 'x', 'z', 'ch', 'sh' -> add 'es'
+/// - Words ending in consonant + 'y' -> replace 'y' with 'ies'
+/// - Otherwise -> add 's'
+fn pluralize(word: &str) -> String {
+    if word.ends_with('s')
+        || word.ends_with('x')
+        || word.ends_with('z')
+        || word.ends_with("ch")
+        || word.ends_with("sh")
+    {
+        format!("{}es", word)
+    } else if let Some(without_y) = word.strip_suffix('y') {
+        // Check if the letter before 'y' is a consonant
+        if let Some(c) = without_y.chars().last()
+            && !"aeiou".contains(c)
+        {
+            return format!("{}ies", without_y);
+        }
+        format!("{}s", word)
+    } else {
+        format!("{}s", word)
     }
 }

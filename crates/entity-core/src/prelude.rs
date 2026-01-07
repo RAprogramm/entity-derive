@@ -11,12 +11,11 @@
 
 #[cfg(feature = "streams")]
 pub use crate::stream::StreamError;
+#[cfg(feature = "postgres")]
+pub use crate::transaction::TransactionContext;
 pub use crate::{
     CommandKind, EntityCommand, EntityEvent, EventKind, Pagination, Repository, SortDirection,
     async_trait,
     policy::{PolicyError, PolicyOperation},
-    transaction::{
-        Transaction, TransactionContext, TransactionError, TransactionOps, TransactionRunner,
-        Transactional
-    }
+    transaction::{Transaction, TransactionError}
 };

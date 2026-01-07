@@ -86,6 +86,8 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
 
     let marker = marker::generated();
 
+    let filter_name = entity.ident_with("", "Filter");
+
     quote! {
         #marker
         #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
@@ -97,5 +99,8 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             /// Number of results to skip.
             pub offset: Option<i64>,
         }
+
+        /// Type alias for filter operations (same as Query).
+        #vis type #filter_name = #query_name;
     }
 }

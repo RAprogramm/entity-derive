@@ -26,14 +26,20 @@
 //! pub user_id: Uuid,
 //! ```
 
+mod example;
 mod expose;
 mod filter;
 mod storage;
+mod validation;
 
+pub use example::ExampleValue;
 pub use expose::ExposeConfig;
 pub use filter::{FilterConfig, FilterType};
 pub use storage::StorageConfig;
 use syn::{Attribute, Field, Ident, Type};
+pub use validation::ValidationConfig;
+
+use crate::utils::docs::extract_doc_comments;
 
 /// Parse `#[belongs_to(EntityName)]` attribute.
 ///
@@ -75,7 +81,25 @@ pub struct FieldDef {
     pub storage: StorageConfig,
 
     /// Query filter configuration.
-    pub filter: FilterConfig
+    pub filter: FilterConfig,
+
+    /// Documentation comment from the field.
+    ///
+    /// Extracted from `///` comments for use in OpenAPI descriptions.
+    #[allow(dead_code)] // Will be used for schema field descriptions (#78)
+    pub doc: Option<String>,
+
+    /// Validation configuration from `#[validate(...)]` attributes.
+    ///
+    /// Parsed for OpenAPI schema constraints and DTO validation.
+    #[allow(dead_code)] // Will be used for OpenAPI schema constraints (#79)
+    pub validation: ValidationConfig,
+
+    /// Example value for OpenAPI schema.
+    ///
+    /// Parsed from `#[example = ...]` attribute.
+    #[allow(dead_code)] // Will be used for OpenAPI schema examples (#80)
+    pub example: Option<ExampleValue>
 }
 
 impl FieldDef {
@@ -92,6 +116,9 @@ impl FieldDef {
             darling::Error::custom("Entity fields must be named").with_span(field)
         })?;
         let ty = field.ty.clone();
+        let doc = extract_doc_comments(&field.attrs);
+        let validation = validation::parse_validation_attrs(&field.attrs);
+        let example = example::parse_example_attr(&field.attrs);
 
         let mut expose = ExposeConfig::default();
         let mut storage = StorageConfig::default();
@@ -116,7 +143,10 @@ impl FieldDef {
             ty,
             expose,
             storage,
-            filter
+            filter,
+            doc,
+            validation,
+            example
         })
     }
 
@@ -209,5 +239,190 @@ impl FieldDef {
     #[must_use]
     pub fn filter(&self) -> &FilterConfig {
         &self.filter
+    }
+
+    /// Get the documentation comment if present.
+    ///
+    /// Returns the extracted doc comment for use in OpenAPI descriptions.
+    #[must_use]
+    #[allow(dead_code)] // Will be used for schema field descriptions (#78)
+    pub fn doc(&self) -> Option<&str> {
+        self.doc.as_deref()
+    }
+
+    /// Get the validation configuration.
+    ///
+    /// Returns the parsed validation rules for OpenAPI constraints.
+    #[must_use]
+    #[allow(dead_code)] // Will be used for OpenAPI schema constraints (#79)
+    pub fn validation(&self) -> &ValidationConfig {
+        &self.validation
+    }
+
+    /// Check if this field has validation rules.
+    #[must_use]
+    #[allow(dead_code)] // Will be used for OpenAPI schema constraints (#79)
+    pub fn has_validation(&self) -> bool {
+        self.validation.has_validation()
+    }
+
+    /// Get the example value if present.
+    ///
+    /// Returns the parsed example for use in OpenAPI schema.
+    #[must_use]
+    #[allow(dead_code)] // Will be used for OpenAPI schema examples (#80)
+    pub fn example(&self) -> Option<&ExampleValue> {
+        self.example.as_ref()
+    }
+
+    /// Check if this field has an example value.
+    #[must_use]
+    #[allow(dead_code)] // Will be used for OpenAPI schema examples (#80)
+    pub fn has_example(&self) -> bool {
+        self.example.is_some()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use syn::parse_quote;
+
+    use super::*;
+
+    fn parse_field(tokens: proc_macro2::TokenStream) -> FieldDef {
+        let field: Field = parse_quote!(#tokens);
+        FieldDef::from_field(&field).unwrap()
+    }
+
+    #[test]
+    fn field_basic_parsing() {
+        let field = parse_field(quote::quote! { pub name: String });
+        assert_eq!(field.name_str(), "name");
+        assert!(!field.is_id());
+        assert!(!field.is_auto());
+    }
+
+    #[test]
+    fn field_id_attribute() {
+        let field = parse_field(quote::quote! {
+            #[id]
+            pub id: uuid::Uuid
+        });
+        assert!(field.is_id());
+        assert!(field.in_response());
+    }
+
+    #[test]
+    fn field_auto_attribute() {
+        let field = parse_field(quote::quote! {
+            #[auto]
+            pub created_at: chrono::DateTime<chrono::Utc>
+        });
+        assert!(field.is_auto());
+    }
+
+    #[test]
+    fn field_expose_config() {
+        let field = parse_field(quote::quote! {
+            #[field(create, update, response)]
+            pub name: String
+        });
+        assert!(field.in_create());
+        assert!(field.in_update());
+        assert!(field.in_response());
+    }
+
+    #[test]
+    fn field_expose_skip() {
+        let field = parse_field(quote::quote! {
+            #[field(skip)]
+            pub password: String
+        });
+        assert!(!field.in_create());
+        assert!(!field.in_update());
+        assert!(!field.in_response());
+    }
+
+    #[test]
+    fn field_belongs_to() {
+        let field = parse_field(quote::quote! {
+            #[belongs_to(User)]
+            pub user_id: uuid::Uuid
+        });
+        assert!(field.is_relation());
+        assert!(field.belongs_to().is_some());
+        assert_eq!(field.belongs_to().unwrap().to_string(), "User");
+    }
+
+    #[test]
+    fn field_filter_attribute() {
+        let field = parse_field(quote::quote! {
+            #[filter]
+            pub status: String
+        });
+        assert!(field.has_filter());
+    }
+
+    #[test]
+    fn field_is_option() {
+        let field = parse_field(quote::quote! { pub avatar: Option<String> });
+        assert!(field.is_option());
+
+        let field2 = parse_field(quote::quote! { pub name: String });
+        assert!(!field2.is_option());
+    }
+
+    #[test]
+    fn field_ty_accessor() {
+        let field = parse_field(quote::quote! { pub count: i32 });
+        let ty = field.ty();
+        let ty_str = quote::quote!(#ty).to_string();
+        assert!(ty_str.contains("i32"));
+    }
+
+    #[test]
+    fn field_doc_comment() {
+        let field = parse_field(quote::quote! {
+            /// User's display name
+            pub name: String
+        });
+        assert!(field.doc().is_some());
+        assert!(field.doc().unwrap().contains("display name"));
+    }
+
+    #[test]
+    fn field_no_doc_comment() {
+        let field = parse_field(quote::quote! { pub name: String });
+        assert!(field.doc().is_none());
+    }
+
+    #[test]
+    fn field_validation_accessor() {
+        let field = parse_field(quote::quote! { pub name: String });
+        let _validation = field.validation();
+        assert!(!field.has_validation());
+    }
+
+    #[test]
+    fn field_example_accessor() {
+        let field = parse_field(quote::quote! { pub name: String });
+        assert!(field.example().is_none());
+        assert!(!field.has_example());
+    }
+
+    #[test]
+    fn field_filter_accessor() {
+        let field = parse_field(quote::quote! {
+            #[filter(like)]
+            pub name: String
+        });
+        let filter = field.filter();
+        assert!(filter.has_filter());
+    }
+
+    #[test]
+    fn field_name_accessor() {
+        let field = parse_field(quote::quote! { pub email: String });
+        assert_eq!(field.name().to_string(), "email");
     }
 }
