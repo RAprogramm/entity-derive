@@ -29,8 +29,8 @@ use uuid::Uuid;
 // ============================================================================
 
 /// Audit log entity with streaming support.
-#[derive(Debug, Clone, Entity)]
-#[entity(table = "audit_logs", streams)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Entity)]
+#[entity(table = "audit_logs", streams, events)]
 pub struct AuditLog {
     #[id]
     pub id: Uuid,
@@ -109,8 +109,10 @@ async fn aggregate_logs(
     let filter = AuditLogFilter {
         action: query.action,
         resource_type: query.resource_type,
-        created_at_min: None,
-        created_at_max: None,
+        created_at_from: None,
+        created_at_to: None,
+        limit: None,
+        offset: None,
     };
 
     let mut stream = state
@@ -157,8 +159,10 @@ async fn list_logs_streamed(
     let filter = AuditLogFilter {
         action: query.action,
         resource_type: query.resource_type,
-        created_at_min: None,
-        created_at_max: None,
+        created_at_from: None,
+        created_at_to: None,
+        limit: None,
+        offset: None,
     };
 
     let mut stream = state
@@ -209,8 +213,10 @@ async fn export_by_action(
     let filter = AuditLogFilter {
         action: Some(action.clone()),
         resource_type: None,
-        created_at_min: None,
-        created_at_max: None,
+        created_at_from: None,
+        created_at_to: None,
+        limit: None,
+        offset: None,
     };
 
     let mut stream = state

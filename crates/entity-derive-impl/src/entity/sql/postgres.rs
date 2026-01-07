@@ -101,6 +101,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     let delete_impl = ctx.delete_method();
     let list_impl = ctx.list_method();
     let query_impl = ctx.query_method();
+    let stream_impl = ctx.stream_filtered_method();
     let relation_impls = ctx.relation_methods();
     let projection_impls = ctx.projection_methods();
     let soft_delete_impls = ctx.soft_delete_methods();
@@ -124,6 +125,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             #delete_impl
             #list_impl
             #query_impl
+            #stream_impl
             #relation_impls
             #projection_impls
             #soft_delete_impls
