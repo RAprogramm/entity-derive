@@ -215,6 +215,7 @@
 //! | Boilerplate reduction | ~90% | ~50% | ~60% |
 
 mod entity;
+mod error;
 mod utils;
 
 use proc_macro::TokenStream;
@@ -397,9 +398,63 @@ use proc_macro::TokenStream;
 #[proc_macro_derive(
     Entity,
     attributes(
-        entity, field, id, auto, validate, belongs_to, has_many, projection, filter, command
+        entity, field, id, auto, validate, belongs_to, has_many, projection, filter, command,
+        example
     )
 )]
 pub fn derive_entity(input: TokenStream) -> TokenStream {
     entity::derive(input)
+}
+
+/// Derive macro for generating OpenAPI error response documentation.
+///
+/// # Overview
+///
+/// The `EntityError` derive macro generates OpenAPI response documentation
+/// from error enum variants, using `#[status(code)]` attributes and doc
+/// comments.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use entity_derive::EntityError;
+/// use thiserror::Error;
+/// use utoipa::ToSchema;
+///
+/// #[derive(Debug, Error, ToSchema, EntityError)]
+/// pub enum UserError {
+///     /// User with this email already exists
+///     #[error("Email already exists")]
+///     #[status(409)]
+///     EmailExists,
+///
+///     /// User not found by ID
+///     #[error("User not found")]
+///     #[status(404)]
+///     NotFound,
+///
+///     /// Invalid credentials provided
+///     #[error("Invalid credentials")]
+///     #[status(401)]
+///     InvalidCredentials,
+/// }
+/// ```
+///
+/// # Generated Code
+///
+/// For `UserError`, generates:
+/// - `UserErrorResponses` struct with helper methods
+/// - `status_codes()` - returns all error status codes
+/// - `descriptions()` - returns all error descriptions
+/// - `utoipa_responses()` - returns tuples for OpenAPI responses
+///
+/// # Attributes
+///
+/// | Attribute | Required | Description |
+/// |-----------|----------|-------------|
+/// | `#[status(code)]` | **Yes** | HTTP status code (e.g., 404, 409, 500) |
+/// | `/// Doc comment` | No | Used as response description |
+#[proc_macro_derive(EntityError, attributes(status))]
+pub fn derive_entity_error(input: TokenStream) -> TokenStream {
+    error::derive(input)
 }
