@@ -149,8 +149,8 @@ impl HandlerConfig {
 /// Complete API configuration parsed from `#[entity(api(...))]`.
 ///
 /// This struct holds all configuration options that control HTTP handler
-/// generation and OpenAPI documentation. It is populated by [`parse_api_config`]
-/// and consumed by code generation modules.
+/// generation and OpenAPI documentation. It is populated by
+/// [`parse_api_config`] and consumed by code generation modules.
 ///
 /// # Configuration Categories
 ///

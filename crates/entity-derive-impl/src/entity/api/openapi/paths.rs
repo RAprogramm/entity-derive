@@ -122,7 +122,8 @@ use crate::entity::parse::{CommandDef, EntityDef};
 ///
 /// # Returns
 ///
-/// A `TokenStream` containing code to add paths via `openapi.paths.add_path_operation()`.
+/// A `TokenStream` containing code to add paths via
+/// `openapi.paths.add_path_operation()`.
 ///
 /// # Conditional Generation
 ///
@@ -584,8 +585,8 @@ pub fn build_item_path(entity: &EntityDef) -> String {
 
 /// Generates the handler function name for a command.
 ///
-/// Command handlers follow the naming pattern `{command}_{entity}` in snake_case,
-/// consistent with the CRUD handler naming convention.
+/// Command handlers follow the naming pattern `{command}_{entity}` in
+/// snake_case, consistent with the CRUD handler naming convention.
 ///
 /// # Arguments
 ///

@@ -3,9 +3,9 @@
 
 //! Tests for OpenAPI generation.
 //!
-//! This module contains unit tests for the OpenAPI code generation functionality.
-//! Tests verify that the generated OpenAPI structs, modifiers, and schemas are
-//! correct for various entity configurations.
+//! This module contains unit tests for the OpenAPI code generation
+//! functionality. Tests verify that the generated OpenAPI structs, modifiers,
+//! and schemas are correct for various entity configurations.
 //!
 //! # Test Categories
 //!
@@ -20,7 +20,8 @@
 //! # Test Methodology
 //!
 //! Tests use `syn::parse_quote!` to create entity definitions from attribute
-//! syntax, then verify the generated `TokenStream` contains expected identifiers.
+//! syntax, then verify the generated `TokenStream` contains expected
+//! identifiers.
 //!
 //! ```rust,ignore
 //! let input: syn::DeriveInput = syn::parse_quote! {

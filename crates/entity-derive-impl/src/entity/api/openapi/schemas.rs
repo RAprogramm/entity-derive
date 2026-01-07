@@ -3,9 +3,9 @@
 
 //! OpenAPI schema generation for DTOs and common types.
 //!
-//! This module generates schema registrations for the OpenAPI components section.
-//! Schemas define the structure of request/response bodies and are referenced
-//! throughout the API specification.
+//! This module generates schema registrations for the OpenAPI components
+//! section. Schemas define the structure of request/response bodies and are
+//! referenced throughout the API specification.
 //!
 //! # OpenAPI Components/Schemas
 //!

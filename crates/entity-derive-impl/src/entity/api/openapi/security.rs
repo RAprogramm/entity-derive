@@ -138,7 +138,8 @@ use quote::quote;
 ///
 /// # Arguments
 ///
-/// * `security` - Optional security type string: `"bearer"`, `"cookie"`, or `"api_key"`
+/// * `security` - Optional security type string: `"bearer"`, `"cookie"`, or
+///   `"api_key"`
 ///
 /// # Returns
 ///
@@ -247,15 +248,11 @@ pub fn generate_security_code(security: Option<&str>) -> TokenStream {
 ///
 /// The scheme name is used in two places:
 ///
-/// 1. **Defining the scheme** (in components/securitySchemes):
-///    ```rust,ignore
-///    components.add_security_scheme("bearerAuth", scheme);
-///    ```
+/// 1. **Defining the scheme** (in components/securitySchemes): ```rust,ignore
+///    components.add_security_scheme("bearerAuth", scheme); ```
 ///
-/// 2. **Applying to operations** (in path operations):
-///    ```rust,ignore
-///    security::SecurityRequirement::new::<_, _, &str>("bearerAuth", [])
-///    ```
+/// 2. **Applying to operations** (in path operations): ```rust,ignore
+///    security::SecurityRequirement::new::<_, _, &str>("bearerAuth", []) ```
 ///
 /// # Consistency
 ///
