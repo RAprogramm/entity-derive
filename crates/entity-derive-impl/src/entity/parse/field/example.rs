@@ -192,13 +192,13 @@ mod tests {
         let attrs = parse_attrs(
             r#"
             struct Foo {
-                #[example = 3.14]
-                pi: f64,
+                #[example = 99.99]
+                price: f64,
             }
         "#
         );
         let example = parse_example_attr(&attrs);
-        assert!(matches!(example, Some(ExampleValue::Float(f)) if (f - 3.14).abs() < 0.001));
+        assert!(matches!(example, Some(ExampleValue::Float(f)) if (f - 99.99).abs() < 0.001));
     }
 
     #[test]
