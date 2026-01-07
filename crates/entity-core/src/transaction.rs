@@ -339,11 +339,35 @@ mod tests {
     use super::*;
 
     #[test]
-    fn transaction_error_display() {
+    fn transaction_error_display_begin() {
         let err: TransactionError<std::io::Error> =
             TransactionError::Begin(std::io::Error::other("test"));
         assert!(err.to_string().contains("begin"));
         assert!(err.to_string().contains("test"));
+    }
+
+    #[test]
+    fn transaction_error_display_commit() {
+        let err: TransactionError<std::io::Error> =
+            TransactionError::Commit(std::io::Error::other("commit_err"));
+        assert!(err.to_string().contains("commit"));
+        assert!(err.to_string().contains("commit_err"));
+    }
+
+    #[test]
+    fn transaction_error_display_rollback() {
+        let err: TransactionError<std::io::Error> =
+            TransactionError::Rollback(std::io::Error::other("rollback_err"));
+        assert!(err.to_string().contains("rollback"));
+        assert!(err.to_string().contains("rollback_err"));
+    }
+
+    #[test]
+    fn transaction_error_display_operation() {
+        let err: TransactionError<std::io::Error> =
+            TransactionError::Operation(std::io::Error::other("op_err"));
+        assert!(err.to_string().contains("operation"));
+        assert!(err.to_string().contains("op_err"));
     }
 
     #[test]
@@ -354,14 +378,92 @@ mod tests {
         let op: TransactionError<&str> = TransactionError::Operation("e");
 
         assert!(begin.is_begin());
+        assert!(!begin.is_commit());
+        assert!(!begin.is_rollback());
+        assert!(!begin.is_operation());
+
         assert!(commit.is_commit());
+        assert!(!commit.is_begin());
+
         assert!(rollback.is_rollback());
+        assert!(!rollback.is_begin());
+
         assert!(op.is_operation());
+        assert!(!op.is_begin());
     }
 
     #[test]
     fn transaction_error_into_inner() {
         let err: TransactionError<&str> = TransactionError::Operation("inner");
         assert_eq!(err.into_inner(), "inner");
+    }
+
+    #[test]
+    fn transaction_error_into_inner_all_variants() {
+        assert_eq!(TransactionError::Begin("b").into_inner(), "b");
+        assert_eq!(TransactionError::Commit("c").into_inner(), "c");
+        assert_eq!(TransactionError::Rollback("r").into_inner(), "r");
+        assert_eq!(TransactionError::Operation("o").into_inner(), "o");
+    }
+
+    #[test]
+    fn transaction_error_source() {
+        let inner = std::io::Error::other("source_err");
+        let err: TransactionError<std::io::Error> = TransactionError::Begin(inner);
+        assert!(err.source().is_some());
+
+        let commit_err: TransactionError<std::io::Error> =
+            TransactionError::Commit(std::io::Error::other("c"));
+        assert!(commit_err.source().is_some());
+
+        let rollback_err: TransactionError<std::io::Error> =
+            TransactionError::Rollback(std::io::Error::other("r"));
+        assert!(rollback_err.source().is_some());
+
+        let op_err: TransactionError<std::io::Error> =
+            TransactionError::Operation(std::io::Error::other("o"));
+        assert!(op_err.source().is_some());
+    }
+
+    #[test]
+    fn transaction_builder_new() {
+        struct MockPool;
+        let pool = MockPool;
+        let tx: Transaction<'_, MockPool, ()> = Transaction::new(&pool);
+        let _ = tx.pool();
+    }
+
+    #[test]
+    fn transaction_builder_with_repo() {
+        struct MockPool;
+        let pool = MockPool;
+        let tx: Transaction<'_, MockPool, ()> = Transaction::new(&pool);
+        let tx2: Transaction<'_, MockPool, i32> = tx.with_repo();
+        let _ = tx2.pool();
+    }
+
+    #[test]
+    fn transaction_context_new() {
+        let tx = "mock_tx";
+        let repos = (1, 2, 3);
+        let ctx = TransactionContext::new(tx, repos);
+        assert_eq!(*ctx.repos(), (1, 2, 3));
+    }
+
+    #[test]
+    fn transaction_context_transaction() {
+        let tx = String::from("mock_tx");
+        let repos = ();
+        let mut ctx = TransactionContext::new(tx, repos);
+        assert_eq!(ctx.transaction(), "mock_tx");
+    }
+
+    #[test]
+    fn transaction_context_repos_mut() {
+        let tx = "mock_tx";
+        let repos = vec![1, 2, 3];
+        let mut ctx = TransactionContext::new(tx, repos);
+        ctx.repos_mut().push(4);
+        assert_eq!(*ctx.repos(), vec![1, 2, 3, 4]);
     }
 }
