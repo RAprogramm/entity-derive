@@ -2,6 +2,47 @@
 // SPDX-License-Identifier: MIT
 
 //! Tests for entity parsing.
+//!
+//! This module contains comprehensive tests for `EntityDef` parsing from
+//! `#[entity(...)]` attributes. Tests cover all configuration options,
+//! error handling, and edge cases.
+//!
+//! # Test Categories
+//!
+//! | Category | Tests | Coverage |
+//! |----------|-------|----------|
+//! | Defaults | `default_error_type_is_sqlx_error` | Default values |
+//! | Accessors | `entity_def_error_type_accessor` | Method correctness |
+//! | API Config | `entity_def_with_api`, `*_full_api_config` | API parsing |
+//! | Security | `entity_def_api_with_public_commands` | Security overrides |
+//! | No API | `entity_def_without_api` | API disabled |
+//!
+//! # Test Methodology
+//!
+//! Tests use `syn::parse_quote!` to create struct definitions with attributes,
+//! then verify the parsed `EntityDef` fields match expectations:
+//!
+//! ```rust,ignore
+//! let input: DeriveInput = syn::parse_quote! {
+//!     #[entity(table = "users")]
+//!     pub struct User {
+//!         #[id]
+//!         pub id: Uuid,
+//!     }
+//! };
+//! let entity = EntityDef::from_derive_input(&input).unwrap();
+//! assert!(!entity.has_api());
+//! ```
+//!
+//! # API Configuration Tests
+//!
+//! Tests verify correct parsing of nested `api(...)` configuration:
+//!
+//! | Test | Configuration | Verified |
+//! |------|---------------|----------|
+//! | `entity_def_with_api` | `api(tag = "Users")` | Tag parsing |
+//! | `entity_def_with_full_api_config` | All options | Full configuration |
+//! | `entity_def_api_with_public_commands` | `public = [...]` | Security per command |
 
 use syn::DeriveInput;
 

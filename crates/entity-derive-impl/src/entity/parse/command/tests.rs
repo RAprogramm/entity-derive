@@ -1,7 +1,49 @@
 // SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! Tests for command parsing.
+//! Tests for command attribute parsing.
+//!
+//! This module contains comprehensive tests for the `#[command(...)]` attribute
+//! parser. Tests cover all syntax variations, edge cases, and error handling.
+//!
+//! # Test Categories
+//!
+//! | Category | Tests | Coverage |
+//! |----------|-------|----------|
+//! | Basic | `parse_simple_command` | Name-only syntax |
+//! | Fields | `parse_command_with_fields`, `*_multiple_fields` | Colon syntax |
+//! | Options | `parse_requires_id_*`, `parse_source_*` | Option parsing |
+//! | Payload | `parse_custom_payload_*`, `parse_command_with_result` | Custom types |
+//! | Kind | `parse_kind_*` | Kind hint validation |
+//! | Security | `parse_security_*` | Security override |
+//! | Naming | `struct_name_*`, `handler_method_name_*` | Name generation |
+//! | Errors | `parse_invalid_*`, `parse_unknown_*` | Error handling |
+//!
+//! # Test Methodology
+//!
+//! Tests use `syn::parse_quote!` to create struct definitions with attributes,
+//! then verify the parsed `CommandDef` fields match expectations:
+//!
+//! ```rust,ignore
+//! let input: syn::DeriveInput = syn::parse_quote! {
+//!     #[command(Register)]
+//!     struct User {}
+//! };
+//! let cmds = parse_command_attrs(&input.attrs);
+//! assert_eq!(cmds[0].name.to_string(), "Register");
+//! ```
+//!
+//! # Field Source Tests
+//!
+//! Tests verify correct source selection:
+//!
+//! | Input | Expected Source |
+//! |-------|-----------------|
+//! | `Register` | `Create` (default) |
+//! | `source = "update"` | `Update` |
+//! | `UpdateEmail: email` | `Fields(["email"])` |
+//! | `payload = "T"` | `Custom(T)` |
+//! | `requires_id` | `None` |
 
 use proc_macro2::Span;
 use syn::Ident;

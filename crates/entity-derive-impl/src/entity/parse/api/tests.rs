@@ -2,6 +2,38 @@
 // SPDX-License-Identifier: MIT
 
 //! Tests for API configuration parsing.
+//!
+//! This module tests the `parse_api_config` function and `ApiConfig` methods.
+//! Tests cover all supported attribute syntax variations and edge cases.
+//!
+//! # Test Categories
+//!
+//! | Category | Tests | Coverage |
+//! |----------|-------|----------|
+//! | Basic parsing | `parse_tag_only`, `parse_full_config` | Core attributes |
+//! | Security | `parse_public_commands`, `security_for_public_command` | Auth config |
+//! | Handlers | `parse_handlers_*` | CRUD handler selection |
+//! | Paths | `full_path_prefix_*` | URL construction |
+//! | Defaults | `default_*` | Default value behavior |
+//!
+//! # Test Methodology
+//!
+//! Tests parse attribute strings directly using `syn::parse_str`:
+//!
+//! ```rust,ignore
+//! let config = parse_test_config(r#"api(tag = "Users")"#);
+//! assert_eq!(config.tag, Some("Users".to_string()));
+//! ```
+//!
+//! # Handler Selection Tests
+//!
+//! The handler tests verify all three syntax forms:
+//!
+//! | Form | Test |
+//! |------|------|
+//! | `handlers` | `parse_handlers_flag` |
+//! | `handlers = true` | `parse_handlers_true` |
+//! | `handlers(...)` | `parse_handlers_selective` |
 
 use super::*;
 

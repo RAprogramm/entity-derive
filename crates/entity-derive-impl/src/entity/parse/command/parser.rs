@@ -1,35 +1,137 @@
 // SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! Command attribute parsing.
+//! Command attribute parsing from `#[command(...)]`.
+//!
+//! This module provides the parser that extracts command definitions from
+//! `#[command(...)]` attributes on entity structs. It handles all syntax
+//! variations and produces `CommandDef` instances for code generation.
+//!
+//! # Parsing Architecture
+//!
+//! ```text
+//! Input Attributes              Parser                    Output
+//!
+//! #[command(Register)]     parse_command_attrs()    Vec<CommandDef>
+//! #[command(Update: email)]       │                       │
+//! #[command(Delete,               │                       ├── CommandDef {
+//!   requires_id)]                 │                       │     name: "Register"
+//!         │                       │                       │     source: Create
+//!         ▼                       │                       │   }
+//! &[Attribute] ──────────────────►│                       ├── CommandDef {
+//!                                 │                       │     name: "Update"
+//!                                 │                       │     source: Fields
+//!                                 │                       │   }
+//!                                 │                       └── ...
+//!                                 ▼
+//!                           filter "command"
+//!                           parse_single_command()
+//!                                 │
+//!                                 ▼
+//!                           Vec<CommandDef>
+//! ```
+//!
+//! # Syntax Forms
+//!
+//! The parser supports several syntax variations:
+//!
+//! ## Basic Command
+//!
+//! ```rust,ignore
+//! #[command(Register)]  // Uses create fields, no ID
+//! ```
+//!
+//! ## Field Selection with Colon
+//!
+//! ```rust,ignore
+//! #[command(UpdateEmail: email)]        // Single field
+//! #[command(UpdateProfile: name, bio)]  // Multiple fields
+//! ```
+//!
+//! ## Options After Comma
+//!
+//! ```rust,ignore
+//! #[command(Delete, requires_id)]
+//! #[command(Modify, source = "update")]
+//! #[command(Process, kind = "custom")]
+//! #[command(Transfer, payload = "TransferPayload")]
+//! #[command(AdminOp, security = "admin")]
+//! ```
+//!
+//! # Option Reference
+//!
+//! | Option | Syntax | Effect |
+//! |--------|--------|--------|
+//! | `requires_id` | flag | Sets `requires_id = true`, source to `None` |
+//! | `source` | `= "create/update/none"` | Sets field source |
+//! | `payload` | `= "TypeName"` | Uses custom payload type |
+//! | `result` | `= "TypeName"` | Uses custom result type |
+//! | `kind` | `= "create/update/delete/custom"` | Sets kind hint |
+//! | `security` | `= "scheme/none"` | Sets security override |
+//!
+//! # Error Handling
+//!
+//! Invalid commands are silently filtered out (via `filter_map`).
+//! This allows partial compilation with some valid commands even if
+//! others have syntax errors.
 
 use syn::{Attribute, Ident, Type};
 
 use super::types::{CommandDef, CommandKindHint, CommandSource};
 
-/// Parse `#[command(...)]` attributes.
+/// Parses all `#[command(...)]` attributes from a struct.
 ///
-/// Extracts all command definitions from the struct's attributes.
+/// This function filters struct attributes for `#[command(...)]`, parses
+/// each one, and collects valid command definitions. Invalid commands are
+/// silently skipped to allow partial success.
 ///
 /// # Arguments
 ///
-/// * `attrs` - Slice of syn Attributes from the struct
+/// * `attrs` - Slice of `syn::Attribute` from the struct definition
 ///
 /// # Returns
 ///
-/// Vector of parsed command definitions.
+/// A `Vec<CommandDef>` containing all successfully parsed commands.
+/// May be empty if no valid commands are found.
+///
+/// # Parsing Process
+///
+/// ```text
+/// attrs.iter()
+///     │
+///     ├─► filter(is "command") ──► Only #[command(...)] attrs
+///     │
+///     ├─► filter_map(parse) ────► Parse each, skip errors
+///     │
+///     └─► collect() ────────────► Vec<CommandDef>
+/// ```
 ///
 /// # Syntax Examples
 ///
 /// ```text
-/// #[command(Register)]                              // name only (create fields)
-/// #[command(Register, source = "create")]           // explicit source
-/// #[command(UpdateEmail: email)]                    // specific fields
-/// #[command(UpdateEmail: email, name)]              // multiple fields
-/// #[command(Deactivate, requires_id)]               // id-only command
-/// #[command(Deactivate, requires_id, kind = "delete")] // with kind hint
-/// #[command(Transfer, payload = "TransferPayload")] // custom payload
-/// #[command(Transfer, payload = "TransferPayload", result = "TransferResult")] // custom result
+/// // Basic command (uses create fields)
+/// #[command(Register)]
+///
+/// // Explicit source selection
+/// #[command(Register, source = "create")]
+///
+/// // Specific fields (colon syntax)
+/// #[command(UpdateEmail: email)]
+/// #[command(UpdateProfile: name, avatar, bio)]
+///
+/// // ID-only command
+/// #[command(Deactivate, requires_id)]
+/// #[command(Delete, requires_id, kind = "delete")]
+///
+/// // Custom payload
+/// #[command(Transfer, payload = "TransferPayload")]
+///
+/// // Custom result
+/// #[command(Transfer, payload = "TransferPayload", result = "TransferResult")]
+///
+/// // Security override
+/// #[command(PublicList, security = "none")]
+/// #[command(AdminDelete, requires_id, security = "admin")]
 /// ```
 pub fn parse_command_attrs(attrs: &[Attribute]) -> Vec<CommandDef> {
     attrs

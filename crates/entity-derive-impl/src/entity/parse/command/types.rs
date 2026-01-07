@@ -1,14 +1,99 @@
 // SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! Command types and definitions.
+//! Command type definitions and data structures.
+//!
+//! This module defines the types used to represent parsed command definitions.
+//! These types capture all configuration from `#[command(...)]` attributes
+//! and are used by code generation to produce command structs, enums, and
+//! handler traits.
+//!
+//! # Type Overview
+//!
+//! ```text
+//! ┌─────────────────────────────────────────────────────────────────┐
+//! │                   Command Types                                 │
+//! ├─────────────────────────────────────────────────────────────────┤
+//! │                                                                 │
+//! │  CommandDef                                                     │
+//! │  ├─► name: Ident           # Command name (e.g., "Register")    │
+//! │  ├─► source: CommandSource # Where to get fields                │
+//! │  ├─► requires_id: bool     # Needs entity ID?                   │
+//! │  ├─► result_type: Option<Type>  # Custom result                 │
+//! │  ├─► kind: CommandKindHint # Categorization                     │
+//! │  └─► security: Option<String>   # Security override             │
+//! │                                                                 │
+//! │  CommandSource                                                  │
+//! │  ├─► Create   # Use #[field(create)] fields                     │
+//! │  ├─► Update   # Use #[field(update)] fields                     │
+//! │  ├─► Fields   # Use specific named fields                       │
+//! │  ├─► Custom   # Use external payload struct                     │
+//! │  └─► None     # No payload fields                               │
+//! │                                                                 │
+//! │  CommandKindHint                                                │
+//! │  ├─► Create   # Creates new entity                              │
+//! │  ├─► Update   # Modifies existing entity                        │
+//! │  ├─► Delete   # Removes entity                                  │
+//! │  └─► Custom   # Business-specific operation                     │
+//! │                                                                 │
+//! └─────────────────────────────────────────────────────────────────┘
+//! ```
+//!
+//! # Field Selection
+//!
+//! `CommandSource` determines which entity fields appear in the command struct:
+//!
+//! | Source | Behavior |
+//! |--------|----------|
+//! | `Create` | Include fields with `#[field(create)]` |
+//! | `Update` | Include fields with `#[field(update)]` |
+//! | `Fields(vec)` | Include only the named fields |
+//! | `Custom(ty)` | Use the specified type directly |
+//! | `None` | No fields (ID-only or action commands) |
+//!
+//! # Naming Conventions
+//!
+//! Command names are transformed for generated code:
+//!
+//! | Method | Input | Output |
+//! |--------|-------|--------|
+//! | `struct_name("User")` | `Register` | `RegisterUser` |
+//! | `handler_method_name()` | `UpdateEmail` | `handle_update_email` |
 
 use proc_macro2::Span;
 use syn::{Ident, Type};
 
-/// Source of fields for a command.
+/// Determines the source of fields for a command payload.
 ///
-/// Determines which entity fields are included in the command payload.
+/// The source specifies which entity fields should be included in the
+/// generated command struct. This enables flexible command definitions
+/// that can share fields with CRUD DTOs or define custom payloads.
+///
+/// # Variants
+///
+/// ```text
+/// CommandSource
+///     │
+///     ├─► Create ──► Fields from #[field(create)]
+///     │
+///     ├─► Update ──► Fields from #[field(update)]
+///     │
+///     ├─► Fields ──► Explicitly listed fields
+///     │
+///     ├─► Custom ──► External struct type
+///     │
+///     └─► None ────► No payload (ID-only)
+/// ```
+///
+/// # Examples
+///
+/// | Attribute | Source |
+/// |-----------|--------|
+/// | `#[command(Register)]` | `Create` |
+/// | `#[command(Modify, source = "update")]` | `Update` |
+/// | `#[command(UpdateEmail: email)]` | `Fields(["email"])` |
+/// | `#[command(Transfer, payload = "TransferPayload")]` | `Custom(TransferPayload)` |
+/// | `#[command(Delete, requires_id)]` | `None` |
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum CommandSource {
     /// Use fields marked with `#[field(create)]`.

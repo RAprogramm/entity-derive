@@ -1,7 +1,59 @@
 // SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! EntityDef constructor (from_derive_input).
+//! EntityDef constructor implementation.
+//!
+//! This module provides [`EntityDef::from_derive_input`], the main entry point
+//! for parsing entity definitions from proc-macro input.
+//!
+//! # Parsing Pipeline
+//!
+//! ```text
+//! ┌─────────────────────────────────────────────────────────────────────┐
+//! │                  from_derive_input() Pipeline                       │
+//! ├─────────────────────────────────────────────────────────────────────┤
+//! │                                                                     │
+//! │  DeriveInput                                                        │
+//! │      │                                                              │
+//! │      ├─► EntityAttrs::from_derive_input()  ──► Entity-level attrs   │
+//! │      │                                                              │
+//! │      ├─► Extract fields ──► FieldDef::from_field() ──► Vec<FieldDef>│
+//! │      │                                                              │
+//! │      ├─► parse_has_many_attrs()  ──► Vec<Ident> (relations)         │
+//! │      │                                                              │
+//! │      ├─► parse_projection_attrs() ──► Vec<ProjectionDef>            │
+//! │      │                                                              │
+//! │      ├─► parse_command_attrs() ──► Vec<CommandDef>                  │
+//! │      │                                                              │
+//! │      ├─► parse_api_attr() ──► ApiConfig                             │
+//! │      │                                                              │
+//! │      ├─► extract_doc_comments() ──► Option<String>                  │
+//! │      │                                                              │
+//! │      └─► Find #[id] field index ──► usize                           │
+//! │                                                                     │
+//! │      ▼                                                              │
+//! │  EntityDef (combined result)                                        │
+//! │                                                                     │
+//! └─────────────────────────────────────────────────────────────────────┘
+//! ```
+//!
+//! # Validation
+//!
+//! The constructor validates:
+//!
+//! | Check | Error |
+//! |-------|-------|
+//! | Must be struct | "Entity can only be derived for structs" |
+//! | Must have named fields | "Entity requires named fields" |
+//! | Must have `#[id]` field | "Entity must have exactly one field with #[id]" |
+//! | Required attributes | darling errors for missing `table` |
+//!
+//! # Error Handling
+//!
+//! Returns `darling::Result<EntityDef>` which provides:
+//! - Accumulated errors (multiple errors reported at once)
+//! - Span information for error messages
+//! - Integration with proc-macro-error for nice diagnostics
 
 use darling::FromDeriveInput;
 use syn::DeriveInput;

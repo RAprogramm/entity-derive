@@ -2,6 +2,35 @@
 // SPDX-License-Identifier: MIT
 
 //! Tests for OpenAPI generation.
+//!
+//! This module contains unit tests for the OpenAPI code generation functionality.
+//! Tests verify that the generated OpenAPI structs, modifiers, and schemas are
+//! correct for various entity configurations.
+//!
+//! # Test Categories
+//!
+//! | Category | Tests | Purpose |
+//! |----------|-------|---------|
+//! | Basic | `generate_crud_only` | Verify struct generation |
+//! | Security | `generate_with_security`, `generate_cookie_security` | Auth schemes |
+//! | Disabled | `no_api_when_disabled` | No output when API disabled |
+//! | Paths | `collection_path_format`, `item_path_format` | URL patterns |
+//! | Handlers | `selective_handlers_*` | Conditional schema generation |
+//!
+//! # Test Methodology
+//!
+//! Tests use `syn::parse_quote!` to create entity definitions from attribute
+//! syntax, then verify the generated `TokenStream` contains expected identifiers.
+//!
+//! ```rust,ignore
+//! let input: syn::DeriveInput = syn::parse_quote! {
+//!     #[entity(table = "users", api(handlers))]
+//!     pub struct User { ... }
+//! };
+//! let entity = EntityDef::from_derive_input(&input).unwrap();
+//! let tokens = generate(&entity);
+//! assert!(tokens.to_string().contains("UserApi"));
+//! ```
 
 use super::*;
 

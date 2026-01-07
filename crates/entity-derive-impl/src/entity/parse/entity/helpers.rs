@@ -1,7 +1,60 @@
 // SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! Helper functions for entity parsing.
+//! Helper functions for entity attribute parsing.
+//!
+//! This module provides utility functions for parsing entity-level attributes
+//! that don't fit naturally into darling's derive-based parsing. These helpers
+//! handle manual attribute parsing for relations and nested configurations.
+//!
+//! # Architecture
+//!
+//! ```text
+//! ┌─────────────────────────────────────────────────────────────────────┐
+//! │                    Helper Parsing Functions                         │
+//! ├─────────────────────────────────────────────────────────────────────┤
+//! │                                                                     │
+//! │  Entity Attributes              Helpers                 Output      │
+//! │                                                                     │
+//! │  #[has_many(Post)]        parse_has_many_attrs()   Vec<Ident>      │
+//! │  #[has_many(Comment)]            │                [Post, Comment]   │
+//! │         │                        │                                  │
+//! │         └────────────────────────┘                                  │
+//! │                                                                     │
+//! │  #[entity(                 parse_api_attr()        ApiConfig        │
+//! │    table = "users",              │                  ├── tag         │
+//! │    api(                          │                  ├── security    │
+//! │      tag = "Users",              │                  └── handlers    │
+//! │      security = "bearer"         │                                  │
+//! │    )                             │                                  │
+//! │  )]                              │                                  │
+//! │         │                        │                                  │
+//! │         └────────────────────────┘                                  │
+//! │                                                                     │
+//! └─────────────────────────────────────────────────────────────────────┘
+//! ```
+//!
+//! # Functions
+//!
+//! | Function | Input | Output |
+//! |----------|-------|--------|
+//! | [`parse_has_many_attrs`] | `&[Attribute]` | `Vec<Ident>` |
+//! | [`parse_api_attr`] | `&[Attribute]` | `ApiConfig` |
+//!
+//! # Usage Context
+//!
+//! These functions are called from [`EntityDef::from_derive_input`] during
+//! the entity parsing process. They complement darling's automatic parsing
+//! by handling attributes with custom syntax.
+//!
+//! # Why Not Darling?
+//!
+//! Some attributes require manual parsing because:
+//!
+//! | Attribute | Reason |
+//! |-----------|--------|
+//! | `#[has_many(...)]` | Multiple instances, simple syntax |
+//! | `api(...)` | Nested inside `#[entity(...)]`, complex structure |
 
 use syn::{Attribute, Ident};
 

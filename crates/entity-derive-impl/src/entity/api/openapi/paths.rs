@@ -1,9 +1,107 @@
 // SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! OpenAPI paths generation.
+//! OpenAPI path operations generation.
 //!
-//! Generates CRUD path operations for the OpenAPI spec.
+//! This module generates CRUD path operations for the OpenAPI specification.
+//! Path operations define the available endpoints, their HTTP methods,
+//! parameters, request/response bodies, and security requirements.
+//!
+//! # OpenAPI Paths Object
+//!
+//! The paths object is the core of the OpenAPI specification:
+//!
+//! ```text
+//! ┌─────────────────────────────────────────────────────────────────────┐
+//! │                      OpenAPI Paths                                  │
+//! ├─────────────────────────────────────────────────────────────────────┤
+//! │                                                                     │
+//! │  /users:                       # Collection path                    │
+//! │  ├─► POST   create_user        # Create new entity                  │
+//! │  │   ├─► requestBody: CreateUserRequest                             │
+//! │  │   ├─► responses: 201, 400, 401, 500                              │
+//! │  │   └─► security: bearerAuth                                       │
+//! │  │                                                                  │
+//! │  └─► GET    list_user          # List entities with pagination      │
+//! │      ├─► parameters: limit, offset                                  │
+//! │      ├─► responses: 200, 401, 500                                   │
+//! │      └─► security: bearerAuth                                       │
+//! │                                                                     │
+//! │  /users/{id}:                  # Item path                          │
+//! │  ├─► GET    get_user           # Get single entity                  │
+//! │  │   ├─► parameters: id (path)                                      │
+//! │  │   ├─► responses: 200, 401, 404, 500                              │
+//! │  │   └─► security: bearerAuth                                       │
+//! │  │                                                                  │
+//! │  ├─► PATCH  update_user        # Partial update                     │
+//! │  │   ├─► parameters: id (path)                                      │
+//! │  │   ├─► requestBody: UpdateUserRequest                             │
+//! │  │   ├─► responses: 200, 400, 401, 404, 500                         │
+//! │  │   └─► security: bearerAuth                                       │
+//! │  │                                                                  │
+//! │  └─► DELETE delete_user        # Remove entity                      │
+//! │      ├─► parameters: id (path)                                      │
+//! │      ├─► responses: 204, 401, 404, 500                              │
+//! │      └─► security: bearerAuth                                       │
+//! │                                                                     │
+//! └─────────────────────────────────────────────────────────────────────┘
+//! ```
+//!
+//! # Path Patterns
+//!
+//! Two URL patterns are used following REST conventions:
+//!
+//! | Pattern | Name | Operations | Example |
+//! |---------|------|------------|---------|
+//! | `/{prefix}/{entities}` | Collection | POST, GET | `/api/v1/users` |
+//! | `/{prefix}/{entities}/{id}` | Item | GET, PATCH, DELETE | `/api/v1/users/{id}` |
+//!
+//! # Path Configuration
+//!
+//! Paths are constructed from entity configuration:
+//!
+//! ```rust,ignore
+//! #[entity(
+//!     table = "users",
+//!     api(
+//!         prefix = "api",           // Base prefix
+//!         api_version = "v1",       // Version segment
+//!         handlers(get, list)       // Enabled operations
+//!     )
+//! )]
+//! pub struct User { ... }
+//!
+//! // Generated paths:
+//! // GET  /api/v1/users
+//! // GET  /api/v1/users/{id}
+//! ```
+//!
+//! # Operation Components
+//!
+//! Each operation includes:
+//!
+//! | Component | Description | Example |
+//! |-----------|-------------|---------|
+//! | `operationId` | Unique identifier | `create_user` |
+//! | `summary` | Short description | "Create a new User" |
+//! | `description` | Detailed description | "Creates a new User entity" |
+//! | `tag` | API grouping | "Users" |
+//! | `parameters` | Path/query params | `id: Uuid` |
+//! | `requestBody` | Request schema | `CreateUserRequest` |
+//! | `responses` | Response codes/bodies | 200, 404, 500 |
+//! | `security` | Auth requirements | `bearerAuth` |
+//!
+//! # Response Codes
+//!
+//! Standard HTTP response codes per operation:
+//!
+//! | Operation | Success | Client Error | Server Error |
+//! |-----------|---------|--------------|--------------|
+//! | Create | 201 | 400, 401 | 500 |
+//! | List | 200 | 401 | 500 |
+//! | Get | 200 | 401, 404 | 500 |
+//! | Update | 200 | 400, 401, 404 | 500 |
+//! | Delete | 204 | 401, 404 | 500 |
 
 use convert_case::{Case, Casing};
 use proc_macro2::TokenStream;
@@ -12,9 +110,60 @@ use quote::{format_ident, quote};
 use super::security::security_scheme_name;
 use crate::entity::parse::{CommandDef, EntityDef};
 
-/// Generate code to add CRUD paths to OpenAPI.
+/// Generates code to add CRUD path operations to the OpenAPI specification.
 ///
-/// Only generates paths for enabled handlers based on `HandlerConfig`.
+/// This function produces code that registers all enabled CRUD operations
+/// as paths in the OpenAPI spec. Each operation is fully documented with
+/// parameters, request bodies, responses, and security requirements.
+///
+/// # Arguments
+///
+/// * `entity` - The parsed entity definition containing handler configuration
+///
+/// # Returns
+///
+/// A `TokenStream` containing code to add paths via `openapi.paths.add_path_operation()`.
+///
+/// # Conditional Generation
+///
+/// Only enabled handlers generate path operations:
+///
+/// ```text
+/// HandlerConfig
+///     │
+///     ├─► create == true ──► POST /entities
+///     ├─► list == true ────► GET /entities
+///     ├─► get == true ─────► GET /entities/{id}
+///     ├─► update == true ──► PATCH /entities/{id}
+///     └─► delete == true ──► DELETE /entities/{id}
+/// ```
+///
+/// # Generated Code Structure
+///
+/// ```rust,ignore
+/// // Common setup
+/// let error_response = |desc: &str| -> response::Response { ... };
+/// let security_req: Option<Vec<SecurityRequirement>> = ...;
+/// let id_param = path::ParameterBuilder::new()...;
+///
+/// // Create operation (if enabled)
+/// let create_op = path::OperationBuilder::new()
+///     .operation_id(Some("create_user"))
+///     .tag("Users")
+///     .request_body(Some(...))
+///     .response("201", ...)
+///     .build();
+/// openapi.paths.add_path_operation("/users", vec![HttpMethod::Post], create_op);
+///
+/// // Similar for other operations...
+/// ```
+///
+/// # Security Handling
+///
+/// When security is configured:
+/// - Each operation includes security requirements
+/// - 401 response is added to all operations
+/// - Lock icon appears in Swagger UI
 pub fn generate_paths_code(entity: &EntityDef) -> TokenStream {
     let api_config = entity.api_config();
     let handlers = api_config.handlers();
@@ -329,7 +478,46 @@ pub fn generate_paths_code(entity: &EntityDef) -> TokenStream {
     }
 }
 
-/// Build the collection path (e.g., `/users`).
+/// Builds the collection path for an entity (e.g., `/users`).
+///
+/// Collection paths are used for operations that affect multiple entities
+/// or create new entities: `POST` (create) and `GET` (list).
+///
+/// # Arguments
+///
+/// * `entity` - The parsed entity definition
+///
+/// # Returns
+///
+/// A path string with the format `/{prefix}/{version}/{entity}s`.
+///
+/// # Path Construction
+///
+/// ```text
+/// ApiConfig               Result
+///     │
+///     ├─► prefix: "api"
+///     │       │
+///     ├─► api_version: "v1"     ─────►  /api/v1/users
+///     │       │
+///     └─► entity: "User"
+///            └─► kebab-case + plural
+/// ```
+///
+/// # Examples
+///
+/// | Entity | Prefix | Version | Result |
+/// |--------|--------|---------|--------|
+/// | `User` | - | - | `/users` |
+/// | `User` | `api` | - | `/api/users` |
+/// | `User` | `api` | `v1` | `/api/v1/users` |
+/// | `BlogPost` | - | - | `/blog-posts` |
+/// | `OrderItem` | `api` | `v2` | `/api/v2/order-items` |
+///
+/// # Pluralization
+///
+/// Simple `s` suffix is added. For irregular plurals, use `prefix` to
+/// customize the full path.
 pub fn build_collection_path(entity: &EntityDef) -> String {
     let api_config = entity.api_config();
     let prefix = api_config.full_path_prefix();
@@ -339,13 +527,107 @@ pub fn build_collection_path(entity: &EntityDef) -> String {
     path.replace("//", "/")
 }
 
-/// Build the item path (e.g., `/users/{id}`).
+/// Builds the item path for an entity (e.g., `/users/{id}`).
+///
+/// Item paths are used for operations that affect a single entity identified
+/// by its primary key: `GET` (get), `PATCH` (update), and `DELETE` (delete).
+///
+/// # Arguments
+///
+/// * `entity` - The parsed entity definition
+///
+/// # Returns
+///
+/// A path string with the format `/{collection}/{id}`.
+///
+/// # Path Construction
+///
+/// ```text
+/// build_collection_path()
+///         │
+///         ▼
+///     /api/v1/users
+///         │
+///         ├─► append "/{id}"
+///         │
+///         ▼
+///     /api/v1/users/{id}
+/// ```
+///
+/// # OpenAPI Path Parameters
+///
+/// The `{id}` placeholder is an OpenAPI path parameter. When documented:
+///
+/// ```yaml
+/// /users/{id}:
+///   get:
+///     parameters:
+///       - name: id
+///         in: path
+///         required: true
+///         schema:
+///           type: string
+///           format: uuid
+/// ```
+///
+/// # Examples
+///
+/// | Entity | Prefix | Version | Result |
+/// |--------|--------|---------|--------|
+/// | `User` | - | - | `/users/{id}` |
+/// | `User` | `api` | `v1` | `/api/v1/users/{id}` |
+/// | `BlogPost` | - | - | `/blog-posts/{id}` |
 pub fn build_item_path(entity: &EntityDef) -> String {
     let collection = build_collection_path(entity);
     format!("{}/{{id}}", collection)
 }
 
-/// Get command handler function name.
+/// Generates the handler function name for a command.
+///
+/// Command handlers follow the naming pattern `{command}_{entity}` in snake_case,
+/// consistent with the CRUD handler naming convention.
+///
+/// # Arguments
+///
+/// * `entity` - The parsed entity definition
+/// * `cmd` - The command definition
+///
+/// # Returns
+///
+/// A `syn::Ident` for the handler function name.
+///
+/// # Naming Convention
+///
+/// ```text
+/// Command: "Ban"     Entity: "User"
+///     │                   │
+///     ▼                   ▼
+///   "ban"    +   "_"  + "user"
+///     │                   │
+///     └───────┬───────────┘
+///             ▼
+///        "ban_user"
+/// ```
+///
+/// # Examples
+///
+/// | Command | Entity | Result |
+/// |---------|--------|--------|
+/// | `Ban` | `User` | `ban_user` |
+/// | `Activate` | `Account` | `activate_account` |
+/// | `SendVerification` | `User` | `send_verification_user` |
+///
+/// # Usage
+///
+/// Used when generating command path operations and their operationIds:
+///
+/// ```rust,ignore
+/// let handler = command_handler_name(&entity, &cmd);
+/// // handler = "ban_user"
+///
+/// // In generated code:
+/// pub async fn ban_user(...) { ... }
+/// ```
 #[allow(dead_code)]
 pub fn command_handler_name(entity: &EntityDef, cmd: &CommandDef) -> syn::Ident {
     let entity_snake = entity.name_str().to_case(Case::Snake);

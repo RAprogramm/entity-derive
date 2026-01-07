@@ -1,7 +1,123 @@
 // SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! List handler generation.
+//! GET handler generation for listing entities with pagination.
+//!
+//! This module generates the `list_{entity}` HTTP handler function
+//! that returns a paginated list of all entities.
+//!
+//! # Generated Handler
+//!
+//! For an entity `User`, generates:
+//!
+//! ```rust,ignore
+//! /// Pagination query parameters.
+//! #[derive(Debug, Clone, Deserialize, IntoParams)]
+//! pub struct PaginationQuery {
+//!     /// Maximum number of items to return.
+//!     #[serde(default = "default_limit")]
+//!     pub limit: i64,
+//!     /// Number of items to skip for pagination.
+//!     #[serde(default)]
+//!     pub offset: i64,
+//! }
+//!
+//! fn default_limit() -> i64 { 100 }
+//!
+//! /// List User entities with pagination.
+//! ///
+//! /// # Query Parameters
+//! ///
+//! /// - `limit` - Maximum items to return (default: 100)
+//! /// - `offset` - Items to skip for pagination
+//! ///
+//! /// # Responses
+//! ///
+//! /// - `200 OK` - List of User entities
+//! /// - `401 Unauthorized` - Authentication required (if security enabled)
+//! /// - `500 Internal Server Error` - Database or server error
+//! #[utoipa::path(
+//!     get,
+//!     path = "/users",
+//!     tag = "Users",
+//!     params(
+//!         ("limit" = Option<i64>, Query, description = "Max items"),
+//!         ("offset" = Option<i64>, Query, description = "Items to skip")
+//!     ),
+//!     responses(
+//!         (status = 200, description = "List of users", body = Vec<UserResponse>),
+//!         (status = 401, description = "Authentication required"),
+//!         (status = 500, description = "Internal server error")
+//!     ),
+//!     security(("bearerAuth" = []))
+//! )]
+//! pub async fn list_user<R>(
+//!     State(repo): State<Arc<R>>,
+//!     Query(pagination): Query<PaginationQuery>,
+//! ) -> AppResult<Json<Vec<UserResponse>>>
+//! where
+//!     R: UserRepository + 'static,
+//! { ... }
+//! ```
+//!
+//! # Pagination
+//!
+//! The handler supports offset-based pagination via query parameters:
+//!
+//! | Parameter | Type | Default | Description |
+//! |-----------|------|---------|-------------|
+//! | `limit` | `i64` | `100` | Maximum items per page |
+//! | `offset` | `i64` | `0` | Items to skip |
+//!
+//! ## Usage Examples
+//!
+//! ```text
+//! GET /users              # First 100 users
+//! GET /users?limit=10     # First 10 users
+//! GET /users?offset=10    # Users 11-110
+//! GET /users?limit=10&offset=20  # Users 21-30
+//! ```
+//!
+//! # Request Flow
+//!
+//! ```text
+//! Client                Handler              Repository           Database
+//!   │                      │                      │                   │
+//!   │ GET /users?limit=10  │                      │                   │
+//!   │─────────────────────>│                      │                   │
+//!   │                      │                      │                   │
+//!   │                      │ repo.list(10, 0)     │                   │
+//!   │                      │─────────────────────>│                   │
+//!   │                      │                      │                   │
+//!   │                      │                      │ SELECT * LIMIT 10 │
+//!   │                      │                      │──────────────────>│
+//!   │                      │                      │                   │
+//!   │                      │                      │<──────────────────│
+//!   │                      │                      │   Vec<UserRow>    │
+//!   │                      │<─────────────────────│                   │
+//!   │                      │   Vec<User>          │                   │
+//!   │                      │                      │                   │
+//!   │<─────────────────────│                      │                   │
+//!   │ 200 OK               │                      │                   │
+//!   │ [UserResponse, ...]  │                      │                   │
+//! ```
+//!
+//! # Response Format
+//!
+//! Returns a JSON array of entity responses:
+//!
+//! ```json
+//! [
+//!   { "id": "uuid-1", "name": "Alice", ... },
+//!   { "id": "uuid-2", "name": "Bob", ... }
+//! ]
+//! ```
+//!
+//! # Performance Considerations
+//!
+//! - Default limit of 100 prevents unbounded queries
+//! - Offset pagination can be slow for large offsets
+//! - Consider cursor-based pagination for very large datasets
 
 use convert_case::{Case, Casing};
 use proc_macro2::TokenStream;
@@ -10,7 +126,57 @@ use quote::{format_ident, quote};
 use super::helpers::{build_collection_path, build_deprecated_attr, build_security_attr};
 use crate::entity::parse::EntityDef;
 
-/// Generate the list handler.
+/// Generates the GET handler for listing entities with pagination.
+///
+/// Creates a handler function that:
+///
+/// 1. Accepts `limit` and `offset` query parameters
+/// 2. Calls `repository.list(limit, offset)` to fetch entities
+/// 3. Returns `200 OK` with array of entity responses
+///
+/// # Arguments
+///
+/// * `entity` - The parsed entity definition
+///
+/// # Returns
+///
+/// A `TokenStream` containing:
+/// - `PaginationQuery` struct with serde derives
+/// - `default_limit()` helper function
+/// - The async handler function with OpenAPI annotations
+///
+/// # Generated Components
+///
+/// | Component | Description |
+/// |-----------|-------------|
+/// | Function name | `list_{entity_snake}` (e.g., `list_user`) |
+/// | Path | Collection path (e.g., `/users`) |
+/// | Method | GET |
+/// | Query params | `limit` (default 100), `offset` (default 0) |
+/// | Response body | `Vec<{Entity}Response>` |
+/// | Status codes | 200, 401 (if auth), 500 |
+///
+/// # PaginationQuery Struct
+///
+/// A helper struct is generated alongside the handler:
+///
+/// ```rust,ignore
+/// #[derive(Debug, Clone, Deserialize, IntoParams)]
+/// pub struct PaginationQuery {
+///     #[serde(default = "default_limit")]
+///     pub limit: i64,
+///     #[serde(default)]
+///     pub offset: i64,
+/// }
+/// ```
+///
+/// This struct implements `utoipa::IntoParams` for OpenAPI documentation.
+///
+/// # Default Limit
+///
+/// The default limit of 100 items prevents accidental full-table scans.
+/// Clients can override this but should implement proper pagination
+/// for large datasets.
 pub fn generate_list_handler(entity: &EntityDef) -> TokenStream {
     let vis = &entity.vis;
     let entity_name = entity.name();
@@ -87,17 +253,42 @@ pub fn generate_list_handler(entity: &EntityDef) -> TokenStream {
     );
 
     quote! {
-        /// Pagination query parameters.
+        /// Pagination query parameters for list endpoints.
+        ///
+        /// Supports offset-based pagination with configurable page size.
+        ///
+        /// # Fields
+        ///
+        /// - `limit` - Maximum items per page (default: 100)
+        /// - `offset` - Items to skip (default: 0)
+        ///
+        /// # Example
+        ///
+        /// ```text
+        /// GET /users?limit=10&offset=20
+        /// ```
         #[derive(Debug, Clone, serde::Deserialize, utoipa::IntoParams)]
         #vis struct PaginationQuery {
             /// Maximum number of items to return.
+            ///
+            /// Defaults to 100 if not specified. Use reasonable limits
+            /// to prevent performance issues with large datasets.
             #[serde(default = "default_limit")]
             pub limit: i64,
+
             /// Number of items to skip for pagination.
+            ///
+            /// Defaults to 0 (start from beginning). Use with `limit`
+            /// to implement page-based navigation.
             #[serde(default)]
             pub offset: i64,
         }
 
+        /// Returns the default pagination limit.
+        ///
+        /// This value (100) balances usability with performance,
+        /// preventing accidental full-table scans while allowing
+        /// reasonable batch sizes.
         fn default_limit() -> i64 { 100 }
 
         #[doc = #doc]

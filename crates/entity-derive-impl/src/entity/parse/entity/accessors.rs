@@ -2,6 +2,58 @@
 // SPDX-License-Identifier: MIT
 
 //! Accessor methods for EntityDef.
+//!
+//! This module provides getter methods for accessing `EntityDef` fields and
+//! computed values. Methods are organized by purpose: field access, naming
+//! helpers, and feature flags.
+//!
+//! # Method Categories
+//!
+//! ```text
+//! ┌─────────────────────────────────────────────────────────────────────┐
+//! │                    EntityDef Accessors                              │
+//! ├─────────────────────────────────────────────────────────────────────┤
+//! │                                                                     │
+//! │  Field Access            Naming                Feature Checks       │
+//! │  ├── id_field()          ├── name()            ├── is_soft_delete() │
+//! │  ├── create_fields()     ├── name_str()        ├── has_events()     │
+//! │  ├── update_fields()     ├── full_table_name() ├── has_hooks()      │
+//! │  ├── response_fields()   └── ident_with()      ├── has_commands()   │
+//! │  ├── all_fields()                              ├── has_policy()     │
+//! │  ├── relation_fields()                         ├── has_streams()    │
+//! │  └── filter_fields()                           ├── has_transactions()│
+//! │                                                ├── has_api()        │
+//! │  Configuration                                 └── has_filters()    │
+//! │  ├── error_type()                                                   │
+//! │  ├── api_config()                                                   │
+//! │  ├── command_defs()                                                 │
+//! │  └── doc()                                                          │
+//! │                                                                     │
+//! └─────────────────────────────────────────────────────────────────────┘
+//! ```
+//!
+//! # Field Category Methods
+//!
+//! These methods return filtered field collections for DTO generation:
+//!
+//! | Method | Returns | Used For |
+//! |--------|---------|----------|
+//! | `id_field()` | Primary key field | All DTOs and queries |
+//! | `create_fields()` | `#[field(create)]` fields | `CreateRequest` DTO |
+//! | `update_fields()` | `#[field(update)]` fields | `UpdateRequest` DTO |
+//! | `response_fields()` | `#[field(response)]` + ID | `Response` DTO |
+//! | `all_fields()` | All fields | `Row`, `Insertable` |
+//! | `relation_fields()` | `#[belongs_to]` fields | Relation methods |
+//! | `filter_fields()` | `#[filter]` fields | Query struct |
+//!
+//! # Naming Methods
+//!
+//! | Method | Example | Result |
+//! |--------|---------|--------|
+//! | `name()` | `User` | `Ident("User")` |
+//! | `name_str()` | `User` | `"User"` |
+//! | `full_table_name()` | `public.users` | `"public.users"` |
+//! | `ident_with("Create", "Request")` | `User` | `Ident("CreateUserRequest")` |
 
 use proc_macro2::Span;
 use syn::Ident;

@@ -1,23 +1,153 @@
 // SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! API configuration parsing.
+//! API configuration parsing from `#[entity(api(...))]` attributes.
+//!
+//! This module provides the parser that extracts API configuration from
+//! the `api(...)` nested attribute within `#[entity(...)]`. It validates
+//! syntax, handles all configuration options, and produces an `ApiConfig`.
+//!
+//! # Parsing Flow
+//!
+//! ```text
+//! Input Attribute                      Parser                    Output
+//!
+//! #[entity(                        parse_api_config()
+//!   api(                                 │
+//!     tag = "Users",      ──────────────►├── tag = Some("Users")
+//!     security = "bearer", ─────────────►├── security = Some("bearer")
+//!     handlers(create, get) ────────────►├── handlers.create = true
+//!   )                                    │   handlers.get = true
+//! )]                                     ▼
+//!                                   ApiConfig { ... }
+//! ```
+//!
+//! # Supported Syntax
+//!
+//! The parser handles multiple attribute forms:
+//!
+//! ## String Values
+//!
+//! ```rust,ignore
+//! api(tag = "Users")           // Simple string
+//! api(path_prefix = "/api/v1") // Path string
+//! ```
+//!
+//! ## Boolean Values
+//!
+//! ```rust,ignore
+//! api(handlers = true)   // Explicit boolean
+//! api(handlers = false)  // Disable handlers
+//! ```
+//!
+//! ## Flags
+//!
+//! ```rust,ignore
+//! api(handlers)   // Equivalent to handlers = true
+//! ```
+//!
+//! ## Lists
+//!
+//! ```rust,ignore
+//! api(public = [Login, Register])     // Bracketed list
+//! api(handlers(create, get, list))    // Parenthesized list
+//! ```
+//!
+//! # Error Handling
+//!
+//! The parser provides clear error messages for invalid syntax:
+//!
+//! ```text
+//! error: api attribute requires parameters: api(tag = "...")
+//!   --> src/lib.rs:5:3
+//!    |
+//!  5 | #[entity(api)]
+//!    |          ^^^
+//!
+//! error: unknown api option 'unknown_option', expected: tag, ...
+//!   --> src/lib.rs:5:7
+//!    |
+//!  5 | #[entity(api(unknown_option = "value"))]
+//!    |              ^^^^^^^^^^^^^^
+//! ```
+//!
+//! # Option Reference
+//!
+//! | Option | Syntax | Type |
+//! |--------|--------|------|
+//! | `tag` | `tag = "..."` | String |
+//! | `tag_description` | `tag_description = "..."` | String |
+//! | `path_prefix` | `path_prefix = "..."` | String |
+//! | `security` | `security = "..."` | String |
+//! | `public` | `public = [A, B]` | List of Idents |
+//! | `version` | `version = "..."` | String |
+//! | `deprecated_in` | `deprecated_in = "..."` | String |
+//! | `handlers` | `handlers` / `handlers(...)` / `handlers = bool` | Flag/List/Bool |
+//! | `title` | `title = "..."` | String |
+//! | `description` | `description = "..."` | String |
+//! | `api_version` | `api_version = "..."` | String |
+//! | `license` | `license = "..."` | String |
+//! | `license_url` | `license_url = "..."` | String |
+//! | `contact_name` | `contact_name = "..."` | String |
+//! | `contact_email` | `contact_email = "..."` | String |
+//! | `contact_url` | `contact_url = "..."` | String |
 
 use syn::Ident;
 
 use super::config::{ApiConfig, HandlerConfig};
 
-/// Parse `#[entity(api(...))]` attribute.
+/// Parses the `#[entity(api(...))]` attribute into an [`ApiConfig`].
 ///
-/// Extracts API configuration from the nested attribute.
+/// This function extracts all API configuration options from the nested
+/// `api(...)` attribute. It validates the syntax and returns helpful
+/// error messages for invalid input.
 ///
 /// # Arguments
 ///
-/// * `meta` - The meta content inside `api(...)`
+/// * `meta` - The `syn::Meta` representing the `api(...)` attribute
 ///
 /// # Returns
 ///
-/// Parsed `ApiConfig` or error.
+/// - `Ok(ApiConfig)` - Successfully parsed configuration
+/// - `Err(syn::Error)` - Syntax error with span information
+///
+/// # Parsing Process
+///
+/// ```text
+/// syn::Meta::List("api(...)")
+///        │
+///        ▼
+/// parse_nested_meta(|nested| {
+///     match nested.path {
+///         "tag" → config.tag = Some(value)
+///         "handlers" → parse handlers syntax
+///         ...
+///     }
+/// })
+///        │
+///        ▼
+///    ApiConfig
+/// ```
+///
+/// # Handler Parsing
+///
+/// The `handlers` option has special parsing logic:
+///
+/// | Syntax | Interpretation |
+/// |--------|----------------|
+/// | `handlers` | Enable all handlers |
+/// | `handlers = true` | Enable all handlers |
+/// | `handlers = false` | Disable all handlers |
+/// | `handlers(create, get)` | Enable specific handlers |
+///
+/// # Error Cases
+///
+/// | Input | Error |
+/// |-------|-------|
+/// | `api` | "api attribute requires parameters" |
+/// | `api = "value"` | "api attribute must use parentheses" |
+/// | `api(unknown = "x")` | "unknown api option 'unknown'" |
+/// | `api(handlers(invalid))` | "unknown handler 'invalid'" |
 pub fn parse_api_config(meta: &syn::Meta) -> syn::Result<ApiConfig> {
     let mut config = ApiConfig::default();
 

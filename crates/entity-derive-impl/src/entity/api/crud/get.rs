@@ -1,7 +1,93 @@
 // SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! Get handler generation.
+//! GET handler generation for retrieving entities by ID.
+//!
+//! This module generates the `get_{entity}` HTTP handler function
+//! that fetches a single entity by its primary key.
+//!
+//! # Generated Handler
+//!
+//! For an entity `User`, generates:
+//!
+//! ```rust,ignore
+//! /// Get User by ID.
+//! ///
+//! /// # Path Parameters
+//! ///
+//! /// - `id` - The unique identifier of the User
+//! ///
+//! /// # Responses
+//! ///
+//! /// - `200 OK` - User found
+//! /// - `401 Unauthorized` - Authentication required (if security enabled)
+//! /// - `404 Not Found` - User with given ID does not exist
+//! /// - `500 Internal Server Error` - Database or server error
+//! #[utoipa::path(
+//!     get,
+//!     path = "/users/{id}",
+//!     tag = "Users",
+//!     params(("id" = Uuid, Path, description = "User ID")),
+//!     responses(
+//!         (status = 200, description = "User found", body = UserResponse),
+//!         (status = 401, description = "Authentication required"),
+//!         (status = 404, description = "User not found"),
+//!         (status = 500, description = "Internal server error")
+//!     ),
+//!     security(("bearerAuth" = []))
+//! )]
+//! pub async fn get_user<R>(
+//!     State(repo): State<Arc<R>>,
+//!     Path(id): Path<Uuid>,
+//! ) -> AppResult<Json<UserResponse>>
+//! where
+//!     R: UserRepository + 'static,
+//! {
+//!     let entity = repo
+//!         .find_by_id(id)
+//!         .await
+//!         .map_err(|e| AppError::internal(e.to_string()))?
+//!         .ok_or_else(|| AppError::not_found("User not found"))?;
+//!     Ok(Json(UserResponse::from(entity)))
+//! }
+//! ```
+//!
+//! # Request Flow
+//!
+//! ```text
+//! Client                Handler              Repository           Database
+//!   │                      │                      │                   │
+//!   │ GET /users/{id}      │                      │                   │
+//!   │─────────────────────>│                      │                   │
+//!   │                      │                      │                   │
+//!   │                      │ repo.find_by_id(id)  │                   │
+//!   │                      │─────────────────────>│                   │
+//!   │                      │                      │                   │
+//!   │                      │                      │ SELECT * WHERE id │
+//!   │                      │                      │──────────────────>│
+//!   │                      │                      │                   │
+//!   │                      │                      │<──────────────────│
+//!   │                      │                      │ Option<UserRow>   │
+//!   │                      │<─────────────────────│                   │
+//!   │                      │   Option<User>       │                   │
+//!   │                      │                      │                   │
+//!   │<─────────────────────│                      │                   │
+//!   │ 200 OK / 404         │                      │                   │
+//!   │ UserResponse         │                      │                   │
+//! ```
+//!
+//! # Error Handling
+//!
+//! The handler distinguishes between two error cases:
+//!
+//! | Case | Response | Description |
+//! |------|----------|-------------|
+//! | Database error | 500 | Query failed (connection, timeout, etc.) |
+//! | Not found | 404 | Entity with given ID doesn't exist |
+//!
+//! The `Option<Entity>` from the repository is converted:
+//! - `Some(entity)` → 200 OK with response body
+//! - `None` → 404 Not Found error
 
 use convert_case::{Case, Casing};
 use proc_macro2::TokenStream;
@@ -10,7 +96,49 @@ use quote::{format_ident, quote};
 use super::helpers::{build_deprecated_attr, build_item_path, build_security_attr};
 use crate::entity::parse::EntityDef;
 
-/// Generate the get handler.
+/// Generates the GET handler for retrieving a single entity by ID.
+///
+/// Creates a handler function that:
+///
+/// 1. Extracts entity ID from URL path parameter
+/// 2. Calls `repository.find_by_id(id)` to fetch the entity
+/// 3. Returns `200 OK` with entity data or `404 Not Found`
+///
+/// # Arguments
+///
+/// * `entity` - The parsed entity definition
+///
+/// # Returns
+///
+/// A `TokenStream` containing the complete handler function with:
+/// - Doc comments describing the endpoint
+/// - `#[utoipa::path]` attribute for OpenAPI documentation
+/// - The async handler function implementation
+///
+/// # Generated Components
+///
+/// | Component | Description |
+/// |-----------|-------------|
+/// | Function name | `get_{entity_snake}` (e.g., `get_user`) |
+/// | Path | Item path with `{id}` (e.g., `/users/{id}`) |
+/// | Method | GET |
+/// | Path parameter | `id` with entity's ID type |
+/// | Response body | `{Entity}Response` |
+/// | Status codes | 200, 401 (if auth), 404, 500 |
+///
+/// # Path Parameter
+///
+/// The `{id}` path parameter type is derived from the entity's `#[id]` field:
+///
+/// - `Uuid` for UUID primary keys
+/// - `i32`/`i64` for integer primary keys
+/// - Custom types are also supported
+///
+/// # Security Handling
+///
+/// When security is configured:
+/// - Adds `401 Unauthorized` to response list
+/// - Includes security requirement in OpenAPI spec
 pub fn generate_get_handler(entity: &EntityDef) -> TokenStream {
     let vis = &entity.vis;
     let entity_name = entity.name();

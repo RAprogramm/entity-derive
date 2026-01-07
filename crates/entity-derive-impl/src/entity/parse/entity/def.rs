@@ -2,6 +2,59 @@
 // SPDX-License-Identifier: MIT
 
 //! EntityDef struct definition.
+//!
+//! This module defines [`EntityDef`], the central data structure for the entire
+//! entity-derive macro system. All code generators receive an `EntityDef` and
+//! use its fields to produce the appropriate Rust code.
+//!
+//! # Architecture
+//!
+//! ```text
+//! ┌─────────────────────────────────────────────────────────────────────┐
+//! │                       EntityDef Structure                           │
+//! ├─────────────────────────────────────────────────────────────────────┤
+//! │                                                                     │
+//! │  Identity           Configuration          Feature Flags           │
+//! │  ├── ident          ├── table              ├── soft_delete         │
+//! │  ├── vis            ├── schema             ├── events              │
+//! │  └── doc            ├── sql                ├── hooks               │
+//! │                     ├── dialect            ├── commands            │
+//! │                     ├── uuid               ├── policy              │
+//! │                     ├── error              ├── streams             │
+//! │                     └── returning          └── transactions        │
+//! │                                                                     │
+//! │  Fields             Relations              API                      │
+//! │  ├── fields[]       ├── has_many[]         └── api_config          │
+//! │  └── id_field_index └── projections[]          ├── tag             │
+//! │                                                ├── security        │
+//! │  Commands                                      └── handlers        │
+//! │  └── command_defs[]                                                 │
+//! │                                                                     │
+//! └─────────────────────────────────────────────────────────────────────┘
+//! ```
+//!
+//! # Field Categories
+//!
+//! | Category | Accessor | Purpose |
+//! |----------|----------|---------|
+//! | Identity | `ident`, `vis` | Struct name and visibility |
+//! | Table | `table`, `schema` | Database location |
+//! | Behavior | `sql`, `dialect`, `uuid` | Code generation options |
+//! | Features | `soft_delete`, `events`, etc. | Optional features |
+//! | Fields | `fields`, `id_field_index` | Field definitions |
+//! | Relations | `has_many`, `projections` | Entity relationships |
+//! | Commands | `command_defs` | CQRS command definitions |
+//! | API | `api_config` | HTTP handler configuration |
+//!
+//! # Lifetime
+//!
+//! `EntityDef` is created once during macro expansion and passed to all
+//! generators. It owns all its data (no lifetimes) for simplicity.
+//!
+//! # Construction
+//!
+//! Use [`EntityDef::from_derive_input`] (in `constructor.rs`) to create
+//! from a `syn::DeriveInput`.
 
 use syn::{Ident, Visibility};
 
