@@ -11,18 +11,51 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.4.0...HEAD)
+
+## [0.4.0](https://github.com/RAprogramm/entity-derive/releases/tag/v0.4.0) — 2026-01-07
+
+### ✨ Features
+
+- **api:** Auto-generate HTTP handlers with full OpenAPI documentation ([#77](https://github.com/RAprogramm/entity-derive/issues/77))
+- **api:** Add OpenAPI info configuration and selective handlers ([#67](https://github.com/RAprogramm/entity-derive/issues/67), [#94](https://github.com/RAprogramm/entity-derive/pull/94))
+- **api:** Add API versioning and deprecation support ([#83](https://github.com/RAprogramm/entity-derive/issues/83))
+- **api:** Add command-level security configuration ([#81](https://github.com/RAprogramm/entity-derive/issues/81))
+- **api:** Parse validation attributes for OpenAPI constraints ([#79](https://github.com/RAprogramm/entity-derive/issues/79))
+- **api:** Extract doc comments for OpenAPI descriptions ([#78](https://github.com/RAprogramm/entity-derive/issues/78))
+- **api:** Add example attribute parsing for OpenAPI schemas ([#80](https://github.com/RAprogramm/entity-derive/issues/80))
+- **api:** Add API attribute parsing for OpenAPI integration ([#76](https://github.com/RAprogramm/entity-derive/issues/76))
+- **derive:** Add EntityError derive macro for OpenAPI error documentation ([#82](https://github.com/RAprogramm/entity-derive/issues/82))
+- **transactions:** Add type-safe multi-entity transaction API ([#70](https://github.com/RAprogramm/entity-derive/pull/70))
+- **streams:** Implement stream_filtered for database streaming ([#72](https://github.com/RAprogramm/entity-derive/pull/72))
+- **examples:** Add comprehensive feature examples
+
+### 🐛 Bug Fixes
+
+- **examples:** Add required dependencies and fix compilation
+- **examples:** Fix hooks example - add utoipa dependency ([#68](https://github.com/RAprogramm/entity-derive/issues/68))
+- **examples:** Fix commands example - dependencies and struct naming ([#69](https://github.com/RAprogramm/entity-derive/issues/69))
+- **examples:** Update events example for new event variants ([#67](https://github.com/RAprogramm/entity-derive/issues/67))
+- **examples:** Remove unused import in soft-delete example ([#71](https://github.com/RAprogramm/entity-derive/pull/71))
+- Gate Future import behind postgres feature
+- Resolve doc link and formatting issues
+
+### 📚 Documentation
+
+- Update README with v0.4 features
+
+### ♻️ Refactor
+
+- Split large modules into smaller components
+
+**Full Changelog**: [`v0.3.3...v0.4.0`](https://github.com/RAprogramm/entity-derive/compare/v0.3.3...v0.4.0)
+
 ## [0.3.3](https://github.com/RAprogramm/entity-derive/releases/tag/v0.3.3) — 2026-01-07
 
 ### ✨ Features
 
-- **transactions:** Add type-safe transaction scripts support ([3a38be3](https://github.com/RAprogramm/entity-derive/commit/3a38be39f7996ba0a08ed1584b8fe7831da85c0f)) by [@RAprogramm](https://github.com/RAprogramm)
+- **transactions:** Add type-safe transaction scripts support ([3a38be3](https://github.com/RAprogramm/entity-derive/commit/3a38be39f7996ba0a08ed1584b8fe7831da85c0f))
 
-
-### 🐛 Bug Fixes
-
-- Resolve doc link and formatting issues ([eae9d6e](https://github.com/RAprogramm/entity-derive/commit/eae9d6e7e7a1191932550fde85a92f407bf97c99)) by [@RAprogramm](https://github.com/RAprogramm)
-
-**Full Changelog**: [`v0.3.2...v0.3.3`](https://github.com/RAprogramm/entity-derive/compare/v0.3.2...v0.3.3)
 ## [0.3.2](https://github.com/RAprogramm/entity-derive/releases/tag/v0.3.2) — 2026-01-06
 
 ### 🐛 Bug Fixes
