@@ -108,7 +108,6 @@ fn generate_crud_routes(entity: &EntityDef) -> TokenStream {
     let delete_handler = format_ident!("delete_{}", snake);
     let list_handler = format_ident!("list_{}", snake);
 
-    // Build collection route methods (POST, GET)
     let mut collection_methods = Vec::new();
     if handlers.create {
         collection_methods.push(quote! { post(#create_handler::<R>) });
@@ -117,7 +116,6 @@ fn generate_crud_routes(entity: &EntityDef) -> TokenStream {
         collection_methods.push(quote! { get(#list_handler::<R>) });
     }
 
-    // Build item route methods (GET, PATCH, DELETE)
     let mut item_methods = Vec::new();
     if handlers.get {
         item_methods.push(quote! { get(#get_handler::<R>) });
@@ -129,7 +127,6 @@ fn generate_crud_routes(entity: &EntityDef) -> TokenStream {
         item_methods.push(quote! { delete(#delete_handler::<R>) });
     }
 
-    // Generate routes only for non-empty method lists
     let collection_route = if !collection_methods.is_empty() {
         let first = &collection_methods[0];
         let rest: Vec<_> = collection_methods.iter().skip(1).collect();

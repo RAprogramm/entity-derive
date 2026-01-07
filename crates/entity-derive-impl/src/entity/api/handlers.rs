@@ -72,58 +72,37 @@ fn generate_handler(entity: &EntityDef, cmd: &CommandDef) -> TokenStream {
     let entity_name_str = entity.name_str();
     let api_config = entity.api_config();
 
-    // Handler function name: register_user, update_email_user
     let handler_name = handler_function_name(entity, cmd);
     let handler_method = cmd.handler_method_name();
-
-    // Command struct name: RegisterUser, UpdateEmailUser
     let command_struct = cmd.struct_name(&entity_name_str);
-
-    // Handler trait name: UserCommandHandler
     let handler_trait = format_ident!("{}CommandHandler", entity_name);
-
-    // Build the path for OpenAPI
     let path = build_path(entity, cmd);
-
-    // HTTP method based on command kind
     let http_method = http_method_for_command(cmd);
     let http_method_ident = format_ident!("{}", http_method);
-
-    // Tag for OpenAPI grouping
     let tag = api_config.tag_or_default(&entity_name_str);
 
-    // Security configuration
-    // Priority: command-level override > entity-level public list > entity-level
-    // default
     let security_attr = if cmd.is_public() {
-        // Command explicitly marked as public
         quote! {}
     } else if let Some(cmd_security) = cmd.security() {
-        // Command has explicit security override
         let security_name = security_scheme_name(cmd_security);
         quote! { security(#security_name = []) }
     } else if api_config.is_public_command(&cmd.name.to_string()) {
-        // Command is in entity-level public list
         quote! {}
     } else if let Some(security) = &api_config.security {
-        // Use entity-level default security
         let security_name = security_scheme_name(security);
         quote! { security(#security_name = []) }
     } else {
         quote! {}
     };
 
-    // Determine response type
     let (response_type, response_body) = response_type_for_command(entity, cmd);
 
-    // Deprecated flag from api config
     let deprecated_attr = if api_config.is_deprecated() {
         quote! { , deprecated = true }
     } else {
         quote! {}
     };
 
-    // Build utoipa path attribute
     let utoipa_attr = if security_attr.is_empty() {
         quote! {
             #[utoipa::path(
@@ -158,7 +137,6 @@ fn generate_handler(entity: &EntityDef, cmd: &CommandDef) -> TokenStream {
         }
     };
 
-    // Generate handler based on whether it requires ID
     if cmd.requires_id {
         generate_handler_with_id(
             entity,
