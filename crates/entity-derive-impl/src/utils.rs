@@ -7,8 +7,10 @@
 //!
 //! # Submodules
 //!
+//! - [`docs`] — Documentation extraction from attributes
 //! - [`fields`] — Field assignment generation for `From` implementations
 //! - [`marker`] — Generated code marker comments
 
+pub mod docs;
 pub mod fields;
 pub mod marker;

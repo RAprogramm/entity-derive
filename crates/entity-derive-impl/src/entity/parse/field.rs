@@ -35,6 +35,8 @@ pub use filter::{FilterConfig, FilterType};
 pub use storage::StorageConfig;
 use syn::{Attribute, Field, Ident, Type};
 
+use crate::utils::docs::extract_doc_comments;
+
 /// Parse `#[belongs_to(EntityName)]` attribute.
 ///
 /// Extracts the entity identifier from the attribute.
@@ -75,7 +77,13 @@ pub struct FieldDef {
     pub storage: StorageConfig,
 
     /// Query filter configuration.
-    pub filter: FilterConfig
+    pub filter: FilterConfig,
+
+    /// Documentation comment from the field.
+    ///
+    /// Extracted from `///` comments for use in OpenAPI descriptions.
+    #[allow(dead_code)] // Will be used for schema field descriptions (#78)
+    pub doc: Option<String>
 }
 
 impl FieldDef {
@@ -92,6 +100,7 @@ impl FieldDef {
             darling::Error::custom("Entity fields must be named").with_span(field)
         })?;
         let ty = field.ty.clone();
+        let doc = extract_doc_comments(&field.attrs);
 
         let mut expose = ExposeConfig::default();
         let mut storage = StorageConfig::default();
@@ -116,7 +125,8 @@ impl FieldDef {
             ty,
             expose,
             storage,
-            filter
+            filter,
+            doc
         })
     }
 
@@ -209,5 +219,14 @@ impl FieldDef {
     #[must_use]
     pub fn filter(&self) -> &FilterConfig {
         &self.filter
+    }
+
+    /// Get the documentation comment if present.
+    ///
+    /// Returns the extracted doc comment for use in OpenAPI descriptions.
+    #[must_use]
+    #[allow(dead_code)] // Will be used for schema field descriptions (#78)
+    pub fn doc(&self) -> Option<&str> {
+        self.doc.as_deref()
     }
 }
