@@ -307,7 +307,12 @@ mod tests {
         let attr: syn::Attribute = syn::parse_quote!(#[api]);
         let result = parse_api_config(&attr.meta);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("requires parameters"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("requires parameters")
+        );
     }
 
     #[test]
@@ -399,7 +404,8 @@ mod tests {
 
     #[test]
     fn parse_handlers_all_selective() {
-        let attr: syn::Attribute = syn::parse_quote!(#[api(handlers(create, get, update, delete, list))]);
+        let attr: syn::Attribute =
+            syn::parse_quote!(#[api(handlers(create, get, update, delete, list))]);
         let config = parse_api_config(&attr.meta).unwrap();
         assert!(config.handlers.create);
         assert!(config.handlers.get);
@@ -446,9 +452,13 @@ mod tests {
 
     #[test]
     fn parse_license_url() {
-        let attr: syn::Attribute = syn::parse_quote!(#[api(license_url = "https://mit.edu/license")]);
+        let attr: syn::Attribute =
+            syn::parse_quote!(#[api(license_url = "https://mit.edu/license")]);
         let config = parse_api_config(&attr.meta).unwrap();
-        assert_eq!(config.license_url, Some("https://mit.edu/license".to_string()));
+        assert_eq!(
+            config.license_url,
+            Some("https://mit.edu/license".to_string())
+        );
     }
 
     #[test]
@@ -477,7 +487,12 @@ mod tests {
         let attr: syn::Attribute = syn::parse_quote!(#[api(unknown_option = "value")]);
         let result = parse_api_config(&attr.meta);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("unknown api option"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("unknown api option")
+        );
     }
 
     #[test]

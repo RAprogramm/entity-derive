@@ -321,11 +321,7 @@ mod tests {
             if let syn::Data::Enum(data) = &input.data {
                 let variant = &data.variants[0];
                 let result = parse_status_attr(&variant.attrs);
-                assert!(
-                    result.is_ok(),
-                    "Should parse status code {}",
-                    code_str
-                );
+                assert!(result.is_ok(), "Should parse status code {}", code_str);
             }
         }
     }
