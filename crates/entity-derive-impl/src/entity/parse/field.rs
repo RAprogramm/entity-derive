@@ -26,11 +26,13 @@
 //! pub user_id: Uuid,
 //! ```
 
+mod example;
 mod expose;
 mod filter;
 mod storage;
 mod validation;
 
+pub use example::ExampleValue;
 pub use expose::ExposeConfig;
 pub use filter::{FilterConfig, FilterType};
 pub use storage::StorageConfig;
@@ -91,7 +93,13 @@ pub struct FieldDef {
     ///
     /// Parsed for OpenAPI schema constraints and DTO validation.
     #[allow(dead_code)] // Will be used for OpenAPI schema constraints (#79)
-    pub validation: ValidationConfig
+    pub validation: ValidationConfig,
+
+    /// Example value for OpenAPI schema.
+    ///
+    /// Parsed from `#[example = ...]` attribute.
+    #[allow(dead_code)] // Will be used for OpenAPI schema examples (#80)
+    pub example: Option<ExampleValue>
 }
 
 impl FieldDef {
@@ -110,6 +118,7 @@ impl FieldDef {
         let ty = field.ty.clone();
         let doc = extract_doc_comments(&field.attrs);
         let validation = validation::parse_validation_attrs(&field.attrs);
+        let example = example::parse_example_attr(&field.attrs);
 
         let mut expose = ExposeConfig::default();
         let mut storage = StorageConfig::default();
@@ -136,7 +145,8 @@ impl FieldDef {
             storage,
             filter,
             doc,
-            validation
+            validation,
+            example
         })
     }
 
@@ -254,5 +264,21 @@ impl FieldDef {
     #[allow(dead_code)] // Will be used for OpenAPI schema constraints (#79)
     pub fn has_validation(&self) -> bool {
         self.validation.has_validation()
+    }
+
+    /// Get the example value if present.
+    ///
+    /// Returns the parsed example for use in OpenAPI schema.
+    #[must_use]
+    #[allow(dead_code)] // Will be used for OpenAPI schema examples (#80)
+    pub fn example(&self) -> Option<&ExampleValue> {
+        self.example.as_ref()
+    }
+
+    /// Check if this field has an example value.
+    #[must_use]
+    #[allow(dead_code)] // Will be used for OpenAPI schema examples (#80)
+    pub fn has_example(&self) -> bool {
+        self.example.is_some()
     }
 }
