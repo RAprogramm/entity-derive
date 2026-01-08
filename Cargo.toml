@@ -5,16 +5,16 @@
 resolver = "3"
 members = ["crates/*"]
 exclude = [
-    "examples/basic",
-    "examples/filtering",
-    "examples/relations",
-    "examples/events",
-    "examples/hooks",
-    "examples/commands",
-    "examples/transactions",
-    "examples/soft-delete",
-    "examples/streams",
-    "examples/full-app",
+  "examples/basic",
+  "examples/filtering",
+  "examples/relations",
+  "examples/events",
+  "examples/hooks",
+  "examples/commands",
+  "examples/transactions",
+  "examples/soft-delete",
+  "examples/streams",
+  "examples/full-app",
 ]
 
 [workspace.package]
@@ -26,9 +26,9 @@ license = "MIT"
 repository = "https://github.com/RAprogramm/entity-derive"
 
 [workspace.dependencies]
-entity-core = { path = "crates/entity-core", version = "0.2.0" }
-entity-derive = { path = "crates/entity-derive", version = "0.4.0" }
-entity-derive-impl = { path = "crates/entity-derive-impl", version = "0.2.0" }
+entity-core = { path = "crates/entity-core", version = "0.3.0" }
+entity-derive = { path = "crates/entity-derive", version = "0.5.0" }
+entity-derive-impl = { path = "crates/entity-derive-impl", version = "0.3.0" }
 syn = { version = "2", features = ["full", "extra-traits", "parsing"] }
 quote = "1"
 proc-macro2 = "1"
