@@ -122,67 +122,6 @@ impl CompositeIndexDef {
     }
 }
 
-/// Parse index attributes from entity-level meta list.
-///
-/// Handles both `index(...)` and `unique_index(...)` forms.
-///
-/// # Syntax
-///
-/// ```text
-/// index(col1, col2, ...)
-/// index(type = "gin", col1, col2)
-/// index(name = "idx_name", col1, col2)
-/// index(col1, where = "condition")
-/// unique_index(col1, col2)
-/// ```
-#[allow(dead_code)] // Will be used when full index parsing is integrated
-pub fn parse_index_meta(
-    meta: syn::meta::ParseNestedMeta<'_>,
-    unique: bool
-) -> syn::Result<CompositeIndexDef> {
-    let mut columns = Vec::new();
-    let mut name = None;
-    let mut index_type = IndexType::default();
-    let mut where_clause = None;
-
-    meta.parse_nested_meta(|nested| {
-        if nested.path.is_ident("type") {
-            let _: syn::Token![=] = nested.input.parse()?;
-            let value: syn::LitStr = nested.input.parse()?;
-            index_type = IndexType::from_str(&value.value()).unwrap_or_default();
-        } else if nested.path.is_ident("name") {
-            let _: syn::Token![=] = nested.input.parse()?;
-            let value: syn::LitStr = nested.input.parse()?;
-            name = Some(value.value());
-        } else if nested.path.is_ident("where") {
-            let _: syn::Token![=] = nested.input.parse()?;
-            let value: syn::LitStr = nested.input.parse()?;
-            where_clause = Some(value.value());
-        } else {
-            // Assume it's a column name
-            let col = nested
-                .path
-                .get_ident()
-                .map(|i| i.to_string())
-                .ok_or_else(|| nested.error("expected column name"))?;
-            columns.push(col);
-        }
-        Ok(())
-    })?;
-
-    if columns.is_empty() {
-        return Err(meta.error("index must have at least one column"));
-    }
-
-    Ok(CompositeIndexDef {
-        name,
-        columns,
-        index_type,
-        unique,
-        where_clause
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
