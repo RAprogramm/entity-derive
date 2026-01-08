@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.4.0...HEAD)
 
+### ✨ Features
+
+- **migrations:** Add compile-time migration generation (#96) ([ac35092](https://github.com/RAprogramm/entity-derive/commit/ac350921b48f9e8e31cdd5cc040ab3b19da9f626)) by [@RAprogramm](https://github.com/RAprogramm) in [#96](https://github.com/RAprogramm/entity-derive/pull/96)
+
+
 ### 🐛 Bug Fixes
 
 - **ci:** Replace heredoc with echo to fix yaml parsing ([6befde2](https://github.com/RAprogramm/entity-derive/commit/6befde27f2a00e10bdf5f0688e738bf7f67984b0)) by [@RAprogramm](https://github.com/RAprogramm)
