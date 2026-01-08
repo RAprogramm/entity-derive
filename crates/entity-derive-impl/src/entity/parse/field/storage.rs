@@ -16,8 +16,17 @@
 //! ```
 //!
 //! This generates a `find_user` method in the repository.
+//!
+//! ## With ON DELETE action
+//!
+//! ```rust,ignore
+//! #[belongs_to(User, on_delete = "cascade")]
+//! pub user_id: Uuid,
+//! ```
 
 use syn::Ident;
+
+use super::ReferentialAction;
 
 /// Database storage configuration.
 ///
@@ -28,12 +37,7 @@ use syn::Ident;
 /// - `#[id]` — Primary key with auto-generated UUID
 /// - `#[auto]` — Auto-generated value (timestamps)
 /// - `#[belongs_to(Entity)]` — Foreign key relation
-///
-/// # Future attributes (planned)
-///
-/// - `#[column(name = "...")]` — Custom column name
-/// - `#[column(index)]` — Create index
-/// - `#[column(unique)]` — Unique constraint
+/// - `#[belongs_to(Entity, on_delete = "cascade")]` — FK with ON DELETE
 #[derive(Debug, Default, Clone)]
 pub struct StorageConfig {
     /// Primary key field (`#[id]`).
@@ -56,6 +60,7 @@ pub struct StorageConfig {
     ///
     /// Stores the related entity name. When set, generates:
     /// - `find_{entity}(&self, id) -> Result<Option<Entity>>` method
+    /// - REFERENCES clause in migration (if migrations enabled)
     ///
     /// # Example
     ///
@@ -64,7 +69,20 @@ pub struct StorageConfig {
     /// pub user_id: Uuid,
     /// // Generates: async fn find_user(&self, post_id: Uuid) -> Result<Option<User>>
     /// ```
-    pub belongs_to: Option<Ident>
+    pub belongs_to: Option<Ident>,
+
+    /// ON DELETE action for foreign key.
+    ///
+    /// Only applies when `belongs_to` is set.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// #[belongs_to(User, on_delete = "cascade")]
+    /// pub user_id: Uuid,
+    /// // Generates: REFERENCES users(id) ON DELETE CASCADE
+    /// ```
+    pub on_delete: Option<ReferentialAction>
 }
 
 impl StorageConfig {
@@ -87,6 +105,7 @@ mod tests {
         assert!(!config.is_id);
         assert!(!config.is_auto);
         assert!(!config.is_relation());
+        assert!(config.on_delete.is_none());
     }
 
     #[test]
@@ -94,8 +113,21 @@ mod tests {
         let config = StorageConfig {
             is_id:      false,
             is_auto:    false,
-            belongs_to: Some(Ident::new("User", Span::call_site()))
+            belongs_to: Some(Ident::new("User", Span::call_site())),
+            on_delete:  None
         };
         assert!(config.is_relation());
+    }
+
+    #[test]
+    fn belongs_to_with_on_delete() {
+        let config = StorageConfig {
+            is_id:      false,
+            is_auto:    false,
+            belongs_to: Some(Ident::new("User", Span::call_site())),
+            on_delete:  Some(ReferentialAction::Cascade)
+        };
+        assert!(config.is_relation());
+        assert_eq!(config.on_delete, Some(ReferentialAction::Cascade));
     }
 }

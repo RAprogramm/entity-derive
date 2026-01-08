@@ -209,3 +209,237 @@ pub fn generate_query_bindings(fields: &[&FieldDef]) -> TokenStream {
 
     quote! { #(#bindings)* }
 }
+
+#[cfg(test)]
+mod tests {
+    use syn::{Field, parse_quote};
+
+    use super::*;
+    use crate::entity::parse::FieldDef;
+
+    fn parse_field(tokens: proc_macro2::TokenStream) -> FieldDef {
+        let field: Field = parse_quote!(#tokens);
+        FieldDef::from_field(&field).unwrap()
+    }
+
+    #[test]
+    fn join_columns_single() {
+        let field = parse_field(quote! { pub name: String });
+        let result = join_columns(&[field]);
+        assert_eq!(result, "name");
+    }
+
+    #[test]
+    fn join_columns_multiple() {
+        let fields = vec![
+            parse_field(quote! { pub id: Uuid }),
+            parse_field(quote! { pub name: String }),
+            parse_field(quote! { pub email: String }),
+        ];
+        let result = join_columns(&fields);
+        assert_eq!(result, "id, name, email");
+    }
+
+    #[test]
+    fn join_columns_empty() {
+        let result = join_columns(&[]);
+        assert_eq!(result, "");
+    }
+
+    #[test]
+    fn insert_bindings_generates_bind_calls() {
+        let fields = vec![
+            parse_field(quote! { pub id: Uuid }),
+            parse_field(quote! { pub name: String }),
+        ];
+        let bindings = insert_bindings(&fields);
+        assert_eq!(bindings.len(), 2);
+
+        let first = bindings[0].to_string();
+        assert!(first.contains("bind"), "Expected 'bind' in: {}", first);
+        assert!(
+            first.contains("insertable"),
+            "Expected 'insertable' in: {}",
+            first
+        );
+        assert!(first.contains("id"), "Expected 'id' in: {}", first);
+
+        let second = bindings[1].to_string();
+        assert!(second.contains("bind"), "Expected 'bind' in: {}", second);
+        assert!(
+            second.contains("insertable"),
+            "Expected 'insertable' in: {}",
+            second
+        );
+        assert!(second.contains("name"), "Expected 'name' in: {}", second);
+    }
+
+    #[test]
+    fn insert_bindings_empty() {
+        let bindings = insert_bindings(&[]);
+        assert!(bindings.is_empty());
+    }
+
+    #[test]
+    fn update_bindings_generates_bind_calls() {
+        let fields = [
+            parse_field(quote! { pub name: String }),
+            parse_field(quote! { pub email: String })
+        ];
+        let refs: Vec<&FieldDef> = fields.iter().collect();
+        let bindings = update_bindings(&refs);
+        assert_eq!(bindings.len(), 2);
+
+        let first = bindings[0].to_string();
+        assert!(first.contains("bind"), "Expected 'bind' in: {}", first);
+        assert!(first.contains("dto"), "Expected 'dto' in: {}", first);
+        assert!(first.contains("name"), "Expected 'name' in: {}", first);
+    }
+
+    #[test]
+    fn update_bindings_empty() {
+        let bindings = update_bindings(&[]);
+        assert!(bindings.is_empty());
+    }
+
+    #[test]
+    fn where_conditions_eq_filter() {
+        let field = parse_field(quote! {
+            #[filter(eq)]
+            pub status: String
+        });
+        let refs: Vec<&FieldDef> = vec![&field];
+        let result = generate_where_conditions(&refs, false);
+        let code = result.to_string();
+        assert!(code.contains("query . status . is_some"));
+        assert!(code.contains("= $"));
+    }
+
+    #[test]
+    fn where_conditions_like_filter() {
+        let field = parse_field(quote! {
+            #[filter(like)]
+            pub name: String
+        });
+        let refs: Vec<&FieldDef> = vec![&field];
+        let result = generate_where_conditions(&refs, false);
+        let code = result.to_string();
+        assert!(code.contains("query . name . is_some"));
+        assert!(code.contains("ILIKE"));
+    }
+
+    #[test]
+    fn where_conditions_range_filter() {
+        let field = parse_field(quote! {
+            #[filter(range)]
+            pub age: i32
+        });
+        let refs: Vec<&FieldDef> = vec![&field];
+        let result = generate_where_conditions(&refs, false);
+        let code = result.to_string();
+        assert!(code.contains("age_from"));
+        assert!(code.contains("age_to"));
+        assert!(code.contains(">="));
+        assert!(code.contains("<="));
+    }
+
+    #[test]
+    fn where_conditions_none_filter() {
+        let field = parse_field(quote! { pub name: String });
+        let refs: Vec<&FieldDef> = vec![&field];
+        let result = generate_where_conditions(&refs, false);
+        let code = result.to_string();
+        // No conditions for None filter
+        assert!(!code.contains("query"));
+    }
+
+    #[test]
+    fn where_conditions_with_soft_delete() {
+        let result = generate_where_conditions(&[], true);
+        let code = result.to_string();
+        assert!(code.contains("deleted_at IS NULL"));
+    }
+
+    #[test]
+    fn where_conditions_without_soft_delete() {
+        let result = generate_where_conditions(&[], false);
+        let code = result.to_string();
+        assert!(!code.contains("deleted_at"));
+    }
+
+    #[test]
+    fn query_bindings_eq_filter() {
+        let field = parse_field(quote! {
+            #[filter(eq)]
+            pub status: String
+        });
+        let refs: Vec<&FieldDef> = vec![&field];
+        let result = generate_query_bindings(&refs);
+        let code = result.to_string();
+        assert!(code.contains("if let Some (ref v) = query . status"));
+        assert!(code.contains("q = q . bind (v)"));
+    }
+
+    #[test]
+    fn query_bindings_like_filter() {
+        let field = parse_field(quote! {
+            #[filter(like)]
+            pub name: String
+        });
+        let refs: Vec<&FieldDef> = vec![&field];
+        let result = generate_query_bindings(&refs);
+        let code = result.to_string();
+        assert!(code.contains("escaped"));
+        assert!(code.contains("format !"));
+    }
+
+    #[test]
+    fn query_bindings_range_filter() {
+        let field = parse_field(quote! {
+            #[filter(range)]
+            pub age: i32
+        });
+        let refs: Vec<&FieldDef> = vec![&field];
+        let result = generate_query_bindings(&refs);
+        let code = result.to_string();
+        assert!(code.contains("age_from"));
+        assert!(code.contains("age_to"));
+    }
+
+    #[test]
+    fn query_bindings_none_filter() {
+        let field = parse_field(quote! { pub name: String });
+        let refs: Vec<&FieldDef> = vec![&field];
+        let result = generate_query_bindings(&refs);
+        let code = result.to_string();
+        // No bindings for None filter
+        assert!(!code.contains("bind"));
+    }
+
+    #[test]
+    fn query_bindings_empty() {
+        let result = generate_query_bindings(&[]);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn where_conditions_multiple_filters() {
+        let fields = [
+            parse_field(quote! {
+                #[filter(eq)]
+                pub status: String
+            }),
+            parse_field(quote! {
+                #[filter(like)]
+                pub name: String
+            })
+        ];
+        let refs: Vec<&FieldDef> = fields.iter().collect();
+        let result = generate_where_conditions(&refs, false);
+        let code = result.to_string();
+        assert!(code.contains("status"));
+        assert!(code.contains("name"));
+        assert!(code.contains("= $"));
+        assert!(code.contains("ILIKE"));
+    }
+}

@@ -1,6 +1,7 @@
 <a id="top"></a>
 
 <p align="center">
+  <img src="logo.png" alt="entity-derive logo" width="200"/>
   <h1 align="center">entity-derive</h1>
   <p align="center">
     <strong>One macro to rule them all</strong>

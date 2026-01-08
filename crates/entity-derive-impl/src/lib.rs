@@ -256,6 +256,7 @@ use proc_macro::TokenStream;
 /// | `sql` | No | `"full"` | SQL generation: `"full"`, `"trait"`, or `"none"` |
 /// | `dialect` | No | `"postgres"` | Database dialect: `"postgres"`, `"clickhouse"`, `"mongodb"` |
 /// | `uuid` | No | `"v7"` | UUID version for ID: `"v7"` (time-ordered) or `"v4"` (random) |
+/// | `migrations` | No | `false` | Generate `MIGRATION_UP` and `MIGRATION_DOWN` constants |
 ///
 /// # Field Attributes
 ///
@@ -268,11 +269,18 @@ use proc_macro::TokenStream;
 /// | `#[field(response)]` | Include in `Response`. |
 /// | `#[field(skip)]` | Exclude from ALL DTOs. Use for sensitive data. |
 /// | `#[belongs_to(Entity)]` | Foreign key relation. Generates `find_{entity}` method in repository. |
+/// | `#[belongs_to(Entity, on_delete = "...")]` | Foreign key with ON DELETE action (`cascade`, `set null`, `restrict`). |
 /// | `#[has_many(Entity)]` | One-to-many relation (entity-level). Generates `find_{entities}` method. |
 /// | `#[projection(Name: f1, f2)]` | Entity-level. Defines a projection struct with specified fields. |
 /// | `#[filter]` | Exact match filter. Generates field in Query struct with `=` comparison. |
 /// | `#[filter(like)]` | ILIKE pattern filter. Generates field for text pattern matching. |
 /// | `#[filter(range)]` | Range filter. Generates `field_from` and `field_to` fields. |
+/// | `#[column(unique)]` | Add UNIQUE constraint in migrations. |
+/// | `#[column(index)]` | Add btree index in migrations. |
+/// | `#[column(index = "gin")]` | Add index with specific type (btree, hash, gin, gist, brin). |
+/// | `#[column(default = "...")]` | Set DEFAULT value in migrations. |
+/// | `#[column(check = "...")]` | Add CHECK constraint in migrations. |
+/// | `#[column(varchar = N)]` | Use VARCHAR(N) instead of TEXT in migrations. |
 ///
 /// Multiple attributes can be combined: `#[field(create, update, response)]`
 ///
@@ -357,6 +365,41 @@ use proc_macro::TokenStream;
 /// // No repository trait or SQL implementation
 /// ```
 ///
+/// ## Migration Generation
+///
+/// Generate compile-time SQL migrations with `migrations`:
+///
+/// ```rust,ignore
+/// #[derive(Entity)]
+/// #[entity(table = "products", migrations)]
+/// pub struct Product {
+///     #[id]
+///     pub id: Uuid,
+///
+///     #[field(create, update, response)]
+///     #[column(unique, index)]
+///     pub sku: String,
+///
+///     #[field(create, update, response)]
+///     #[column(varchar = 200)]
+///     pub name: String,
+///
+///     #[field(create, update, response)]
+///     #[column(check = "price >= 0")]
+///     pub price: f64,
+///
+///     #[belongs_to(Category, on_delete = "cascade")]
+///     pub category_id: Uuid,
+/// }
+///
+/// // Generated constants:
+/// // Product::MIGRATION_UP - CREATE TABLE, indexes, constraints
+/// // Product::MIGRATION_DOWN - DROP TABLE CASCADE
+///
+/// // Apply migration:
+/// sqlx::query(Product::MIGRATION_UP).execute(&pool).await?;
+/// ```
+///
 /// # Security
 ///
 /// Use `#[field(skip)]` to prevent sensitive data from leaking:
@@ -399,7 +442,7 @@ use proc_macro::TokenStream;
     Entity,
     attributes(
         entity, field, id, auto, validate, belongs_to, has_many, projection, filter, command,
-        example
+        example, column
     )
 )]
 pub fn derive_entity(input: TokenStream) -> TokenStream {

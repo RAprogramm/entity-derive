@@ -68,6 +68,7 @@ mod events;
 mod hooks;
 mod insertable;
 mod mappers;
+mod migrations;
 pub mod parse;
 mod policy;
 mod projection;
@@ -110,6 +111,7 @@ fn generate(entity: EntityDef) -> TokenStream {
     let insertable = insertable::generate(&entity);
     let mappers = mappers::generate(&entity);
     let sql = sql::generate(&entity);
+    let migrations = migrations::generate(&entity);
 
     let expanded = quote! {
         #dto
@@ -127,6 +129,7 @@ fn generate(entity: EntityDef) -> TokenStream {
         #insertable
         #mappers
         #sql
+        #migrations
     };
 
     expanded.into()
