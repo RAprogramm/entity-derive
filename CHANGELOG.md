@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🐛 Bug Fixes
 
+- **ci:** Replace heredoc with echo to fix yaml parsing ([6befde2](https://github.com/RAprogramm/entity-derive/commit/6befde27f2a00e10bdf5f0688e738bf7f67984b0)) by [@RAprogramm](https://github.com/RAprogramm)
+- **ci:** Fix yaml heredoc syntax error ([94dc054](https://github.com/RAprogramm/entity-derive/commit/94dc0546b29476456cee0f7c910c8ec589e70ced)) by [@RAprogramm](https://github.com/RAprogramm)
+- **changelog:** Add parsers for issue-prefixed commits ([a008ca8](https://github.com/RAprogramm/entity-derive/commit/a008ca83b3fe097093873ee05249adb3ac537fac)) by [@RAprogramm](https://github.com/RAprogramm)
 - **ci:** Extract release notes from PR commits when git-cliff fails ([86503ed](https://github.com/RAprogramm/entity-derive/commit/86503eddcb43ff8c5659c94e55e39a0bf31df37c)) by [@RAprogramm](https://github.com/RAprogramm)
 
 
