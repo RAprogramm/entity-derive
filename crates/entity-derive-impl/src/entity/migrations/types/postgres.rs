@@ -218,8 +218,10 @@ mod tests {
 
     #[test]
     fn map_string_varchar() {
-        let mut column = ColumnConfig::default();
-        column.varchar = Some(255);
+        let column = ColumnConfig {
+            varchar: Some(255),
+            ..Default::default()
+        };
         let ty = map_type_with_column(quote::quote! { String }, column);
         assert_eq!(ty.name, "VARCHAR(255)");
     }
@@ -291,8 +293,10 @@ mod tests {
 
     #[test]
     fn map_explicit_sql_type() {
-        let mut column = ColumnConfig::default();
-        column.sql_type = Some("CITEXT".to_string());
+        let column = ColumnConfig {
+            sql_type: Some("CITEXT".to_string()),
+            ..Default::default()
+        };
         let ty = map_type_with_column(quote::quote! { String }, column);
         assert_eq!(ty.name, "CITEXT");
     }
