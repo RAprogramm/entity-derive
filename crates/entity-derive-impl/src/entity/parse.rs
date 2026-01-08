@@ -120,10 +120,10 @@ mod uuid_version;
 pub use api::ApiConfig;
 pub use command::{CommandDef, CommandKindHint, CommandSource};
 pub use dialect::DatabaseDialect;
-pub use entity::{EntityDef, ProjectionDef};
+pub use entity::{CompositeIndexDef, EntityDef, ProjectionDef};
 #[allow(unused_imports)] // Will be used for OpenAPI schema examples (#80)
 pub use field::ExampleValue;
-pub use field::{FieldDef, FilterType};
+pub use field::{ColumnConfig, FieldDef, FilterType};
 pub use returning::ReturningMode;
 pub use sql_level::SqlLevel;
 pub use uuid_version::UuidVersion;

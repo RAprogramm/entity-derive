@@ -3,7 +3,8 @@
 
 //! Composite index definitions for entity-level indexes.
 //!
-//! Parsed from `#[entity(index(...))]` and `#[entity(unique_index(...))]` attributes.
+//! Parsed from `#[entity(index(...))]` and `#[entity(unique_index(...))]`
+//! attributes.
 //!
 //! # Examples
 //!
@@ -48,30 +49,33 @@ pub struct CompositeIndexDef {
 
 impl CompositeIndexDef {
     /// Create a new non-unique btree index.
+    #[cfg(test)]
     #[must_use]
     pub fn new(columns: Vec<String>) -> Self {
         Self {
-            name:         None,
+            name: None,
             columns,
-            index_type:   IndexType::default(),
-            unique:       false,
+            index_type: IndexType::default(),
+            unique: false,
             where_clause: None
         }
     }
 
     /// Create a new unique btree index.
+    #[cfg(test)]
     #[must_use]
     pub fn unique(columns: Vec<String>) -> Self {
         Self {
-            name:         None,
+            name: None,
             columns,
-            index_type:   IndexType::default(),
-            unique:       true,
+            index_type: IndexType::default(),
+            unique: true,
             where_clause: None
         }
     }
 
     /// Set the index name.
+    #[cfg(test)]
     #[must_use]
     pub fn with_name(mut self, name: String) -> Self {
         self.name = Some(name);
@@ -79,6 +83,7 @@ impl CompositeIndexDef {
     }
 
     /// Set the index type.
+    #[cfg(test)]
     #[must_use]
     pub fn with_type(mut self, index_type: IndexType) -> Self {
         self.index_type = index_type;
@@ -86,6 +91,7 @@ impl CompositeIndexDef {
     }
 
     /// Set the WHERE clause for partial index.
+    #[cfg(test)]
     #[must_use]
     pub fn with_where(mut self, where_clause: String) -> Self {
         self.where_clause = Some(where_clause);
@@ -109,6 +115,7 @@ impl CompositeIndexDef {
     }
 
     /// Check if this is a partial index.
+    #[cfg(test)]
     #[must_use]
     pub fn is_partial(&self) -> bool {
         self.where_clause.is_some()
@@ -128,6 +135,7 @@ impl CompositeIndexDef {
 /// index(col1, where = "condition")
 /// unique_index(col1, col2)
 /// ```
+#[allow(dead_code)] // Will be used when full index parsing is integrated
 pub fn parse_index_meta(
     meta: syn::meta::ParseNestedMeta<'_>,
     unique: bool

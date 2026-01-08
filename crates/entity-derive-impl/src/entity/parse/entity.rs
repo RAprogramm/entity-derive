@@ -147,7 +147,7 @@ mod projection;
 
 pub use attrs::EntityAttrs;
 pub use def::EntityDef;
-pub use index::{CompositeIndexDef, parse_index_meta};
+pub use index::CompositeIndexDef;
 pub use projection::{ProjectionDef, parse_projection_attrs};
 
 #[cfg(test)]

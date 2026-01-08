@@ -10,8 +10,7 @@ mod ddl;
 use proc_macro2::TokenStream;
 use quote::quote;
 
-use crate::entity::parse::EntityDef;
-use crate::utils::marker;
+use crate::{entity::parse::EntityDef, utils::marker};
 
 /// Generate migration constants for PostgreSQL.
 ///

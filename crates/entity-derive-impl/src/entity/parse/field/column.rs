@@ -233,6 +233,7 @@ impl ColumnConfig {
 
     /// Check if this column has any constraints.
     #[must_use]
+    #[allow(dead_code)] // Public API for future use
     pub fn has_constraints(&self) -> bool {
         self.unique || self.check.is_some()
     }

@@ -28,10 +28,9 @@
 mod postgres;
 
 pub use postgres::PostgresTypeMapper;
-
 use syn::Type;
 
-use crate::entity::parse::field::ColumnConfig;
+use crate::entity::parse::ColumnConfig;
 
 /// Mapped SQL type representation.
 #[derive(Debug, Clone)]
@@ -48,6 +47,7 @@ pub struct SqlType {
 
 impl SqlType {
     /// Create a non-nullable SQL type.
+    #[cfg(test)]
     #[must_use]
     pub fn new(name: impl Into<String>) -> Self {
         Self {
@@ -58,6 +58,7 @@ impl SqlType {
     }
 
     /// Create a nullable SQL type.
+    #[cfg(test)]
     #[must_use]
     pub fn nullable(name: impl Into<String>) -> Self {
         Self {

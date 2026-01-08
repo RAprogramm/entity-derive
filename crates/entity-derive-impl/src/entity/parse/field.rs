@@ -43,7 +43,8 @@ pub use validation::ValidationConfig;
 
 use crate::utils::docs::extract_doc_comments;
 
-/// Parse `#[belongs_to(EntityName)]` or `#[belongs_to(EntityName, on_delete = "cascade")]`.
+/// Parse `#[belongs_to(EntityName)]` or `#[belongs_to(EntityName, on_delete =
+/// "cascade")]`.
 ///
 /// Returns the entity identifier and optional ON DELETE action.
 fn parse_belongs_to(attr: &Attribute) -> (Option<Ident>, Option<ReferentialAction>) {
@@ -334,6 +335,7 @@ impl FieldDef {
 
     /// Check if this column should be indexed.
     #[must_use]
+    #[allow(dead_code)] // Public API for future use
     pub fn has_index(&self) -> bool {
         self.column.has_index()
     }

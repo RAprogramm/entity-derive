@@ -30,7 +30,7 @@
 use syn::Type;
 
 use super::{SqlType, TypeMapper};
-use crate::entity::parse::field::ColumnConfig;
+use crate::entity::parse::ColumnConfig;
 
 /// PostgreSQL type mapper.
 ///
@@ -165,12 +165,10 @@ fn extract_option_inner(ty: &Type) -> Option<&Type> {
     if let Type::Path(type_path) = ty
         && let Some(segment) = type_path.path.segments.last()
         && segment.ident == "Option"
+        && let syn::PathArguments::AngleBracketed(args) = &segment.arguments
+        && let Some(syn::GenericArgument::Type(inner)) = args.args.first()
     {
-        if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
-            if let Some(syn::GenericArgument::Type(inner)) = args.args.first() {
-                return Some(inner);
-            }
-        }
+        return Some(inner);
     }
     None
 }
@@ -180,12 +178,10 @@ fn extract_vec_inner(ty: &Type) -> Option<&Type> {
     if let Type::Path(type_path) = ty
         && let Some(segment) = type_path.path.segments.last()
         && segment.ident == "Vec"
+        && let syn::PathArguments::AngleBracketed(args) = &segment.arguments
+        && let Some(syn::GenericArgument::Type(inner)) = args.args.first()
     {
-        if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
-            if let Some(syn::GenericArgument::Type(inner)) = args.args.first() {
-                return Some(inner);
-            }
-        }
+        return Some(inner);
     }
     None
 }

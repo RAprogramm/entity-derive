@@ -58,9 +58,13 @@
 
 use syn::{Attribute, Ident};
 
-use super::super::api::{ApiConfig, parse_api_config};
-use super::super::field::IndexType;
-use super::CompositeIndexDef;
+use super::{
+    super::{
+        api::{ApiConfig, parse_api_config},
+        field::IndexType
+    },
+    CompositeIndexDef
+};
 
 /// Parse `#[has_many(Entity)]` attributes from struct attributes.
 ///
@@ -183,14 +187,14 @@ pub fn parse_index_attrs(attrs: &[Attribute]) -> Vec<CompositeIndexDef> {
         }
 
         let _ = attr.parse_nested_meta(|meta| {
-            if meta.path.is_ident("index") {
-                if let Ok(idx) = parse_index_content(&meta, false) {
-                    indexes.push(idx);
-                }
-            } else if meta.path.is_ident("unique_index") {
-                if let Ok(idx) = parse_index_content(&meta, true) {
-                    indexes.push(idx);
-                }
+            if meta.path.is_ident("index")
+                && let Ok(idx) = parse_index_content(&meta, false)
+            {
+                indexes.push(idx);
+            } else if meta.path.is_ident("unique_index")
+                && let Ok(idx) = parse_index_content(&meta, true)
+            {
+                indexes.push(idx);
             }
             Ok(())
         });
