@@ -416,6 +416,29 @@ mod tests {
         assert!(field.is_relation());
         assert!(field.belongs_to().is_some());
         assert_eq!(field.belongs_to().unwrap().to_string(), "User");
+        assert!(field.storage.on_delete.is_none());
+    }
+
+    #[test]
+    fn field_belongs_to_with_on_delete() {
+        let field = parse_field(quote::quote! {
+            #[belongs_to(User, on_delete = "cascade")]
+            pub user_id: uuid::Uuid
+        });
+        assert!(field.is_relation());
+        assert_eq!(field.belongs_to().unwrap().to_string(), "User");
+        assert_eq!(field.storage.on_delete, Some(ReferentialAction::Cascade));
+    }
+
+    #[test]
+    fn field_belongs_to_with_on_delete_set_null() {
+        let field = parse_field(quote::quote! {
+            #[belongs_to(Organization, on_delete = "set null")]
+            pub org_id: uuid::Uuid
+        });
+        assert!(field.is_relation());
+        assert_eq!(field.belongs_to().unwrap().to_string(), "Organization");
+        assert_eq!(field.storage.on_delete, Some(ReferentialAction::SetNull));
     }
 
     #[test]

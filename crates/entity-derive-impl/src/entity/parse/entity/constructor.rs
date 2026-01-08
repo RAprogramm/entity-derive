@@ -61,7 +61,7 @@ use syn::DeriveInput;
 use super::{
     super::{command::parse_command_attrs, field::FieldDef},
     EntityAttrs, EntityDef,
-    helpers::{parse_api_attr, parse_has_many_attrs},
+    helpers::{parse_api_attr, parse_has_many_attrs, parse_index_attrs},
     parse_projection_attrs
 };
 use crate::utils::docs::extract_doc_comments;
@@ -130,6 +130,7 @@ impl EntityDef {
         let projections = parse_projection_attrs(&input.attrs);
         let command_defs = parse_command_attrs(&input.attrs);
         let api_config = parse_api_attr(&input.attrs);
+        let indexes = parse_index_attrs(&input.attrs);
         let doc = extract_doc_comments(&input.attrs);
 
         let id_field_index = fields.iter().position(|f| f.is_id()).ok_or_else(|| {
@@ -160,7 +161,9 @@ impl EntityDef {
             streams: attrs.streams,
             transactions: attrs.transactions,
             api_config,
-            doc
+            doc,
+            migrations: attrs.migrations,
+            indexes
         })
     }
 }

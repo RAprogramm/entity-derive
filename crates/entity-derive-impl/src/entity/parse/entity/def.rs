@@ -63,7 +63,7 @@ use super::{
         api::ApiConfig, command::CommandDef, dialect::DatabaseDialect, field::FieldDef,
         returning::ReturningMode, sql_level::SqlLevel, uuid_version::UuidVersion
     },
-    ProjectionDef
+    CompositeIndexDef, ProjectionDef
 };
 
 /// Complete parsed entity definition.
@@ -204,5 +204,16 @@ pub struct EntityDef {
     /// Documentation comment from the entity struct.
     ///
     /// Extracted from `///` comments for use in OpenAPI tag descriptions.
-    pub doc: Option<String>
+    pub doc: Option<String>,
+
+    /// Whether to generate database migrations.
+    ///
+    /// When `true`, generates `MIGRATION_UP` and `MIGRATION_DOWN` constants
+    /// with SQL DDL statements for creating/dropping the table.
+    pub migrations: bool,
+
+    /// Composite index definitions from `#[entity(index(...))]`.
+    ///
+    /// Each entry defines an index spanning multiple columns.
+    pub indexes: Vec<CompositeIndexDef>
 }

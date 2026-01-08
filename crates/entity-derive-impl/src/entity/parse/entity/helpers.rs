@@ -59,6 +59,8 @@
 use syn::{Attribute, Ident};
 
 use super::super::api::{ApiConfig, parse_api_config};
+use super::super::field::IndexType;
+use super::CompositeIndexDef;
 
 /// Parse `#[has_many(Entity)]` attributes from struct attributes.
 ///
@@ -151,4 +153,90 @@ pub fn parse_api_attr(attrs: &[Attribute]) -> ApiConfig {
     }
 
     ApiConfig::default()
+}
+
+/// Parse `index(...)` and `unique_index(...)` from `#[entity(...)]` attribute.
+///
+/// Extracts composite index definitions from the entity attribute.
+///
+/// # Syntax
+///
+/// ```text
+/// #[entity(
+///     table = "users",
+///     index(name, email),                    // Btree composite index
+///     index(type = "gin", tags),             // GIN index
+///     unique_index(tenant_id, email),        // Unique composite
+///     index(name = "idx_custom", status),    // Named index
+/// )]
+/// ```
+///
+/// # Returns
+///
+/// Vector of `CompositeIndexDef` with parsed configurations.
+pub fn parse_index_attrs(attrs: &[Attribute]) -> Vec<CompositeIndexDef> {
+    let mut indexes = Vec::new();
+
+    for attr in attrs {
+        if !attr.path().is_ident("entity") {
+            continue;
+        }
+
+        let _ = attr.parse_nested_meta(|meta| {
+            if meta.path.is_ident("index") {
+                if let Ok(idx) = parse_index_content(&meta, false) {
+                    indexes.push(idx);
+                }
+            } else if meta.path.is_ident("unique_index") {
+                if let Ok(idx) = parse_index_content(&meta, true) {
+                    indexes.push(idx);
+                }
+            }
+            Ok(())
+        });
+    }
+
+    indexes
+}
+
+/// Parse the content of an index(...) or unique_index(...) attribute.
+fn parse_index_content(
+    meta: &syn::meta::ParseNestedMeta<'_>,
+    unique: bool
+) -> syn::Result<CompositeIndexDef> {
+    let mut columns = Vec::new();
+    let mut name = None;
+    let mut index_type = IndexType::default();
+    let mut where_clause = None;
+
+    meta.parse_nested_meta(|nested| {
+        if nested.path.is_ident("type") {
+            let _: syn::Token![=] = nested.input.parse()?;
+            let value: syn::LitStr = nested.input.parse()?;
+            index_type = IndexType::from_str(&value.value()).unwrap_or_default();
+        } else if nested.path.is_ident("name") {
+            let _: syn::Token![=] = nested.input.parse()?;
+            let value: syn::LitStr = nested.input.parse()?;
+            name = Some(value.value());
+        } else if nested.path.is_ident("where") {
+            let _: syn::Token![=] = nested.input.parse()?;
+            let value: syn::LitStr = nested.input.parse()?;
+            where_clause = Some(value.value());
+        } else if let Some(ident) = nested.path.get_ident() {
+            columns.push(ident.to_string());
+        }
+        Ok(())
+    })?;
+
+    if columns.is_empty() {
+        return Err(meta.error("index must have at least one column"));
+    }
+
+    Ok(CompositeIndexDef {
+        name,
+        columns,
+        index_type,
+        unique,
+        where_clause
+    })
 }

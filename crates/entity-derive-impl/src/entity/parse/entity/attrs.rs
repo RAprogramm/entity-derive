@@ -245,5 +245,29 @@ pub struct EntityAttrs {
     ///     .await?;
     /// ```
     #[darling(default)]
-    pub transactions: bool
+    pub transactions: bool,
+
+    /// Enable migration generation.
+    ///
+    /// When enabled, generates:
+    /// - `{Entity}::MIGRATION_UP` — SQL to create the table
+    /// - `{Entity}::MIGRATION_DOWN` — SQL to drop the table
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// #[entity(table = "users", migrations)]
+    /// pub struct User {
+    ///     #[id]
+    ///     pub id: Uuid,
+    ///     #[column(unique, index)]
+    ///     pub email: String,
+    /// }
+    ///
+    /// // Generated:
+    /// // User::MIGRATION_UP → CREATE TABLE core.users (...)
+    /// // User::MIGRATION_DOWN → DROP TABLE core.users CASCADE
+    /// ```
+    #[darling(default)]
+    pub migrations: bool
 }
