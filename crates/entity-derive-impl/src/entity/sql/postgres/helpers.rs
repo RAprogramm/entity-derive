@@ -282,9 +282,9 @@ mod tests {
 
     #[test]
     fn update_bindings_generates_bind_calls() {
-        let fields = vec![
+        let fields = [
             parse_field(quote! { pub name: String }),
-            parse_field(quote! { pub email: String }),
+            parse_field(quote! { pub email: String })
         ];
         let refs: Vec<&FieldDef> = fields.iter().collect();
         let bindings = update_bindings(&refs);
@@ -424,7 +424,7 @@ mod tests {
 
     #[test]
     fn where_conditions_multiple_filters() {
-        let fields = vec![
+        let fields = [
             parse_field(quote! {
                 #[filter(eq)]
                 pub status: String
@@ -432,7 +432,7 @@ mod tests {
             parse_field(quote! {
                 #[filter(like)]
                 pub name: String
-            }),
+            })
         ];
         let refs: Vec<&FieldDef> = fields.iter().collect();
         let result = generate_where_conditions(&refs, false);
