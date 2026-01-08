@@ -26,12 +26,14 @@
 //! pub user_id: Uuid,
 //! ```
 
+mod column;
 mod example;
 mod expose;
 mod filter;
 mod storage;
 mod validation;
 
+pub use column::{ColumnConfig, IndexType, ReferentialAction};
 pub use example::ExampleValue;
 pub use expose::ExposeConfig;
 pub use filter::{FilterConfig, FilterType};
@@ -41,11 +43,31 @@ pub use validation::ValidationConfig;
 
 use crate::utils::docs::extract_doc_comments;
 
-/// Parse `#[belongs_to(EntityName)]` attribute.
+/// Parse `#[belongs_to(EntityName)]` or `#[belongs_to(EntityName, on_delete = "cascade")]`.
 ///
-/// Extracts the entity identifier from the attribute.
-fn parse_belongs_to(attr: &Attribute) -> Option<Ident> {
-    attr.parse_args::<Ident>().ok()
+/// Returns the entity identifier and optional ON DELETE action.
+fn parse_belongs_to(attr: &Attribute) -> (Option<Ident>, Option<ReferentialAction>) {
+    // Try simple case: #[belongs_to(Entity)]
+    if let Ok(ident) = attr.parse_args::<Ident>() {
+        return (Some(ident), None);
+    }
+
+    // Try extended case: #[belongs_to(Entity, on_delete = "cascade")]
+    let mut entity = None;
+    let mut on_delete = None;
+
+    let _ = attr.parse_nested_meta(|meta| {
+        if meta.path.is_ident("on_delete") {
+            let _: syn::Token![=] = meta.input.parse()?;
+            let value: syn::LitStr = meta.input.parse()?;
+            on_delete = ReferentialAction::from_str(&value.value());
+        } else if let Some(ident) = meta.path.get_ident() {
+            entity = Some(ident.clone());
+        }
+        Ok(())
+    });
+
+    (entity, on_delete)
 }
 
 /// Field definition with all parsed attributes.
@@ -65,6 +87,9 @@ fn parse_belongs_to(attr: &Attribute) -> Option<Ident> {
 /// #[auto]                            // StorageConfig::is_auto = true
 /// #[field(response)]
 /// pub created_at: DateTime<Utc>,
+///
+/// #[column(unique, index)]           // ColumnConfig
+/// pub email: String,
 /// ```
 #[derive(Debug)]
 pub struct FieldDef {
@@ -82,6 +107,11 @@ pub struct FieldDef {
 
     /// Query filter configuration.
     pub filter: FilterConfig,
+
+    /// Column configuration for migrations.
+    ///
+    /// Parsed from `#[column(...)]` attributes for constraints and indexes.
+    pub column: ColumnConfig,
 
     /// Documentation comment from the field.
     ///
@@ -123,6 +153,7 @@ impl FieldDef {
         let mut expose = ExposeConfig::default();
         let mut storage = StorageConfig::default();
         let mut filter = FilterConfig::default();
+        let mut column = ColumnConfig::default();
 
         for attr in &field.attrs {
             if attr.path().is_ident("id") {
@@ -132,9 +163,13 @@ impl FieldDef {
             } else if attr.path().is_ident("field") {
                 expose = ExposeConfig::from_attr(attr);
             } else if attr.path().is_ident("belongs_to") {
-                storage.belongs_to = parse_belongs_to(attr);
+                let (entity, on_del) = parse_belongs_to(attr);
+                storage.belongs_to = entity;
+                storage.on_delete = on_del;
             } else if attr.path().is_ident("filter") {
                 filter = FilterConfig::from_attr(attr);
+            } else if attr.path().is_ident("column") {
+                column = ColumnConfig::from_attr(attr);
             }
         }
 
@@ -144,6 +179,7 @@ impl FieldDef {
             expose,
             storage,
             filter,
+            column,
             doc,
             validation,
             example
@@ -280,6 +316,34 @@ impl FieldDef {
     #[allow(dead_code)] // Will be used for OpenAPI schema examples (#80)
     pub fn has_example(&self) -> bool {
         self.example.is_some()
+    }
+
+    /// Get the column configuration.
+    ///
+    /// Returns parsed column constraints and index settings.
+    #[must_use]
+    pub fn column(&self) -> &ColumnConfig {
+        &self.column
+    }
+
+    /// Check if this column has a UNIQUE constraint.
+    #[must_use]
+    pub fn is_unique(&self) -> bool {
+        self.column.unique
+    }
+
+    /// Check if this column should be indexed.
+    #[must_use]
+    pub fn has_index(&self) -> bool {
+        self.column.has_index()
+    }
+
+    /// Get the database column name.
+    ///
+    /// Returns custom name if set, otherwise the field name.
+    #[must_use]
+    pub fn column_name(&self) -> String {
+        self.column.column_name(&self.name_str()).to_string()
     }
 }
 
@@ -424,5 +488,87 @@ mod tests {
     fn field_name_accessor() {
         let field = parse_field(quote::quote! { pub email: String });
         assert_eq!(field.name().to_string(), "email");
+    }
+
+    #[test]
+    fn field_column_unique() {
+        let field = parse_field(quote::quote! {
+            #[column(unique)]
+            pub email: String
+        });
+        assert!(field.is_unique());
+    }
+
+    #[test]
+    fn field_column_index() {
+        let field = parse_field(quote::quote! {
+            #[column(index)]
+            pub status: String
+        });
+        assert!(field.has_index());
+        assert_eq!(field.column().index, Some(IndexType::BTree));
+    }
+
+    #[test]
+    fn field_column_index_gin() {
+        let field = parse_field(quote::quote! {
+            #[column(index = "gin")]
+            pub tags: Vec<String>
+        });
+        assert!(field.has_index());
+        assert_eq!(field.column().index, Some(IndexType::Gin));
+    }
+
+    #[test]
+    fn field_column_default() {
+        let field = parse_field(quote::quote! {
+            #[column(default = "true")]
+            pub is_active: bool
+        });
+        assert_eq!(field.column().default, Some("true".to_string()));
+    }
+
+    #[test]
+    fn field_column_check() {
+        let field = parse_field(quote::quote! {
+            #[column(check = "age >= 0")]
+            pub age: i32
+        });
+        assert_eq!(field.column().check, Some("age >= 0".to_string()));
+    }
+
+    #[test]
+    fn field_column_varchar() {
+        let field = parse_field(quote::quote! {
+            #[column(varchar = 100)]
+            pub name: String
+        });
+        assert_eq!(field.column().varchar, Some(100));
+    }
+
+    #[test]
+    fn field_column_custom_name() {
+        let field = parse_field(quote::quote! {
+            #[column(name = "user_email")]
+            pub email: String
+        });
+        assert_eq!(field.column_name(), "user_email");
+    }
+
+    #[test]
+    fn field_column_default_name() {
+        let field = parse_field(quote::quote! { pub email: String });
+        assert_eq!(field.column_name(), "email");
+    }
+
+    #[test]
+    fn field_column_multiple_attrs() {
+        let field = parse_field(quote::quote! {
+            #[column(unique, index, default = "NOW()")]
+            pub created_at: DateTime<Utc>
+        });
+        assert!(field.is_unique());
+        assert!(field.has_index());
+        assert_eq!(field.column().default, Some("NOW()".to_string()));
     }
 }

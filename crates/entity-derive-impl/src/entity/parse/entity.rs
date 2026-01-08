@@ -142,10 +142,12 @@ mod attrs;
 mod constructor;
 mod def;
 mod helpers;
+mod index;
 mod projection;
 
 pub use attrs::EntityAttrs;
 pub use def::EntityDef;
+pub use index::{CompositeIndexDef, parse_index_meta};
 pub use projection::{ProjectionDef, parse_projection_attrs};
 
 #[cfg(test)]

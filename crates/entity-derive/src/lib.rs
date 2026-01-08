@@ -3,8 +3,8 @@
 
 #![doc = include_str!("../README.md")]
 #![doc(
-    html_logo_url = "https://raw.githubusercontent.com/RAprogramm/entity-derive/main/assets/logo.svg",
-    html_favicon_url = "https://raw.githubusercontent.com/RAprogramm/entity-derive/main/assets/favicon.ico"
+    html_logo_url = "https://raw.githubusercontent.com/RAprogramm/entity-derive/main/logo.png",
+    html_favicon_url = "https://raw.githubusercontent.com/RAprogramm/entity-derive/main/logo.png"
 )]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![warn(missing_docs)]
