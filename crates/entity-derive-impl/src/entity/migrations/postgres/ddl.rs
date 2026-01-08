@@ -173,7 +173,15 @@ fn pluralize(s: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use syn::DeriveInput;
+
     use super::*;
+    use crate::entity::parse::EntityDef;
+
+    fn parse_entity(tokens: proc_macro2::TokenStream) -> EntityDef {
+        let input: DeriveInput = syn::parse_quote!(#tokens);
+        EntityDef::from_derive_input(&input).unwrap()
+    }
 
     #[test]
     fn pluralize_regular() {
@@ -197,5 +205,308 @@ mod tests {
     fn pluralize_ey_oy() {
         assert_eq!(pluralize("key"), "keys");
         assert_eq!(pluralize("toy"), "toys");
+    }
+
+    #[test]
+    fn pluralize_sh() {
+        assert_eq!(pluralize("wish"), "wishes");
+        assert_eq!(pluralize("bush"), "bushes");
+    }
+
+    #[test]
+    fn pluralize_x() {
+        assert_eq!(pluralize("box"), "boxes");
+        assert_eq!(pluralize("fox"), "foxes");
+    }
+
+    #[test]
+    fn pluralize_ay() {
+        assert_eq!(pluralize("day"), "days");
+        assert_eq!(pluralize("way"), "ways");
+    }
+
+    #[test]
+    fn generate_up_basic() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "users", migrations)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                pub name: String,
+            }
+        });
+        let sql = generate_up(&entity);
+        assert!(sql.contains("CREATE TABLE IF NOT EXISTS public.users"));
+        assert!(sql.contains("id UUID PRIMARY KEY"));
+        assert!(sql.contains("name TEXT NOT NULL"));
+    }
+
+    #[test]
+    fn generate_down_basic() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "users", schema = "core", migrations)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        });
+        let sql = generate_down(&entity);
+        assert_eq!(sql, "DROP TABLE IF EXISTS core.users CASCADE;\n");
+    }
+
+    #[test]
+    fn generate_up_with_unique() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "users", migrations)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                #[column(unique)]
+                pub email: String,
+            }
+        });
+        let sql = generate_up(&entity);
+        assert!(sql.contains("email TEXT NOT NULL UNIQUE"));
+    }
+
+    #[test]
+    fn generate_up_with_default() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "users", migrations)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                #[column(default = "true")]
+                pub active: bool,
+            }
+        });
+        let sql = generate_up(&entity);
+        assert!(sql.contains("DEFAULT true"));
+    }
+
+    #[test]
+    fn generate_up_with_check() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "users", migrations)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                #[column(check = "age >= 0")]
+                pub age: i32,
+            }
+        });
+        let sql = generate_up(&entity);
+        assert!(sql.contains("CHECK (age >= 0)"));
+    }
+
+    #[test]
+    fn generate_up_with_index() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "users", migrations)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                #[column(index)]
+                pub status: String,
+            }
+        });
+        let sql = generate_up(&entity);
+        assert!(sql.contains("CREATE INDEX IF NOT EXISTS idx_users_status"));
+    }
+
+    #[test]
+    fn generate_up_with_gin_index() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "users", migrations)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                #[column(index = "gin")]
+                pub tags: Vec<String>,
+            }
+        });
+        let sql = generate_up(&entity);
+        assert!(sql.contains("USING gin"));
+    }
+
+    #[test]
+    fn generate_up_with_nullable() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "users", migrations)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                pub bio: Option<String>,
+            }
+        });
+        let sql = generate_up(&entity);
+        assert!(sql.contains("bio TEXT"));
+        assert!(!sql.contains("bio TEXT NOT NULL"));
+    }
+
+    #[test]
+    fn generate_up_with_varchar() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "users", migrations)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                #[column(varchar = 100)]
+                pub name: String,
+            }
+        });
+        let sql = generate_up(&entity);
+        assert!(sql.contains("VARCHAR(100)"));
+    }
+
+    #[test]
+    fn generate_up_with_belongs_to() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "posts", migrations)]
+            pub struct Post {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                #[belongs_to(User)]
+                pub user_id: uuid::Uuid,
+            }
+        });
+        let sql = generate_up(&entity);
+        assert!(sql.contains("REFERENCES public.users(id)"));
+    }
+
+    #[test]
+    fn generate_up_with_belongs_to_on_delete_cascade() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "posts", migrations)]
+            pub struct Post {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                #[belongs_to(User, on_delete = "cascade")]
+                pub user_id: uuid::Uuid,
+            }
+        });
+        let sql = generate_up(&entity);
+        assert!(sql.contains("REFERENCES public.users(id) ON DELETE CASCADE"));
+    }
+
+    #[test]
+    fn generate_composite_index_basic() {
+        let idx = CompositeIndexDef {
+            name:         None,
+            columns:      vec!["name".to_string(), "email".to_string()],
+            index_type:   crate::entity::parse::IndexType::BTree,
+            unique:       false,
+            where_clause: None
+        };
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "users", migrations)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                pub name: String,
+                #[field(create, response)]
+                pub email: String,
+            }
+        });
+        let sql = generate_composite_index(&entity, &idx);
+        assert!(sql.contains("CREATE INDEX IF NOT EXISTS idx_users_name_email"));
+        assert!(sql.contains("(name, email)"));
+    }
+
+    #[test]
+    fn generate_composite_index_unique() {
+        let idx = CompositeIndexDef {
+            name:         None,
+            columns:      vec!["tenant_id".to_string(), "email".to_string()],
+            index_type:   crate::entity::parse::IndexType::BTree,
+            unique:       true,
+            where_clause: None
+        };
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "users", migrations)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        });
+        let sql = generate_composite_index(&entity, &idx);
+        assert!(sql.contains("CREATE UNIQUE INDEX"));
+        assert!(sql.contains("(tenant_id, email)"));
+    }
+
+    #[test]
+    fn generate_composite_index_with_where() {
+        let idx = CompositeIndexDef {
+            name:         Some("idx_active_users".to_string()),
+            columns:      vec!["email".to_string()],
+            index_type:   crate::entity::parse::IndexType::BTree,
+            unique:       false,
+            where_clause: Some("active = true".to_string())
+        };
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "users", migrations)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        });
+        let sql = generate_composite_index(&entity, &idx);
+        assert!(sql.contains("idx_active_users"));
+        assert!(sql.contains("WHERE active = true"));
+    }
+
+    #[test]
+    fn generate_composite_index_gin() {
+        let idx = CompositeIndexDef {
+            name:         None,
+            columns:      vec!["tags".to_string()],
+            index_type:   crate::entity::parse::IndexType::Gin,
+            unique:       false,
+            where_clause: None
+        };
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "posts", migrations)]
+            pub struct Post {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        });
+        let sql = generate_composite_index(&entity, &idx);
+        assert!(sql.contains("USING gin"));
+    }
+
+    #[test]
+    fn generate_up_with_composite_indexes() {
+        let mut entity = parse_entity(quote::quote! {
+            #[entity(table = "users", migrations)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                pub name: String,
+                #[field(create, response)]
+                pub email: String,
+            }
+        });
+        entity.indexes.push(CompositeIndexDef {
+            name:         None,
+            columns:      vec!["name".to_string(), "email".to_string()],
+            index_type:   crate::entity::parse::IndexType::BTree,
+            unique:       false,
+            where_clause: None
+        });
+        let sql = generate_up(&entity);
+        assert!(sql.contains("CREATE INDEX IF NOT EXISTS idx_users_name_email"));
     }
 }

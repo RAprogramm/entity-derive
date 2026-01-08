@@ -52,3 +52,67 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
         DatabaseDialect::MongoDB => TokenStream::new()     // N/A for document DB
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use syn::DeriveInput;
+
+    use super::*;
+
+    fn parse_entity(tokens: proc_macro2::TokenStream) -> EntityDef {
+        let input: DeriveInput = syn::parse_quote!(#tokens);
+        EntityDef::from_derive_input(&input).unwrap()
+    }
+
+    #[test]
+    fn generate_returns_empty_when_migrations_disabled() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "users")]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        });
+        let result = generate(&entity);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn generate_returns_tokens_when_migrations_enabled() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "users", migrations)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        });
+        let result = generate(&entity);
+        assert!(!result.is_empty());
+    }
+
+    #[test]
+    fn generate_returns_empty_for_clickhouse() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "users", dialect = "clickhouse", migrations)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        });
+        let result = generate(&entity);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn generate_returns_empty_for_mongodb() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "users", dialect = "mongodb", migrations)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        });
+        let result = generate(&entity);
+        assert!(result.is_empty());
+    }
+}

@@ -393,6 +393,41 @@ mod tests {
     }
 
     #[test]
+    fn index_type_from_str_all() {
+        assert_eq!(IndexType::from_str("btree"), Some(IndexType::BTree));
+        assert_eq!(IndexType::from_str("b-tree"), Some(IndexType::BTree));
+        assert_eq!(IndexType::from_str("BTREE"), Some(IndexType::BTree));
+        assert_eq!(IndexType::from_str("hash"), Some(IndexType::Hash));
+        assert_eq!(IndexType::from_str("HASH"), Some(IndexType::Hash));
+        assert_eq!(IndexType::from_str("gin"), Some(IndexType::Gin));
+        assert_eq!(IndexType::from_str("GIN"), Some(IndexType::Gin));
+        assert_eq!(IndexType::from_str("gist"), Some(IndexType::Gist));
+        assert_eq!(IndexType::from_str("GIST"), Some(IndexType::Gist));
+        assert_eq!(IndexType::from_str("brin"), Some(IndexType::Brin));
+        assert_eq!(IndexType::from_str("BRIN"), Some(IndexType::Brin));
+        assert_eq!(IndexType::from_str("invalid"), None);
+        assert_eq!(IndexType::from_str("unknown"), None);
+    }
+
+    #[test]
+    fn parse_index_gist() {
+        let config = parse_column_attr(quote! { index = "gist" });
+        assert_eq!(config.index, Some(IndexType::Gist));
+    }
+
+    #[test]
+    fn parse_index_brin() {
+        let config = parse_column_attr(quote! { index = "brin" });
+        assert_eq!(config.index, Some(IndexType::Brin));
+    }
+
+    #[test]
+    fn parse_index_unknown_defaults_to_btree() {
+        let config = parse_column_attr(quote! { index = "unknown" });
+        assert_eq!(config.index, Some(IndexType::BTree));
+    }
+
+    #[test]
     fn referential_action_from_str() {
         assert_eq!(
             ReferentialAction::from_str("cascade"),

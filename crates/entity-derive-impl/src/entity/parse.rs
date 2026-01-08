@@ -123,7 +123,8 @@ pub use dialect::DatabaseDialect;
 pub use entity::{CompositeIndexDef, EntityDef, ProjectionDef};
 #[allow(unused_imports)] // Will be used for OpenAPI schema examples (#80)
 pub use field::ExampleValue;
-pub use field::{ColumnConfig, FieldDef, FilterType};
+#[allow(unused_imports)] // Re-exported for migration generation tests
+pub use field::{ColumnConfig, FieldDef, FilterType, IndexType};
 pub use returning::ReturningMode;
 pub use sql_level::SqlLevel;
 pub use uuid_version::UuidVersion;

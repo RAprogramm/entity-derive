@@ -243,4 +243,91 @@ mod tests {
         let idx = CompositeIndexDef::new(vec!["status".to_string()]);
         assert_eq!(idx.name_or_default("users"), "idx_users_status");
     }
+
+    #[test]
+    fn is_partial_false_without_where() {
+        let idx = CompositeIndexDef::new(vec!["status".to_string()]);
+        assert!(!idx.is_partial());
+    }
+
+    #[test]
+    fn with_type_gist() {
+        let idx = CompositeIndexDef::new(vec!["location".to_string()]).with_type(IndexType::Gist);
+        assert_eq!(idx.index_type, IndexType::Gist);
+    }
+
+    #[test]
+    fn with_type_brin() {
+        let idx =
+            CompositeIndexDef::new(vec!["created_at".to_string()]).with_type(IndexType::Brin);
+        assert_eq!(idx.index_type, IndexType::Brin);
+    }
+
+    #[test]
+    fn with_type_hash() {
+        let idx = CompositeIndexDef::new(vec!["key".to_string()]).with_type(IndexType::Hash);
+        assert_eq!(idx.index_type, IndexType::Hash);
+    }
+
+    #[test]
+    fn single_column_index() {
+        let idx = CompositeIndexDef::new(vec!["email".to_string()]);
+        assert_eq!(idx.columns.len(), 1);
+        assert_eq!(idx.default_name("users"), "idx_users_email");
+    }
+
+    #[test]
+    fn multiple_columns_index() {
+        let idx = CompositeIndexDef::new(vec![
+            "tenant_id".to_string(),
+            "user_id".to_string(),
+            "email".to_string(),
+        ]);
+        assert_eq!(idx.columns.len(), 3);
+        assert_eq!(
+            idx.default_name("users"),
+            "idx_users_tenant_id_user_id_email"
+        );
+    }
+
+    #[test]
+    fn unique_with_custom_name() {
+        let idx = CompositeIndexDef::unique(vec!["email".to_string()])
+            .with_name("unique_email_idx".to_string());
+        assert!(idx.unique);
+        assert_eq!(idx.name_or_default("users"), "unique_email_idx");
+    }
+
+    #[test]
+    fn unique_partial_index() {
+        let idx = CompositeIndexDef::unique(vec!["email".to_string()])
+            .with_where("deleted_at IS NULL".to_string());
+        assert!(idx.unique);
+        assert!(idx.is_partial());
+        assert_eq!(idx.where_clause, Some("deleted_at IS NULL".to_string()));
+    }
+
+    #[test]
+    fn composite_index_all_options() {
+        let idx = CompositeIndexDef::unique(vec!["tenant_id".to_string(), "email".to_string()])
+            .with_name("idx_tenant_email".to_string())
+            .with_type(IndexType::BTree)
+            .with_where("active = true".to_string());
+        assert!(idx.unique);
+        assert!(idx.is_partial());
+        assert_eq!(idx.name, Some("idx_tenant_email".to_string()));
+        assert_eq!(idx.index_type, IndexType::BTree);
+        assert_eq!(idx.where_clause, Some("active = true".to_string()));
+    }
+
+    #[test]
+    fn chained_builder_pattern() {
+        let idx = CompositeIndexDef::new(vec!["col".to_string()])
+            .with_name("my_idx".to_string())
+            .with_type(IndexType::Gin)
+            .with_where("x > 0".to_string());
+        assert_eq!(idx.name, Some("my_idx".to_string()));
+        assert_eq!(idx.index_type, IndexType::Gin);
+        assert_eq!(idx.where_clause, Some("x > 0".to_string()));
+    }
 }
