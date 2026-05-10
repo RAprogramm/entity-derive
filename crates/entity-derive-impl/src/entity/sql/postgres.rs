@@ -18,6 +18,7 @@
 //! ├── relations.rs   — belongs_to and has_many relation methods
 //! ├── projections.rs — Optimized projection SELECT methods
 //! ├── soft_delete.rs — Soft delete support methods
+//! ├── lookup.rs      — find_by_/exists_by_ lookup methods
 //! └── helpers.rs     — SQL building helper functions
 //! ```
 //!
@@ -61,6 +62,7 @@
 
 mod context;
 mod crud;
+mod lookup;
 mod notify;
 mod projections;
 mod query;
@@ -78,7 +80,8 @@ use crate::{entity::parse::EntityDef, utils::marker};
 /// Generate PostgreSQL repository implementation.
 ///
 /// Creates `impl {Name}Repository for sqlx::PgPool` with all CRUD methods,
-/// relation methods, projection methods, query method, and soft delete methods.
+/// relation methods, projection methods, query method, soft delete methods,
+/// and lookup methods for unique/indexed columns.
 ///
 /// # Generated Methods
 ///
@@ -86,6 +89,7 @@ use crate::{entity::parse::EntityDef, utils::marker};
 /// |----------|---------|
 /// | CRUD | `create`, `find_by_id`, `update`, `delete`, `list` |
 /// | Query | `query` (if entity has `#[filter]` fields) |
+/// | Lookup | `find_by_{field}`, `exists_by_{field}` (if `#[column(unique/index)]`) |
 /// | Relations | `find_{parent}`, `find_{children}` |
 /// | Projections | `find_by_id_{projection}` |
 /// | Soft Delete | `hard_delete`, `restore`, `*_with_deleted` |
@@ -105,6 +109,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     let relation_impls = ctx.relation_methods();
     let projection_impls = ctx.projection_methods();
     let soft_delete_impls = ctx.soft_delete_methods();
+    let lookup_impls = ctx.lookup_methods();
     let marker = marker::generated();
 
     quote! {
@@ -126,6 +131,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             #list_impl
             #query_impl
             #stream_impl
+            #lookup_impls
             #relation_impls
             #projection_impls
             #soft_delete_impls

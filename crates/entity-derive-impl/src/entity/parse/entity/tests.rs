@@ -144,3 +144,108 @@ fn entity_def_api_with_public_commands() {
     assert_eq!(config.security_for_command("Register"), None);
     assert_eq!(config.security_for_command("Update"), Some("bearer"));
 }
+
+#[test]
+fn lookup_fields_returns_unique_and_index() {
+    let input: DeriveInput = syn::parse_quote! {
+        #[entity(table = "users")]
+        pub struct User {
+            #[id]
+            pub id: uuid::Uuid,
+            #[field(create, response)]
+            #[column(unique)]
+            pub email: String,
+            #[field(create, response)]
+            #[column(index)]
+            pub status: String,
+            #[field(create, response)]
+            pub name: String,
+        }
+    };
+    let entity = EntityDef::from_derive_input(&input).unwrap();
+    let fields = entity.lookup_fields();
+    assert_eq!(fields.len(), 2);
+
+    let names: Vec<String> = fields.iter().map(|f| f.name_str()).collect();
+    assert!(names.contains(&"email".to_string()));
+    assert!(names.contains(&"status".to_string()));
+    assert!(!names.contains(&"name".to_string()));
+}
+
+#[test]
+fn lookup_fields_only_unique() {
+    let input: DeriveInput = syn::parse_quote! {
+        #[entity(table = "users")]
+        pub struct User {
+            #[id]
+            pub id: uuid::Uuid,
+            #[field(create, response)]
+            #[column(unique)]
+            pub email: String,
+            #[field(create, response)]
+            pub name: String,
+        }
+    };
+    let entity = EntityDef::from_derive_input(&input).unwrap();
+    let fields = entity.lookup_fields();
+    assert_eq!(fields.len(), 1);
+    assert_eq!(fields[0].name_str(), "email");
+}
+
+#[test]
+fn lookup_fields_only_index() {
+    let input: DeriveInput = syn::parse_quote! {
+        #[entity(table = "posts")]
+        pub struct Post {
+            #[id]
+            pub id: uuid::Uuid,
+            #[field(create, response)]
+            #[column(index)]
+            pub slug: String,
+            #[field(create, response)]
+            pub title: String,
+        }
+    };
+    let entity = EntityDef::from_derive_input(&input).unwrap();
+    let fields = entity.lookup_fields();
+    assert_eq!(fields.len(), 1);
+    assert_eq!(fields[0].name_str(), "slug");
+}
+
+#[test]
+fn lookup_fields_none_returns_empty() {
+    let input: DeriveInput = syn::parse_quote! {
+        #[entity(table = "users")]
+        pub struct User {
+            #[id]
+            pub id: uuid::Uuid,
+            #[field(create, response)]
+            pub name: String,
+        }
+    };
+    let entity = EntityDef::from_derive_input(&input).unwrap();
+    let fields = entity.lookup_fields();
+    assert!(fields.is_empty());
+}
+
+#[test]
+fn lookup_fields_both_unique_and_index_on_same_field() {
+    let input: DeriveInput = syn::parse_quote! {
+        #[entity(table = "products")]
+        pub struct Product {
+            #[id]
+            pub id: uuid::Uuid,
+            #[field(create, response)]
+            #[column(unique, index)]
+            pub sku: String,
+            #[field(create, response)]
+            pub name: String,
+        }
+    };
+    let entity = EntityDef::from_derive_input(&input).unwrap();
+    let fields = entity.lookup_fields();
+    assert_eq!(fields.len(), 1);
+    assert_eq!(fields[0].name_str(), "sku");
+    assert!(fields[0].column.unique);
+    assert!(fields[0].column.index.is_some());
+}

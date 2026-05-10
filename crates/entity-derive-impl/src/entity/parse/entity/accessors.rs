@@ -240,6 +240,34 @@ impl EntityDef {
         &self.api_config
     }
 
+    /// Get fields with `#[column(unique)]` or `#[column(index)]`.
+    ///
+    /// These fields are used to generate lookup methods
+    /// (`find_by_{field}`, `exists_by_{field}`) in the repository.
+    ///
+    /// # Returns
+    ///
+    /// A vector of field references where the column configuration
+    /// has `unique` set to `true` or `index` is `Some(_)`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// // For entity with:
+    /// //   #[column(unique)] pub email: String
+    /// //   #[column(index)] pub status: String
+    /// //   pub name: String
+    /// //
+    /// // lookup_fields() returns [email_field, status_field]
+    /// let fields = entity.lookup_fields();
+    /// ```
+    pub fn lookup_fields(&self) -> Vec<&FieldDef> {
+        self.fields
+            .iter()
+            .filter(|f| f.column.unique || f.column.index.is_some())
+            .collect()
+    }
+
     /// Get the documentation comment if present.
     #[must_use]
     #[allow(dead_code)]
