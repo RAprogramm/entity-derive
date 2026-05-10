@@ -107,8 +107,7 @@ fn generate_column_def(
         && let Some(parent) = field.belongs_to()
     {
         let parent_table = parent.to_string().to_case(Case::Snake);
-        // Use same schema as current entity for the reference
-        let ref_table = format!("{}.{}", entity.schema, pluralize(&parent_table));
+        let ref_table = entity.full_table_name_for(&pluralize(&parent_table));
         let mut fk_str = format!("REFERENCES {}(id)", ref_table);
 
         if let Some(action) = &field.storage.on_delete {
@@ -123,33 +122,32 @@ fn generate_column_def(
 
 /// Generate CREATE INDEX for a single column.
 fn generate_single_index(entity: &EntityDef, field: &FieldDef) -> String {
-    let table = &entity.table;
-    let schema = &entity.schema;
+    let table = entity.table.clone();
     let column = field.column_name();
 
     let index_type = field.column().index.unwrap_or_default();
     let index_name = format!("idx_{}_{}", table, column);
     let using = index_type.as_sql_using();
+    let qualified_table = entity.full_table_name_for(&table);
 
     format!(
-        "CREATE INDEX IF NOT EXISTS {} ON {}.{}{} ({});\n",
-        index_name, schema, table, using, column
+        "CREATE INDEX IF NOT EXISTS {} ON {}{} ({});\n",
+        index_name, qualified_table, using, column
     )
 }
 
 /// Generate CREATE INDEX for a composite index.
 fn generate_composite_index(entity: &EntityDef, idx: &CompositeIndexDef) -> String {
-    let table = &entity.table;
-    let schema = &entity.schema;
-
-    let index_name = idx.name_or_default(table);
+    let table = entity.table.clone();
+    let index_name = idx.name_or_default(&table);
     let using = idx.index_type.as_sql_using();
     let unique_str = if idx.unique { "UNIQUE " } else { "" };
     let columns = idx.columns.join(", ");
+    let qualified_table = entity.full_table_name_for(&table);
 
     let mut sql = format!(
-        "CREATE {}INDEX IF NOT EXISTS {} ON {}.{}{} ({})",
-        unique_str, index_name, schema, table, using, columns
+        "CREATE {}INDEX IF NOT EXISTS {} ON {}{} ({})",
+        unique_str, index_name, qualified_table, using, columns
     );
 
     if let Some(ref where_clause) = idx.where_clause {
@@ -237,7 +235,7 @@ mod tests {
             }
         });
         let sql = generate_up(&entity);
-        assert!(sql.contains("CREATE TABLE IF NOT EXISTS public.users"));
+        assert!(sql.contains("CREATE TABLE IF NOT EXISTS users"));
         assert!(sql.contains("id UUID PRIMARY KEY"));
         assert!(sql.contains("name TEXT NOT NULL"));
     }
@@ -380,7 +378,7 @@ mod tests {
             }
         });
         let sql = generate_up(&entity);
-        assert!(sql.contains("REFERENCES public.users(id)"));
+        assert!(sql.contains("REFERENCES users(id)"));
     }
 
     #[test]
@@ -396,7 +394,7 @@ mod tests {
             }
         });
         let sql = generate_up(&entity);
-        assert!(sql.contains("REFERENCES public.users(id) ON DELETE CASCADE"));
+        assert!(sql.contains("REFERENCES users(id) ON DELETE CASCADE"));
     }
 
     #[test]
@@ -508,5 +506,93 @@ mod tests {
         });
         let sql = generate_up(&entity);
         assert!(sql.contains("CREATE INDEX IF NOT EXISTS idx_users_name_email"));
+    }
+
+    #[test]
+    fn generate_up_with_explicit_public_schema() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "users", schema = "public", migrations)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                pub name: String,
+            }
+        });
+        let sql = generate_up(&entity);
+        assert!(sql.contains("CREATE TABLE IF NOT EXISTS public.users"));
+    }
+
+    #[test]
+    fn generate_up_with_custom_schema() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "users", schema = "core", migrations)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                pub name: String,
+            }
+        });
+        let sql = generate_up(&entity);
+        assert!(sql.contains("CREATE TABLE IF NOT EXISTS core.users"));
+    }
+
+    #[test]
+    fn generate_down_with_explicit_schema() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "users", schema = "core", migrations)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        });
+        let sql = generate_down(&entity);
+        assert_eq!(sql, "DROP TABLE IF EXISTS core.users CASCADE;\n");
+    }
+
+    #[test]
+    fn generate_down_without_schema() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "users", migrations)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        });
+        let sql = generate_down(&entity);
+        assert_eq!(sql, "DROP TABLE IF EXISTS users CASCADE;\n");
+    }
+
+    #[test]
+    fn generate_single_index_with_explicit_schema() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "users", schema = "core", migrations)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                #[column(index)]
+                pub email: String,
+            }
+        });
+        let sql = generate_up(&entity);
+        assert!(sql.contains("CREATE INDEX IF NOT EXISTS idx_users_email ON core.users"));
+    }
+
+    #[test]
+    fn generate_single_index_without_schema() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "users", migrations)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                #[column(index)]
+                pub email: String,
+            }
+        });
+        let sql = generate_up(&entity);
+        assert!(sql.contains("CREATE INDEX IF NOT EXISTS idx_users_email ON users"));
     }
 }

@@ -30,7 +30,7 @@
 //! #[derive(Entity)]
 //! #[entity(
 //!     table = "users",      // Required: database table name
-//!     schema = "public",    // Optional: database schema (default: "public")
+//!     schema = "public",    // Optional: database schema (omit to exclude from SQL)
 //!     sql = "full",         // Optional: "full" | "trait" | "none" (default: "full")
 //!     dialect = "postgres", // Optional: "postgres" | "clickhouse" | "mongodb" (default: "postgres")
 //!     uuid = "v7"           // Optional: "v7" | "v4" (default: "v7")
@@ -159,7 +159,7 @@
 //! // Generated: UserPublic, UserAdmin structs
 //! // Generated: find_by_id_public, find_by_id_admin methods
 //!
-//! // SQL: SELECT id, name, avatar FROM public.users WHERE id = $1
+//! // SQL: SELECT id, name, avatar FROM users WHERE id = $1
 //! let public = repo.find_by_id_public(user_id).await?;
 //! ```
 //!
@@ -253,7 +253,7 @@ use proc_macro::TokenStream;
 /// | Attribute | Required | Default | Description |
 /// |-----------|----------|---------|-------------|
 /// | `table` | **Yes** | — | Database table name |
-/// | `schema` | No | `"public"` | Database schema name |
+/// | `schema` | No | — | Database schema name (omitted = no prefix in SQL) |
 /// | `sql` | No | `"full"` | SQL generation: `"full"`, `"trait"`, or `"none"` |
 /// | `dialect` | No | `"postgres"` | Database dialect: `"postgres"`, `"clickhouse"`, `"mongodb"` |
 /// | `uuid` | No | `"v7"` | UUID version for ID: `"v7"` (time-ordered) or `"v4"` (random) |
@@ -424,20 +424,20 @@ use proc_macro::TokenStream;
 ///
 /// ```sql
 /// -- CREATE
-/// INSERT INTO schema.table (id, field1, field2, ...)
+/// INSERT INTO users (id, field1, field2, ...)
 /// VALUES ($1, $2, $3, ...)
 ///
 /// -- READ
-/// SELECT * FROM schema.table WHERE id = $1
+/// SELECT * FROM users WHERE id = $1
 ///
 /// -- UPDATE (dynamic based on provided fields)
-/// UPDATE schema.table SET field1 = $1, field2 = $2 WHERE id = $3
+/// UPDATE users SET field1 = $1, field2 = $2 WHERE id = $3
 ///
 /// -- DELETE
-/// DELETE FROM schema.table WHERE id = $1 RETURNING id
+/// DELETE FROM users WHERE id = $1 RETURNING id
 ///
 /// -- LIST
-/// SELECT * FROM schema.table ORDER BY created_at DESC LIMIT $1 OFFSET $2
+/// SELECT * FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2
 /// ```
 #[proc_macro_derive(
     Entity,

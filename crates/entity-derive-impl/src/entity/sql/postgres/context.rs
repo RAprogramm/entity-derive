@@ -26,7 +26,7 @@ use crate::entity::parse::{DatabaseDialect, EntityDef, ReturningMode};
 /// | `trait_name` | Repository trait name (e.g., `UserRepository`) |
 /// | `entity_name` | Entity struct name (e.g., `User`) |
 /// | `row_name` | Row struct name (e.g., `UserRow`) |
-/// | `table` | Full table name with schema (e.g., `public.users`) |
+/// | `table` | Full table name (e.g., `users` or `core.users`) |
 /// | `columns_str` | Comma-separated column names |
 /// | `placeholders_str` | Comma-separated placeholders (`$1, $2, ...`) |
 pub struct Context<'a> {
@@ -54,7 +54,8 @@ pub struct Context<'a> {
     /// Update DTO name (e.g., `UpdateUserRequest`).
     pub update_dto: syn::Ident,
 
-    /// Full table name with schema (e.g., `public.users`).
+    /// Full table name (e.g., `users` when no schema, `core.users` when schema
+    /// specified).
     pub table: String,
 
     /// Primary key field name.

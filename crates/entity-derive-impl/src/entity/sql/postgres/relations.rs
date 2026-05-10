@@ -70,8 +70,9 @@ impl Context<'_> {
         let related_snake = related_entity.to_string().to_case(Case::Snake);
         let method_name = format_ident!("find_{}", related_snake);
         let related_row = format_ident!("{}Row", related_entity);
-        let schema = &self.entity.schema;
-        let related_table = format!("{}.{}s", schema, related_snake);
+        let related_table = self
+            .entity
+            .full_table_name_for(&format!("{}s", related_snake));
         let fk_name = field.name();
         let id_type = self.id_type;
         let placeholder = self.dialect.placeholder(1);
@@ -104,8 +105,9 @@ impl Context<'_> {
         let related_snake = related.to_string().to_case(Case::Snake);
         let method_name = format_ident!("find_{}s", related_snake);
         let related_row = format_ident!("{}Row", related);
-        let schema = &self.entity.schema;
-        let related_table = format!("{}.{}s", schema, related_snake);
+        let related_table = self
+            .entity
+            .full_table_name_for(&format!("{}s", related_snake));
         let entity_snake = self.entity.name_str().to_case(Case::Snake);
         let fk_field = format_ident!("{}_id", entity_snake);
         let id_type = self.id_type;

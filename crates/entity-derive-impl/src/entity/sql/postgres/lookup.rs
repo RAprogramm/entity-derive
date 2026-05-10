@@ -276,6 +276,28 @@ mod tests {
     }
 
     #[test]
+    fn lookup_methods_without_schema() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "users")]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                #[column(unique)]
+                pub email: String,
+            }
+        });
+
+        let ctx = Context::new(&entity);
+        let methods = ctx.lookup_methods();
+        let code = methods.to_string();
+
+        assert!(code.contains("\"users\""));
+        assert!(!code.contains("\"public.users\""));
+        assert!(!code.contains(".users"));
+    }
+
+    #[test]
     fn lookup_methods_sql_none_returns_empty() {
         let entity = parse_entity(quote::quote! {
             #[entity(table = "users", sql = "none")]
