@@ -4,7 +4,7 @@
 use entity_derive::{Entity, ValueObject};
 use uuid::Uuid;
 
-#[derive(ValueObject, Debug, Clone, PartialEq, Eq, PartialOrd, sqlx::Type, serde::Serialize, serde::Deserialize)]
+#[derive(ValueObject, Debug, Clone, PartialEq, Eq, PartialOrd, utoipa::ToSchema, sqlx::Type, serde::Serialize, serde::Deserialize)]
 #[value_object(pg_type = "order_status")]
 pub enum OrderStatusVO {
     Pending,
