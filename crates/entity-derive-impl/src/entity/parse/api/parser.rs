@@ -234,9 +234,8 @@ pub fn parse_api_config(meta: &syn::Meta) -> syn::Result<ApiConfig> {
                                 return Err(syn::Error::new(
                                     handler.span(),
                                     format!(
-                                        "unknown handler '{}', expected: create, get, update, \
-                                         delete, list",
-                                        other
+                                        "unknown handler '{other}', expected: create, get, update, \
+                                         delete, list"
                                     )
                                 ));
                             }
@@ -282,11 +281,10 @@ pub fn parse_api_config(meta: &syn::Meta) -> syn::Result<ApiConfig> {
                 return Err(syn::Error::new(
                     ident.span(),
                     format!(
-                        "unknown api option '{}', expected: tag, tag_description, path_prefix, \
+                        "unknown api option '{ident_str}', expected: tag, tag_description, path_prefix, \
                          security, public, version, deprecated_in, handlers, title, description, \
                          api_version, license, license_url, contact_name, contact_email, \
-                         contact_url",
-                        ident_str
+                         contact_url"
                     )
                 ));
             }

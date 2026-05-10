@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! EntityDef struct definition.
+//! `EntityDef` struct definition.
 //!
 //! This module defines [`EntityDef`], the central data structure for the entire
 //! entity-derive macro system. All code generators receive an `EntityDef` and
@@ -176,7 +176,7 @@ pub struct EntityDef {
 
     /// Command definitions parsed from `#[command(...)]` attributes.
     ///
-    /// Each entry describes a business command (e.g., Register, UpdateEmail).
+    /// Each entry describes a business command (e.g., Register, `UpdateEmail`).
     pub command_defs: Vec<CommandDef>,
 
     /// Whether to generate authorization policy trait.
@@ -198,12 +198,12 @@ pub struct EntityDef {
     /// API configuration for HTTP handler generation.
     ///
     /// When enabled via `#[entity(api(...))]`, generates axum handlers
-    /// with OpenAPI documentation via utoipa.
+    /// with `OpenAPI` documentation via utoipa.
     pub api_config: ApiConfig,
 
     /// Documentation comment from the entity struct.
     ///
-    /// Extracted from `///` comments for use in OpenAPI tag descriptions.
+    /// Extracted from `///` comments for use in `OpenAPI` tag descriptions.
     pub doc: Option<String>,
 
     /// Whether to generate database migrations.

@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! EntityError derive macro implementation.
+//! `EntityError` derive macro implementation.
 //!
-//! Generates OpenAPI error response documentation from enum variants.
+//! Generates `OpenAPI` error response documentation from enum variants.
 //!
 //! # Example
 //!
@@ -31,7 +31,7 @@ use syn::{Attribute, DeriveInput, parse_macro_input};
 
 use crate::utils::docs::extract_doc_summary;
 
-/// Main entry point for the EntityError derive macro.
+/// Main entry point for the `EntityError` derive macro.
 pub fn derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
@@ -77,9 +77,8 @@ fn generate(input: &DeriveInput) -> syn::Result<TokenStream2> {
     let descriptions: Vec<&String> = error_variants.iter().map(|v| &v.description).collect();
 
     let doc = format!(
-        "OpenAPI error responses for `{}`.\\n\\n\
-         Use with `#[utoipa::path(responses(...))]`.",
-        name
+        "OpenAPI error responses for `{name}`.\\n\\n\
+         Use with `#[utoipa::path(responses(...))]`."
     );
 
     Ok(quote! {

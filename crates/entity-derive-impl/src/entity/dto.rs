@@ -19,7 +19,7 @@
 //!
 //! # Feature Flags
 //!
-//! - `api` — adds `utoipa::ToSchema` for OpenAPI documentation
+//! - `api` — adds `utoipa::ToSchema` for `OpenAPI` documentation
 //! - `validate` — adds `validator::Validate` for input validation
 //!
 //! # Field Selection

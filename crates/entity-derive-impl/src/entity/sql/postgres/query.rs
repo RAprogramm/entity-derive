@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! Query method generator for PostgreSQL.
+//! Query method generator for `PostgreSQL`.
 //!
 //! Generates the `query` method that provides type-safe filtering using
 //! the entity's Query struct (generated from `#[filter]` attributes).

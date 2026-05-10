@@ -17,9 +17,9 @@ use darling::FromMeta;
 ///
 /// | Dialect | Type | Security | Use Case |
 /// |---------|------|----------|----------|
-/// | PostgreSQL | ACID SQL | Row-level security, SSL, audit | Transactions |
-/// | ClickHouse | OLAP | Multi-DC replication | Analytics |
-/// | MongoDB | Document | E2E encryption, LDAP, RBAC | Documents |
+/// | `PostgreSQL` | ACID SQL | Row-level security, SSL, audit | Transactions |
+/// | `ClickHouse` | OLAP | Multi-DC replication | Analytics |
+/// | `MongoDB` | Document | E2E encryption, LDAP, RBAC | Documents |
 ///
 /// # Examples
 ///
@@ -30,7 +30,7 @@ use darling::FromMeta;
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum DatabaseDialect {
-    /// PostgreSQL - enterprise ACID database.
+    /// `PostgreSQL` - enterprise ACID database.
     ///
     /// - Placeholders: `$1, $2, $3, ...`
     /// - Client: `sqlx::PgPool`
@@ -38,14 +38,14 @@ pub enum DatabaseDialect {
     #[default]
     Postgres,
 
-    /// ClickHouse - high-performance OLAP database.
+    /// `ClickHouse` - high-performance OLAP database.
     ///
     /// - Placeholders: `$1, $2, $3, ...`
     /// - Client: `clickhouse::Client`
     /// - Features: columnar storage, real-time analytics
     ClickHouse,
 
-    /// MongoDB - document database with enterprise security.
+    /// `MongoDB` - document database with enterprise security.
     ///
     /// - Document-based (BSON)
     /// - Client: `mongodb::Client`
@@ -88,7 +88,7 @@ impl DatabaseDialect {
 
     /// Get the feature flag name for this dialect.
     #[must_use]
-    pub fn feature_flag(&self) -> &'static str {
+    pub const fn feature_flag(&self) -> &'static str {
         match self {
             Self::Postgres => "postgres",
             Self::ClickHouse => "clickhouse",

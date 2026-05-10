@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! Accessor methods for EntityDef.
+//! Accessor methods for `EntityDef`.
 //!
 //! This module provides getter methods for accessing `EntityDef` fields and
 //! computed values. Methods are organized by purpose: field access, naming
@@ -136,7 +136,7 @@ impl EntityDef {
 
     /// Check if this entity has any filterable fields.
     pub fn has_filters(&self) -> bool {
-        self.fields.iter().any(|f| f.has_filter())
+        self.fields.iter().any(super::super::field::FieldDef::has_filter)
     }
 
     /// Get has-many relations defined via `#[has_many(Entity)]`.
@@ -148,7 +148,7 @@ impl EntityDef {
     }
 
     /// Get the entity name as an identifier.
-    pub fn name(&self) -> &Ident {
+    pub const fn name(&self) -> &Ident {
         &self.ident
     }
 
@@ -251,27 +251,27 @@ impl EntityDef {
     }
 
     /// Get the error type for repository implementation.
-    pub fn error_type(&self) -> &syn::Path {
+    pub const fn error_type(&self) -> &syn::Path {
         &self.error
     }
 
     /// Check if soft delete is enabled for this entity.
-    pub fn is_soft_delete(&self) -> bool {
+    pub const fn is_soft_delete(&self) -> bool {
         self.soft_delete
     }
 
     /// Check if lifecycle events should be generated.
-    pub fn has_events(&self) -> bool {
+    pub const fn has_events(&self) -> bool {
         self.events
     }
 
     /// Check if lifecycle hooks trait should be generated.
-    pub fn has_hooks(&self) -> bool {
+    pub const fn has_hooks(&self) -> bool {
         self.hooks
     }
 
     /// Check if CQRS-style commands should be generated.
-    pub fn has_commands(&self) -> bool {
+    pub const fn has_commands(&self) -> bool {
         self.commands
     }
 
@@ -281,35 +281,35 @@ impl EntityDef {
     }
 
     /// Check if authorization policy should be generated.
-    pub fn has_policy(&self) -> bool {
+    pub const fn has_policy(&self) -> bool {
         self.policy
     }
 
     /// Check if real-time streaming should be enabled.
-    pub fn has_streams(&self) -> bool {
+    pub const fn has_streams(&self) -> bool {
         self.streams
     }
 
     /// Check if transaction support should be generated.
-    pub fn has_transactions(&self) -> bool {
+    pub const fn has_transactions(&self) -> bool {
         self.transactions
     }
 
     /// Check if API generation is enabled.
     #[allow(dead_code)]
-    pub fn has_api(&self) -> bool {
+    pub const fn has_api(&self) -> bool {
         self.api_config.is_enabled()
     }
 
     /// Get API configuration.
     #[allow(dead_code)]
-    pub fn api_config(&self) -> &ApiConfig {
+    pub const fn api_config(&self) -> &ApiConfig {
         &self.api_config
     }
 
     /// Check if aggregate root pattern is enabled.
     #[must_use]
-    pub fn is_aggregate_root(&self) -> bool {
+    pub const fn is_aggregate_root(&self) -> bool {
         self.aggregate_root
     }
 

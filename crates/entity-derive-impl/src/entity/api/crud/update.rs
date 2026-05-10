@@ -53,7 +53,7 @@
 //!
 //! This handler uses PATCH (partial update) semantics:
 //!
-//! | Method | Semantics | UpdateRequest Fields |
+//! | Method | Semantics | `UpdateRequest` Fields |
 //! |--------|-----------|---------------------|
 //! | PATCH | Partial update | All fields `Option<T>` |
 //! | PUT | Full replacement | All fields required |
@@ -127,7 +127,7 @@ use crate::entity::parse::EntityDef;
 ///
 /// A `TokenStream` containing the complete handler function with:
 /// - Doc comments describing the endpoint
-/// - `#[utoipa::path]` attribute for OpenAPI documentation
+/// - `#[utoipa::path]` attribute for `OpenAPI` documentation
 /// - The async handler function implementation
 ///
 /// # Generated Components
@@ -142,7 +142,7 @@ use crate::entity::parse::EntityDef;
 /// | Response body | `{Entity}Response` |
 /// | Status codes | 200, 400, 401 (if auth), 500 |
 ///
-/// # UpdateRequest Generation
+/// # `UpdateRequest` Generation
 ///
 /// The `UpdateEntityRequest` is generated separately with all fields
 /// marked with `#[field(update)]` as `Option<T>`:
@@ -174,10 +174,10 @@ pub fn generate_update_handler(entity: &EntityDef) -> TokenStream {
     let security_attr = build_security_attr(entity);
     let deprecated_attr = build_deprecated_attr(entity);
 
-    let id_desc = format!("{} unique identifier", entity_name);
-    let request_body_desc = format!("Fields to update for {}", entity_name);
-    let success_desc = format!("{} updated successfully", entity_name);
-    let not_found_desc = format!("{} not found", entity_name);
+    let id_desc = format!("{entity_name} unique identifier");
+    let request_body_desc = format!("Fields to update for {entity_name}");
+    let success_desc = format!("{entity_name} updated successfully");
+    let not_found_desc = format!("{entity_name} not found");
 
     let utoipa_attr = if has_security {
         quote! {

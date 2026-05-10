@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! EntityDef constructor implementation.
+//! `EntityDef` constructor implementation.
 //!
 //! This module provides [`EntityDef::from_derive_input`], the main entry point
 //! for parsing entity definitions from proc-macro input.
@@ -133,7 +133,7 @@ impl EntityDef {
         let indexes = parse_index_attrs(&input.attrs);
         let doc = extract_doc_comments(&input.attrs);
 
-        let id_field_index = fields.iter().position(|f| f.is_id()).ok_or_else(|| {
+        let id_field_index = fields.iter().position(super::super::field::FieldDef::is_id).ok_or_else(|| {
             darling::Error::custom("Entity must have exactly one field with #[id] attribute")
                 .with_span(&input.ident)
         })?;

@@ -1,10 +1,10 @@
 // SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! ValueObject derive macro implementation.
+//! `ValueObject` derive macro implementation.
 //!
-//! Generates trait implementations for PostgreSQL enum types: Display, FromStr,
-//! AsRef<str>, and TryFrom<&str>.
+//! Generates trait implementations for `PostgreSQL` enum types: Display, `FromStr`,
+//! `AsRef`<str>, and `TryFrom`<&str>.
 //!
 //! # Example
 //!
@@ -22,7 +22,7 @@
 //! - `impl Display` — lowercase variant names
 //! - `impl FromStr` — case-insensitive parsing
 //! - `impl AsRef<str>` — lowercase string representation
-//! - `impl TryFrom<&str>` — delegates to FromStr
+//! - `impl TryFrom<&str>` — delegates to `FromStr`
 //!
 //! Users should also add:
 //! - `Debug, Clone, PartialEq, Eq, PartialOrd` derives
@@ -35,7 +35,7 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{DeriveInput, LitStr, parse_macro_input};
 
-/// Main entry point for the ValueObject derive macro.
+/// Main entry point for the `ValueObject` derive macro.
 ///
 /// Parses the input `DeriveInput`, extracts the `pg_type` attribute,
 /// and generates all required boilerplate code.
@@ -75,7 +75,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
     }
 }
 
-/// Generate all boilerplate code for a ValueObject enum.
+/// Generate all boilerplate code for a `ValueObject` enum.
 ///
 /// # Arguments
 ///
@@ -186,7 +186,7 @@ fn generate(input: &DeriveInput) -> syn::Result<TokenStream2> {
 ///
 /// # Returns
 ///
-/// The pg_type string, or an error if no `#[value_object]` attribute is found.
+/// The `pg_type` string, or an error if no `#[value_object]` attribute is found.
 ///
 /// # Errors
 ///

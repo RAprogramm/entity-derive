@@ -23,7 +23,7 @@ use syn::{Attribute, Meta};
 
 /// Index type for database indexes.
 ///
-/// PostgreSQL supports multiple index types optimized for different use cases.
+/// `PostgreSQL` supports multiple index types optimized for different use cases.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum IndexType {
     /// B-tree index (default). Best for equality and range queries.
@@ -36,7 +36,7 @@ pub enum IndexType {
     /// GIN (Generalized Inverted Index). For array/JSONB containment.
     Gin,
 
-    /// GiST (Generalized Search Tree). For geometric/full-text search.
+    /// `GiST` (Generalized Search Tree). For geometric/full-text search.
     Gist,
 
     /// BRIN (Block Range Index). For large sequential data.
@@ -63,7 +63,7 @@ impl IndexType {
     ///
     /// Returns empty string for btree (default).
     #[must_use]
-    pub fn as_sql_using(&self) -> &'static str {
+    pub const fn as_sql_using(&self) -> &'static str {
         match self {
             Self::BTree => "",
             Self::Hash => " USING hash",
@@ -111,7 +111,7 @@ impl ReferentialAction {
 
     /// Get SQL representation of this action.
     #[must_use]
-    pub fn as_sql(&self) -> &'static str {
+    pub const fn as_sql(&self) -> &'static str {
         match self {
             Self::Cascade => "CASCADE",
             Self::SetNull => "SET NULL",
@@ -234,13 +234,13 @@ impl ColumnConfig {
     /// Check if this column has any constraints.
     #[must_use]
     #[allow(dead_code)] // Public API for future use
-    pub fn has_constraints(&self) -> bool {
+    pub const fn has_constraints(&self) -> bool {
         self.unique || self.check.is_some()
     }
 
     /// Check if this column should be indexed.
     #[must_use]
-    pub fn has_index(&self) -> bool {
+    pub const fn has_index(&self) -> bool {
         self.index.is_some()
     }
 

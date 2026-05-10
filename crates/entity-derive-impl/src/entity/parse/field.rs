@@ -7,7 +7,7 @@
 //! specialized submodules for different concerns:
 //!
 //! - [`expose`] — DTO exposure (create, update, response, skip)
-//! - [`storage`] — Database storage (id, auto, belongs_to)
+//! - [`storage`] — Database storage (id, auto, `belongs_to`)
 //!
 //! # Architecture
 //!
@@ -118,17 +118,17 @@ pub struct FieldDef {
 
     /// Documentation comment from the field.
     ///
-    /// Extracted from `///` comments for use in OpenAPI descriptions.
+    /// Extracted from `///` comments for use in `OpenAPI` descriptions.
     #[allow(dead_code)] // Will be used for schema field descriptions (#78)
     pub doc: Option<String>,
 
     /// Validation configuration from `#[validate(...)]` attributes.
     ///
-    /// Parsed for OpenAPI schema constraints and DTO validation.
+    /// Parsed for `OpenAPI` schema constraints and DTO validation.
     #[allow(dead_code)] // Will be used for OpenAPI schema constraints (#79)
     pub validation: ValidationConfig,
 
-    /// Example value for OpenAPI schema.
+    /// Example value for `OpenAPI` schema.
     ///
     /// Parsed from `#[example = ...]` attribute.
     #[allow(dead_code)] // Will be used for OpenAPI schema examples (#80)
@@ -180,11 +180,10 @@ impl FieldDef {
                 filter = FilterConfig::from_attr(attr);
             } else if attr.path().is_ident("column") {
                 column = ColumnConfig::from_attr(attr);
-            } else if attr.path().is_ident("map") {
-                if let Some(parsed) = MapConfig::from_attr(attr) {
+            } else if attr.path().is_ident("map")
+                && let Some(parsed) = MapConfig::from_attr(attr) {
                     map = parsed;
                 }
-            }
         }
 
         Ok(Self {
@@ -203,7 +202,7 @@ impl FieldDef {
 
     /// Get the field name as an identifier.
     #[must_use]
-    pub fn name(&self) -> &Ident {
+    pub const fn name(&self) -> &Ident {
         &self.ident
     }
 
@@ -217,7 +216,7 @@ impl FieldDef {
 
     /// Get the field type.
     #[must_use]
-    pub fn ty(&self) -> &Type {
+    pub const fn ty(&self) -> &Type {
         &self.ty
     }
 
@@ -236,25 +235,25 @@ impl FieldDef {
 
     /// Check if this is the primary key field.
     #[must_use]
-    pub fn is_id(&self) -> bool {
+    pub const fn is_id(&self) -> bool {
         self.storage.is_id
     }
 
     /// Check if this field is auto-generated.
     #[must_use]
-    pub fn is_auto(&self) -> bool {
+    pub const fn is_auto(&self) -> bool {
         self.storage.is_auto
     }
 
     /// Check if field should be in `CreateRequest`.
     #[must_use]
-    pub fn in_create(&self) -> bool {
+    pub const fn in_create(&self) -> bool {
         self.expose.in_create()
     }
 
     /// Check if field should be in `UpdateRequest`.
     #[must_use]
-    pub fn in_update(&self) -> bool {
+    pub const fn in_update(&self) -> bool {
         self.expose.in_update()
     }
 
@@ -262,7 +261,7 @@ impl FieldDef {
     ///
     /// ID fields are always included regardless of expose config.
     #[must_use]
-    pub fn in_response(&self) -> bool {
+    pub const fn in_response(&self) -> bool {
         !self.expose.skip && (self.expose.response || self.storage.is_id)
     }
 
@@ -270,13 +269,13 @@ impl FieldDef {
     ///
     /// Returns `Some(Ident)` if `#[belongs_to(Entity)]` is present.
     #[must_use]
-    pub fn belongs_to(&self) -> Option<&Ident> {
+    pub const fn belongs_to(&self) -> Option<&Ident> {
         self.storage.belongs_to.as_ref()
     }
 
     /// Check if this field is a foreign key relation.
     #[must_use]
-    pub fn is_relation(&self) -> bool {
+    pub const fn is_relation(&self) -> bool {
         self.storage.is_relation()
     }
 
@@ -288,13 +287,13 @@ impl FieldDef {
 
     /// Get the filter configuration.
     #[must_use]
-    pub fn filter(&self) -> &FilterConfig {
+    pub const fn filter(&self) -> &FilterConfig {
         &self.filter
     }
 
     /// Get the documentation comment if present.
     ///
-    /// Returns the extracted doc comment for use in OpenAPI descriptions.
+    /// Returns the extracted doc comment for use in `OpenAPI` descriptions.
     #[must_use]
     #[allow(dead_code)] // Will be used for schema field descriptions (#78)
     pub fn doc(&self) -> Option<&str> {
@@ -303,33 +302,33 @@ impl FieldDef {
 
     /// Get the validation configuration.
     ///
-    /// Returns the parsed validation rules for OpenAPI constraints.
+    /// Returns the parsed validation rules for `OpenAPI` constraints.
     #[must_use]
     #[allow(dead_code)] // Will be used for OpenAPI schema constraints (#79)
-    pub fn validation(&self) -> &ValidationConfig {
+    pub const fn validation(&self) -> &ValidationConfig {
         &self.validation
     }
 
     /// Check if this field has validation rules.
     #[must_use]
     #[allow(dead_code)] // Will be used for OpenAPI schema constraints (#79)
-    pub fn has_validation(&self) -> bool {
+    pub const fn has_validation(&self) -> bool {
         self.validation.has_validation()
     }
 
     /// Get the example value if present.
     ///
-    /// Returns the parsed example for use in OpenAPI schema.
+    /// Returns the parsed example for use in `OpenAPI` schema.
     #[must_use]
     #[allow(dead_code)] // Will be used for OpenAPI schema examples (#80)
-    pub fn example(&self) -> Option<&ExampleValue> {
+    pub const fn example(&self) -> Option<&ExampleValue> {
         self.example.as_ref()
     }
 
     /// Check if this field has an example value.
     #[must_use]
     #[allow(dead_code)] // Will be used for OpenAPI schema examples (#80)
-    pub fn has_example(&self) -> bool {
+    pub const fn has_example(&self) -> bool {
         self.example.is_some()
     }
 
@@ -337,7 +336,7 @@ impl FieldDef {
     ///
     /// Returns parsed column constraints and index settings.
     #[must_use]
-    pub fn column(&self) -> &ColumnConfig {
+    pub const fn column(&self) -> &ColumnConfig {
         &self.column
     }
 
@@ -346,27 +345,27 @@ impl FieldDef {
     /// Returns the parsed mapping rules for the `From<Row> for Entity`
     /// implementation.
     #[must_use]
-    pub fn map(&self) -> &MapConfig {
+    pub const fn map(&self) -> &MapConfig {
         &self.map
     }
 
     /// Check if this field has a mapping configuration.
     #[must_use]
     #[allow(dead_code)] // Public API for future use
-    pub fn has_map(&self) -> bool {
+    pub const fn has_map(&self) -> bool {
         !matches!(self.map, MapConfig::None)
     }
 
     /// Check if this column has a UNIQUE constraint.
     #[must_use]
-    pub fn is_unique(&self) -> bool {
+    pub const fn is_unique(&self) -> bool {
         self.column.unique
     }
 
     /// Check if this column should be indexed.
     #[must_use]
     #[allow(dead_code)] // Public API for future use
-    pub fn has_index(&self) -> bool {
+    pub const fn has_index(&self) -> bool {
         self.column.has_index()
     }
 

@@ -5,11 +5,11 @@
 //!
 //! Extracts `#[validate(...)]` attributes from fields for:
 //! - Passing through to generated DTOs
-//! - Converting to OpenAPI schema constraints
+//! - Converting to `OpenAPI` schema constraints
 //!
 //! # Supported Validators
 //!
-//! | Validator | OpenAPI Constraint |
+//! | Validator | `OpenAPI` Constraint |
 //! |-----------|-------------------|
 //! | `length(min = N)` | `minLength: N` |
 //! | `length(max = N)` | `maxLength: N` |
@@ -70,7 +70,7 @@ impl ValidationConfig {
     /// Check if any validation is configured.
     #[must_use]
     #[allow(dead_code)] // Will be used when generating schema constraints
-    pub fn has_validation(&self) -> bool {
+    pub const fn has_validation(&self) -> bool {
         self.min_length.is_some()
             || self.max_length.is_some()
             || self.minimum.is_some()
@@ -80,9 +80,9 @@ impl ValidationConfig {
             || self.pattern.is_some()
     }
 
-    /// Generate OpenAPI schema attributes for utoipa.
+    /// Generate `OpenAPI` schema attributes for utoipa.
     ///
-    /// Returns TokenStream with schema constraints like `min_length = N`.
+    /// Returns `TokenStream` with schema constraints like `min_length = N`.
     #[must_use]
     #[allow(dead_code)] // Will be used when generating schema constraints
     pub fn to_schema_attrs(&self) -> TokenStream {
@@ -134,12 +134,12 @@ pub fn parse_validation_attrs(attrs: &[Attribute]) -> ValidationConfig {
 
         // Parse the attribute content
         let _ = attr.parse_nested_meta(|meta| {
-            let path_str = meta.path.get_ident().map(|i| i.to_string());
+            let path_str = meta.path.get_ident().map(std::string::ToString::to_string);
 
             match path_str.as_deref() {
                 Some("length") => {
                     meta.parse_nested_meta(|nested| {
-                        let nested_path = nested.path.get_ident().map(|i| i.to_string());
+                        let nested_path = nested.path.get_ident().map(std::string::ToString::to_string);
                         match nested_path.as_deref() {
                             Some("min") => {
                                 let value: syn::LitInt = nested.value()?.parse()?;
@@ -156,7 +156,7 @@ pub fn parse_validation_attrs(attrs: &[Attribute]) -> ValidationConfig {
                 }
                 Some("range") => {
                     meta.parse_nested_meta(|nested| {
-                        let nested_path = nested.path.get_ident().map(|i| i.to_string());
+                        let nested_path = nested.path.get_ident().map(std::string::ToString::to_string);
                         match nested_path.as_deref() {
                             Some("min") => {
                                 let value: syn::LitInt = nested.value()?.parse()?;

@@ -9,7 +9,7 @@ use quote::{format_ident, quote};
 use super::context::Context;
 
 impl Context<'_> {
-    /// Generate pg_notify call for Created event.
+    /// Generate `pg_notify` call for Created event.
     pub fn notify_created(&self) -> TokenStream {
         if !self.streams {
             return TokenStream::new();
@@ -30,7 +30,7 @@ impl Context<'_> {
         }
     }
 
-    /// Generate pg_notify call for Updated event.
+    /// Generate `pg_notify` call for Updated event.
     pub fn notify_updated(&self) -> TokenStream {
         if !self.streams {
             return TokenStream::new();
@@ -51,7 +51,7 @@ impl Context<'_> {
         }
     }
 
-    /// Generate pg_notify call for HardDeleted event.
+    /// Generate `pg_notify` call for `HardDeleted` event.
     pub fn notify_hard_deleted(&self) -> TokenStream {
         if !self.streams {
             return TokenStream::new();
@@ -72,7 +72,7 @@ impl Context<'_> {
         }
     }
 
-    /// Generate pg_notify call for SoftDeleted event.
+    /// Generate `pg_notify` call for `SoftDeleted` event.
     pub fn notify_soft_deleted(&self) -> TokenStream {
         if !self.streams {
             return TokenStream::new();

@@ -6,7 +6,7 @@
 //! API configuration parsing for OpenAPI/utoipa integration.
 //!
 //! This module handles parsing of `#[entity(api(...))]` attributes that control
-//! automatic HTTP handler generation with OpenAPI documentation. The API
+//! automatic HTTP handler generation with `OpenAPI` documentation. The API
 //! configuration determines what handlers are generated, how they're secured,
 //! and how they appear in Swagger UI.
 //!
@@ -43,7 +43,7 @@
 //!
 //! | Option | Type | Required | Description |
 //! |--------|------|----------|-------------|
-//! | `tag` | string | Yes | OpenAPI tag for endpoint grouping |
+//! | `tag` | string | Yes | `OpenAPI` tag for endpoint grouping |
 //! | `tag_description` | string | No | Tag description for docs |
 //! | `handlers` | flag/list | No | CRUD handlers to generate |
 //!
@@ -61,11 +61,11 @@
 //! | `security` | string | `"bearer"`, `"cookie"`, `"api_key"` | Default auth |
 //! | `public` | list | `[Register, Login]` | Commands without auth |
 //!
-//! ## OpenAPI Info
+//! ## `OpenAPI` Info
 //!
 //! | Option | Description |
 //! |--------|-------------|
-//! | `title` | API title for OpenAPI spec |
+//! | `title` | API title for `OpenAPI` spec |
 //! | `description` | API description (markdown) |
 //! | `api_version` | Semantic version string |
 //! | `license` | License name (e.g., "MIT") |

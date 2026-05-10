@@ -286,16 +286,16 @@ fn pluralize(word: &str) -> String {
         || word.ends_with("ch")
         || word.ends_with("sh")
     {
-        format!("{}es", word)
+        format!("{word}es")
     } else if let Some(without_y) = word.strip_suffix('y') {
         // Check if the letter before 'y' is a consonant
         if let Some(c) = without_y.chars().last()
             && !"aeiou".contains(c)
         {
-            return format!("{}ies", without_y);
+            return format!("{without_y}ies");
         }
-        format!("{}s", word)
+        format!("{word}s")
     } else {
-        format!("{}s", word)
+        format!("{word}s")
     }
 }

@@ -1,14 +1,14 @@
 // SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! Example attribute parsing for OpenAPI schemas.
+//! Example attribute parsing for `OpenAPI` schemas.
 //!
 //! Extracts `#[example = ...]` attributes from fields for use in
-//! OpenAPI schema documentation.
+//! `OpenAPI` schema documentation.
 //!
 //! # Supported Types
 //!
-//! | Type | Syntax | OpenAPI |
+//! | Type | Syntax | `OpenAPI` |
 //! |------|--------|---------|
 //! | String | `#[example = "text"]` | `example: "text"` |
 //! | Integer | `#[example = 42]` | `example: 42` |
@@ -31,7 +31,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::Attribute;
 
-/// Example value for OpenAPI schema.
+/// Example value for `OpenAPI` schema.
 #[derive(Debug, Clone)]
 #[allow(dead_code)] // Will be used for OpenAPI schema examples (#80)
 pub enum ExampleValue {
@@ -50,7 +50,7 @@ pub enum ExampleValue {
 
 #[allow(dead_code)] // Will be used for OpenAPI schema examples (#80)
 impl ExampleValue {
-    /// Convert to TokenStream for code generation.
+    /// Convert to `TokenStream` for code generation.
     #[must_use]
     pub fn to_tokens(&self) -> TokenStream {
         match self {
@@ -115,7 +115,7 @@ fn parse_example_expr(expr: &syn::Expr) -> Option<ExampleValue> {
     }
 }
 
-/// Parse a literal value into an ExampleValue.
+/// Parse a literal value into an `ExampleValue`.
 fn parse_example_lit(lit: &syn::Lit) -> Option<ExampleValue> {
     match lit {
         syn::Lit::Str(s) => Some(ExampleValue::String(s.value())),

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! CRUD method generators for PostgreSQL.
+//! CRUD method generators for `PostgreSQL`.
 //!
 //! This module generates the core repository methods:
 //!

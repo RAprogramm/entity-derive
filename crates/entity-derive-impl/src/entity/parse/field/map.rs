@@ -153,15 +153,14 @@ impl MapConfig {
                 Some(result)
             }
             syn::Meta::NameValue(nv) => {
-                if nv.path.is_ident("expr") {
-                    if let syn::Expr::Lit(syn::ExprLit {
+                if nv.path.is_ident("expr")
+                    && let syn::Expr::Lit(syn::ExprLit {
                         lit: syn::Lit::Str(lit_str),
                         ..
                     }) = &nv.value
                     {
                         return Some(Self::Expr(lit_str.value()));
                     }
-                }
                 Some(Self::None)
             }
             syn::Meta::Path(_) => Some(Self::None)

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! Relation method generators for PostgreSQL.
+//! Relation method generators for `PostgreSQL`.
 //!
 //! Generates methods for entity relationships:
 //!
@@ -72,7 +72,7 @@ impl Context<'_> {
         let related_row = format_ident!("{}Row", related_entity);
         let related_table = self
             .entity
-            .full_table_name_for(&format!("{}s", related_snake));
+            .full_table_name_for(&format!("{related_snake}s"));
         let fk_name = field.name();
         let id_type = self.id_type;
         let placeholder = self.dialect.placeholder(1);
@@ -107,7 +107,7 @@ impl Context<'_> {
         let related_row = format_ident!("{}Row", related);
         let related_table = self
             .entity
-            .full_table_name_for(&format!("{}s", related_snake));
+            .full_table_name_for(&format!("{related_snake}s"));
         let entity_snake = self.entity.name_str().to_case(Case::Snake);
         let fk_field = format_ident!("{}_id", entity_snake);
         let id_type = self.id_type;

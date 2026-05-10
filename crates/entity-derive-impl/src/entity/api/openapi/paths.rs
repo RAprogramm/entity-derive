@@ -1,15 +1,15 @@
 // SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! OpenAPI path operations generation.
+//! `OpenAPI` path operations generation.
 //!
-//! This module generates CRUD path operations for the OpenAPI specification.
+//! This module generates CRUD path operations for the `OpenAPI` specification.
 //! Path operations define the available endpoints, their HTTP methods,
 //! parameters, request/response bodies, and security requirements.
 //!
-//! # OpenAPI Paths Object
+//! # `OpenAPI` Paths Object
 //!
-//! The paths object is the core of the OpenAPI specification:
+//! The paths object is the core of the `OpenAPI` specification:
 //!
 //! ```text
 //! ┌─────────────────────────────────────────────────────────────────────┐
@@ -110,10 +110,10 @@ use quote::{format_ident, quote};
 use super::security::security_scheme_name;
 use crate::entity::parse::{CommandDef, EntityDef};
 
-/// Generates code to add CRUD path operations to the OpenAPI specification.
+/// Generates code to add CRUD path operations to the `OpenAPI` specification.
 ///
 /// This function produces code that registers all enabled CRUD operations
-/// as paths in the OpenAPI spec. Each operation is fully documented with
+/// as paths in the `OpenAPI` spec. Each operation is fully documented with
 /// parameters, request bodies, responses, and security requirements.
 ///
 /// # Arguments
@@ -217,25 +217,25 @@ pub fn generate_paths_code(entity: &EntityDef) -> TokenStream {
     let delete_op_id = format!("delete_{}", entity_name_str.to_case(Case::Snake));
     let list_op_id = format!("list_{}", entity_name_str.to_case(Case::Snake));
 
-    let create_summary = format!("Create a new {}", entity_name);
-    let get_summary = format!("Get {} by ID", entity_name);
-    let update_summary = format!("Update {} by ID", entity_name);
-    let delete_summary = format!("Delete {} by ID", entity_name);
-    let list_summary = format!("List all {}", entity_name);
+    let create_summary = format!("Create a new {entity_name}");
+    let get_summary = format!("Get {entity_name} by ID");
+    let update_summary = format!("Update {entity_name} by ID");
+    let delete_summary = format!("Delete {entity_name} by ID");
+    let list_summary = format!("List all {entity_name}");
 
-    let create_desc = format!("Creates a new {} entity", entity_name);
-    let get_desc = format!("Retrieves a {} by its unique identifier", entity_name);
-    let update_desc = format!("Updates an existing {} by ID", entity_name);
-    let delete_desc = format!("Deletes a {} by ID", entity_name);
-    let list_desc = format!("Returns a paginated list of {} entities", entity_name);
+    let create_desc = format!("Creates a new {entity_name} entity");
+    let get_desc = format!("Retrieves a {entity_name} by its unique identifier");
+    let update_desc = format!("Updates an existing {entity_name} by ID");
+    let delete_desc = format!("Deletes a {entity_name} by ID");
+    let list_desc = format!("Returns a paginated list of {entity_name} entities");
 
-    let id_param_desc = format!("{} unique identifier", entity_name);
-    let created_desc = format!("{} created successfully", entity_name);
-    let found_desc = format!("{} found", entity_name);
-    let updated_desc = format!("{} updated successfully", entity_name);
-    let deleted_desc = format!("{} deleted successfully", entity_name);
-    let list_desc_resp = format!("List of {} entities", entity_name);
-    let not_found_desc = format!("{} not found", entity_name);
+    let id_param_desc = format!("{entity_name} unique identifier");
+    let created_resp_desc = format!("{entity_name} created successfully");
+    let found_desc = format!("{entity_name} found");
+    let updated_resp_desc = format!("{entity_name} updated successfully");
+    let deleted_resp_desc = format!("{entity_name} deleted successfully");
+    let list_desc_resp = format!("List of {entity_name} entities");
+    let not_found_desc = format!("{entity_name} not found");
 
     let common_code = quote! {
         let error_response = |desc: &str| -> response::Response {
@@ -287,7 +287,7 @@ pub fn generate_paths_code(entity: &EntityDef) -> TokenStream {
                     ))
                     .response("201",
                         response::ResponseBuilder::new()
-                            .description(#created_desc)
+                            .description(#created_resp_desc)
                             .content("application/json",
                                 content::ContentBuilder::new()
                                     .schema(Some(Ref::from_schema_name(#response_ref)))
@@ -417,7 +417,7 @@ pub fn generate_paths_code(entity: &EntityDef) -> TokenStream {
                     ))
                     .response("200",
                         response::ResponseBuilder::new()
-                            .description(#updated_desc)
+                            .description(#updated_resp_desc)
                             .content("application/json",
                                 content::ContentBuilder::new()
                                     .schema(Some(Ref::from_schema_name(#response_ref)))
@@ -451,7 +451,7 @@ pub fn generate_paths_code(entity: &EntityDef) -> TokenStream {
                     .parameter(id_param.clone())
                     .response("204",
                         response::ResponseBuilder::new()
-                            .description(#deleted_desc)
+                            .description(#deleted_resp_desc)
                             .build()
                     )
                     .response("404", error_response(#not_found_desc))
@@ -524,7 +524,7 @@ pub fn build_collection_path(entity: &EntityDef) -> String {
     let prefix = api_config.full_path_prefix();
     let entity_path = entity.name_str().to_case(Case::Kebab);
 
-    let path = format!("{}/{}s", prefix, entity_path);
+    let path = format!("{prefix}/{entity_path}s");
     path.replace("//", "/")
 }
 
@@ -555,9 +555,9 @@ pub fn build_collection_path(entity: &EntityDef) -> String {
 ///     /api/v1/users/{id}
 /// ```
 ///
-/// # OpenAPI Path Parameters
+/// # `OpenAPI` Path Parameters
 ///
-/// The `{id}` placeholder is an OpenAPI path parameter. When documented:
+/// The `{id}` placeholder is an `OpenAPI` path parameter. When documented:
 ///
 /// ```yaml
 /// /users/{id}:
@@ -580,13 +580,13 @@ pub fn build_collection_path(entity: &EntityDef) -> String {
 /// | `BlogPost` | - | - | `/blog-posts/{id}` |
 pub fn build_item_path(entity: &EntityDef) -> String {
     let collection = build_collection_path(entity);
-    format!("{}/{{id}}", collection)
+    format!("{collection}/{{id}}")
 }
 
 /// Generates the handler function name for a command.
 ///
 /// Command handlers follow the naming pattern `{command}_{entity}` in
-/// snake_case, consistent with the CRUD handler naming convention.
+/// `snake_case`, consistent with the CRUD handler naming convention.
 ///
 /// # Arguments
 ///

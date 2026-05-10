@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! DDL (Data Definition Language) generation for PostgreSQL.
+//! DDL (Data Definition Language) generation for `PostgreSQL`.
 //!
 //! Generates CREATE TABLE, CREATE INDEX, and DROP TABLE statements.
 
@@ -94,12 +94,12 @@ fn generate_column_def(
 
     // DEFAULT value
     if let Some(ref default) = field.column().default {
-        parts.push(format!("DEFAULT {}", default));
+        parts.push(format!("DEFAULT {default}"));
     }
 
     // CHECK constraint
     if let Some(ref check) = field.column().check {
-        parts.push(format!("CHECK ({})", check));
+        parts.push(format!("CHECK ({check})"));
     }
 
     // Foreign key REFERENCES from #[belongs_to]
@@ -108,7 +108,7 @@ fn generate_column_def(
     {
         let parent_table = parent.to_string().to_case(Case::Snake);
         let ref_table = entity.full_table_name_for(&pluralize(&parent_table));
-        let mut fk_str = format!("REFERENCES {}(id)", ref_table);
+        let mut fk_str = format!("REFERENCES {ref_table}(id)");
 
         if let Some(action) = &field.storage.on_delete {
             fk_str.push_str(&format!(" ON DELETE {}", action.as_sql()));
@@ -126,13 +126,12 @@ fn generate_single_index(entity: &EntityDef, field: &FieldDef) -> String {
     let column = field.column_name();
 
     let index_type = field.column().index.unwrap_or_default();
-    let index_name = format!("idx_{}_{}", table, column);
+    let index_name = format!("idx_{table}_{column}");
     let using = index_type.as_sql_using();
     let qualified_table = entity.full_table_name_for(&table);
 
     format!(
-        "CREATE INDEX IF NOT EXISTS {} ON {}{} ({});\n",
-        index_name, qualified_table, using, column
+        "CREATE INDEX IF NOT EXISTS {index_name} ON {qualified_table}{using} ({column});\n"
     )
 }
 
@@ -146,12 +145,11 @@ fn generate_composite_index(entity: &EntityDef, idx: &CompositeIndexDef) -> Stri
     let qualified_table = entity.full_table_name_for(&table);
 
     let mut sql = format!(
-        "CREATE {}INDEX IF NOT EXISTS {} ON {}{} ({})",
-        unique_str, index_name, qualified_table, using, columns
+        "CREATE {unique_str}INDEX IF NOT EXISTS {index_name} ON {qualified_table}{using} ({columns})"
     );
 
     if let Some(ref where_clause) = idx.where_clause {
-        sql.push_str(&format!(" WHERE {}", where_clause));
+        sql.push_str(&format!(" WHERE {where_clause}"));
     }
 
     sql.push_str(";\n");
@@ -161,11 +159,11 @@ fn generate_composite_index(entity: &EntityDef, idx: &CompositeIndexDef) -> Stri
 /// Simple pluralization for table names.
 fn pluralize(s: &str) -> String {
     if s.ends_with('s') || s.ends_with("sh") || s.ends_with("ch") || s.ends_with('x') {
-        format!("{}es", s)
+        format!("{s}es")
     } else if s.ends_with('y') && !s.ends_with("ay") && !s.ends_with("ey") && !s.ends_with("oy") {
         format!("{}ies", &s[..s.len() - 1])
     } else {
-        format!("{}s", s)
+        format!("{s}s")
     }
 }
 

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! PostgreSQL repository implementation generator.
+//! `PostgreSQL` repository implementation generator.
 //!
 //! Generates `impl {Name}Repository for sqlx::PgPool` with complete CRUD
 //! operations. This is the primary database backend, providing full SQL support
@@ -78,7 +78,7 @@ use quote::quote;
 
 use crate::{entity::parse::EntityDef, utils::marker};
 
-/// Generate PostgreSQL repository implementation.
+/// Generate `PostgreSQL` repository implementation.
 ///
 /// Creates `impl {Name}Repository for sqlx::PgPool` with all CRUD methods,
 /// relation methods, projection methods, query method, soft delete methods,

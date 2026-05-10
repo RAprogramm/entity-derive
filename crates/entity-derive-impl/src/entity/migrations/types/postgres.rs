@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! PostgreSQL type mapping.
+//! `PostgreSQL` type mapping.
 //!
-//! Maps Rust types to PostgreSQL types for migration generation.
+//! Maps Rust types to `PostgreSQL` types for migration generation.
 //!
 //! # Type Mapping Table
 //!
@@ -32,14 +32,14 @@ use syn::Type;
 use super::{SqlType, TypeMapper};
 use crate::entity::parse::ColumnConfig;
 
-/// PostgreSQL type mapper.
+/// `PostgreSQL` type mapper.
 ///
-/// Converts Rust types to PostgreSQL SQL types with full support for:
+/// Converts Rust types to `PostgreSQL` SQL types with full support for:
 /// - Primitive types (integers, floats, booleans)
 /// - String types with optional VARCHAR length
 /// - Date/time types from chrono
 /// - UUID from uuid crate
-/// - JSON from serde_json
+/// - JSON from `serde_json`
 /// - Arrays via Vec<T>
 /// - Nullable types via Option<T>
 pub struct PostgresTypeMapper;
@@ -80,7 +80,7 @@ impl TypeMapper for PostgresTypeMapper {
     }
 }
 
-/// Map a Rust type path to PostgreSQL type name.
+/// Map a Rust type path to `PostgreSQL` type name.
 fn map_type_name(ty: &Type, column: &ColumnConfig) -> String {
     let type_str = type_path_string(ty);
 
@@ -91,7 +91,7 @@ fn map_type_name(ty: &Type, column: &ColumnConfig) -> String {
         // Strings
         "String" | "str" => {
             if let Some(len) = column.varchar {
-                format!("VARCHAR({})", len)
+                format!("VARCHAR({len})")
             } else {
                 "TEXT".to_string()
             }

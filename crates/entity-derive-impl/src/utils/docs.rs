@@ -3,13 +3,13 @@
 
 //! Documentation extraction utilities.
 //!
-//! Extracts doc comments from Rust attributes for use in OpenAPI descriptions.
+//! Extracts doc comments from Rust attributes for use in `OpenAPI` descriptions.
 //!
 //! # Doc Comment Format
 //!
 //! In Rust, doc comments (`///` and `/** */`) are stored as `#[doc = "..."]`
 //! attributes. This module extracts and cleans those comments for use in
-//! OpenAPI documentation.
+//! `OpenAPI` documentation.
 //!
 //! # Example
 //!

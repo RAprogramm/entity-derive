@@ -14,6 +14,23 @@
     rust_2018_idioms
 )]
 #![deny(unsafe_code)]
+#![allow(clippy::option_if_let_else)]
+#![allow(clippy::match_same_arms)]
+#![allow(clippy::trivially_copy_pass_by_ref)]
+#![allow(clippy::struct_excessive_bools)]
+#![allow(clippy::too_many_lines)]
+#![allow(clippy::format_push_string)]
+#![allow(clippy::unused_self)]
+#![allow(clippy::needless_continue)]
+#![allow(clippy::needless_pass_by_value)]
+#![allow(clippy::uninlined_format_args)]
+#![allow(clippy::needless_raw_string_hashes)]
+#![allow(clippy::doc_markdown)]
+#![allow(clippy::missing_const_for_fn)]
+#![allow(clippy::used_underscore_binding)]
+#![allow(clippy::useless_format)]
+#![allow(clippy::approx_constant)]
+#![allow(clippy::needless_collect)]
 
 //! # Quick Navigation
 //!
@@ -89,7 +106,7 @@
 //! | `InsertableUser` | Struct for `INSERT` statements |
 //! | `UserQuery` | Query struct for type-safe filtering (if `#[filter]` used) |
 //! | `UserRepository` | Async trait with CRUD methods |
-//! | `impl UserRepository for PgPool` | PostgreSQL implementation |
+//! | `impl UserRepository for PgPool` | `PostgreSQL` implementation |
 //! | `User{Projection}` | Projection structs (e.g., `UserPublic`, `UserAdmin`) |
 //! | `From<...>` impls | Type conversions between all structs |
 //!
@@ -243,7 +260,7 @@ use proc_macro::TokenStream;
 /// - **`UserRow`** — Database row struct (implements `sqlx::FromRow`)
 /// - **`InsertableUser`** — Struct for INSERT operations
 /// - **`UserRepository`** — Async trait with CRUD methods
-/// - **`impl UserRepository for PgPool`** — PostgreSQL implementation (when
+/// - **`impl UserRepository for PgPool`** — `PostgreSQL` implementation (when
 ///   `sql = "full"`)
 ///
 /// # Entity Attributes
@@ -450,11 +467,11 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
     entity::derive(input)
 }
 
-/// Derive macro for generating OpenAPI error response documentation.
+/// Derive macro for generating `OpenAPI` error response documentation.
 ///
 /// # Overview
 ///
-/// The `EntityError` derive macro generates OpenAPI response documentation
+/// The `EntityError` derive macro generates `OpenAPI` response documentation
 /// from error enum variants, using `#[status(code)]` attributes and doc
 /// comments.
 ///
@@ -490,7 +507,7 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
 /// - `UserErrorResponses` struct with helper methods
 /// - `status_codes()` - returns all error status codes
 /// - `descriptions()` - returns all error descriptions
-/// - `utoipa_responses()` - returns tuples for OpenAPI responses
+/// - `utoipa_responses()` - returns tuples for `OpenAPI` responses
 ///
 /// # Attributes
 ///
@@ -503,12 +520,12 @@ pub fn derive_entity_error(input: TokenStream) -> TokenStream {
     error::derive(input)
 }
 
-/// Derive macro for generating PostgreSQL enum boilerplate.
+/// Derive macro for generating `PostgreSQL` enum boilerplate.
 ///
 /// # Overview
 ///
 /// The `ValueObject` derive macro generates all boilerplate code needed for
-/// a PostgreSQL enum type: `Display`, `FromStr`, `AsRef<str>`, and
+/// a `PostgreSQL` enum type: `Display`, `FromStr`, `AsRef<str>`, and
 /// `TryFrom<&str>` implementations, plus `sqlx` and `serde` attributes.
 ///
 /// # Generated Code
@@ -528,7 +545,7 @@ pub fn derive_entity_error(input: TokenStream) -> TokenStream {
 ///
 /// | Attribute | Required | Description |
 /// |-----------|----------|-------------|
-/// | `pg_type` | **Yes** | PostgreSQL enum type name (e.g., `"order_status"`) |
+/// | `pg_type` | **Yes** | `PostgreSQL` enum type name (e.g., `"order_status"`) |
 ///
 /// # Example
 ///

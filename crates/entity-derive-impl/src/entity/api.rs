@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! HTTP API generation with OpenAPI documentation.
+//! HTTP API generation with `OpenAPI` documentation.
 //!
 //! This module generates axum handlers with utoipa annotations for entities
 //! with `#[entity(api(...))]` enabled.
@@ -45,7 +45,7 @@
 //! | `register_user` | Handler for POST /api/v1/users/register |
 //! | `update_email_user` | Handler for PUT /api/v1/users/{id}/update-email |
 //! | `user_router` | Router factory function |
-//! | `UserApi` | OpenApi struct for Swagger UI |
+//! | `UserApi` | `OpenApi` struct for Swagger UI |
 //!
 //! # Usage
 //!

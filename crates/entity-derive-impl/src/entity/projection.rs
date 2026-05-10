@@ -10,7 +10,7 @@
 //! |------------|----------|
 //! | `UserPublic` | Public profile (id, name, avatar) |
 //! | `UserAdmin` | Admin view (id, name, email, role) |
-//! | `PostSummary` | List view (id, title, created_at) |
+//! | `PostSummary` | List view (id, title, `created_at`) |
 //!
 //! # Definition
 //!

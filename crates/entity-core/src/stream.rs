@@ -32,8 +32,8 @@ impl<D> StreamError<D> {
 impl<D: fmt::Display> fmt::Display for StreamError<D> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Database(e) => write!(f, "database error: {}", e),
-            Self::Deserialize(e) => write!(f, "deserialize error: {}", e)
+            Self::Database(e) => write!(f, "database error: {e}"),
+            Self::Deserialize(e) => write!(f, "deserialize error: {e}")
         }
     }
 }
@@ -48,6 +48,7 @@ impl<D: std::error::Error + 'static> std::error::Error for StreamError<D> {
 }
 
 #[cfg(test)]
+#[allow(clippy::uninlined_format_args)]
 mod tests {
     use super::*;
 

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! Lookup method generators for PostgreSQL.
+//! Lookup method generators for `PostgreSQL`.
 //!
 //! Generates `find_by_{field}` and `exists_by_{field}` methods for fields
 //! with `#[column(unique)]` or `#[column(index)]` constraints.

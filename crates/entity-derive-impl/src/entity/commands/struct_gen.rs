@@ -109,7 +109,7 @@ fn generate_fields_tokens(fields: &[&FieldDef]) -> TokenStream {
         .map(|f| {
             let name = f.name();
             let ty = f.ty();
-            let doc = format!("Value for `{}`.", name);
+            let doc = format!("Value for `{name}`.");
             quote! {
                 #[doc = #doc]
                 pub #name: #ty,
@@ -127,7 +127,7 @@ fn generate_optional_fields_tokens(fields: &[&FieldDef]) -> TokenStream {
         .map(|f| {
             let name = f.name();
             let ty = f.ty();
-            let doc = format!("Optional new value for `{}`.", name);
+            let doc = format!("Optional new value for `{name}`.");
             quote! {
                 #[doc = #doc]
                 pub #name: Option<#ty>,
@@ -146,12 +146,12 @@ pub fn command_struct_name(entity: &EntityDef, cmd: &CommandDef) -> Ident {
 }
 
 /// Check if command uses custom payload type.
-pub fn uses_custom_payload(cmd: &CommandDef) -> bool {
+pub const fn uses_custom_payload(cmd: &CommandDef) -> bool {
     matches!(cmd.source, CommandSource::Custom(_))
 }
 
 /// Get custom payload type if present.
-pub fn custom_payload_type(cmd: &CommandDef) -> Option<&syn::Type> {
+pub const fn custom_payload_type(cmd: &CommandDef) -> Option<&syn::Type> {
     match &cmd.source {
         CommandSource::Custom(ty) => Some(ty),
         _ => None

@@ -11,9 +11,9 @@
 //!
 //! The helpers in this module are responsible for:
 //!
-//! - **Path Building**: Constructing RESTful URL paths following conventions
+//! - **Path Building**: Constructing `RESTful` URL paths following conventions
 //! - **Security Attributes**: Generating utoipa security annotations
-//! - **Deprecation Handling**: Adding deprecated markers to OpenAPI spec
+//! - **Deprecation Handling**: Adding deprecated markers to `OpenAPI` spec
 //!
 //! # Path Conventions
 //!
@@ -30,7 +30,7 @@
 //!
 //! Supported authentication schemes:
 //!
-//! | Scheme | OpenAPI Name | Description |
+//! | Scheme | `OpenAPI` Name | Description |
 //! |--------|--------------|-------------|
 //! | `cookie` | `cookieAuth` | JWT in HTTP-only cookie |
 //! | `bearer` | `bearerAuth` | JWT in Authorization header |
@@ -92,14 +92,14 @@ use crate::entity::parse::EntityDef;
 /// # Notes
 ///
 /// - Double slashes (`//`) are automatically normalized to single slashes
-/// - Entity names are converted from PascalCase to kebab-case
+/// - Entity names are converted from `PascalCase` to kebab-case
 /// - The plural form is naive (just adds "s"), not grammatically correct
 pub fn build_collection_path(entity: &EntityDef) -> String {
     let api_config = entity.api_config();
     let prefix = api_config.full_path_prefix();
     let entity_path = entity.name_str().to_case(Case::Kebab);
 
-    let path = format!("{}/{}s", prefix, entity_path);
+    let path = format!("{prefix}/{entity_path}s");
     path.replace("//", "/")
 }
 
@@ -136,7 +136,7 @@ pub fn build_collection_path(entity: &EntityDef) -> String {
 /// build_item_path(&entity) // "/blog-posts/{id}"
 /// ```
 ///
-/// # OpenAPI Integration
+/// # `OpenAPI` Integration
 ///
 /// The `{id}` placeholder is recognized by utoipa and generates:
 ///
@@ -148,7 +148,7 @@ pub fn build_collection_path(entity: &EntityDef) -> String {
 /// ```
 pub fn build_item_path(entity: &EntityDef) -> String {
     let collection = build_collection_path(entity);
-    format!("{}/{{id}}", collection)
+    format!("{collection}/{{id}}")
 }
 
 /// Generates the utoipa security attribute for a handler.
@@ -159,7 +159,7 @@ pub fn build_item_path(entity: &EntityDef) -> String {
 ///
 /// # Security Scheme Mapping
 ///
-/// | Config Value | OpenAPI Scheme | Authentication Method |
+/// | Config Value | `OpenAPI` Scheme | Authentication Method |
 /// |--------------|----------------|----------------------|
 /// | `"cookie"` | `cookieAuth` | JWT in HTTP-only cookie |
 /// | `"bearer"` | `bearerAuth` | JWT in Authorization header |
@@ -201,25 +201,22 @@ pub fn build_item_path(entity: &EntityDef) -> String {
 /// )]
 /// ```
 ///
-/// # OpenAPI Spec
+/// # `OpenAPI` Spec
 ///
 /// The generated security requirement references a security scheme
-/// that must be defined in the OpenAPI components. See
+/// that must be defined in the `OpenAPI` components. See
 /// [`crate::entity::api::openapi::security`] for scheme definitions.
 pub fn build_security_attr(entity: &EntityDef) -> TokenStream {
     let api_config = entity.api_config();
 
-    if let Some(security) = &api_config.security {
+    api_config.security.as_ref().map_or_else(TokenStream::new, |security| {
         let security_name = match security.as_str() {
-            "cookie" => "cookieAuth",
             "bearer" => "bearerAuth",
             "api_key" => "apiKey",
-            _ => "cookieAuth"
+            _ => "cookieAuth",
         };
         quote! { security((#security_name = [])) }
-    } else {
-        TokenStream::new()
-    }
+    })
 }
 
 /// Generates the deprecated attribute for API endpoints.
@@ -231,7 +228,7 @@ pub fn build_security_attr(entity: &EntityDef) -> TokenStream {
 ///
 /// 1. Entity marked with `api(deprecated_in = "v2")`
 /// 2. This function returns `deprecated = true` attribute
-/// 3. OpenAPI spec shows endpoint as deprecated
+/// 3. `OpenAPI` spec shows endpoint as deprecated
 /// 4. Swagger UI displays strikethrough on deprecated endpoints
 ///
 /// # Arguments

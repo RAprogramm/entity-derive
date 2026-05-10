@@ -1,13 +1,13 @@
 // SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! OpenAPI schema generation for DTOs and common types.
+//! `OpenAPI` schema generation for DTOs and common types.
 //!
-//! This module generates schema registrations for the OpenAPI components
+//! This module generates schema registrations for the `OpenAPI` components
 //! section. Schemas define the structure of request/response bodies and are
 //! referenced throughout the API specification.
 //!
-//! # OpenAPI Components/Schemas
+//! # `OpenAPI` Components/Schemas
 //!
 //! The components/schemas section contains reusable schema definitions:
 //!
@@ -53,7 +53,7 @@
 //! | `ErrorResponse` | RFC 7807 Problem Details | type, title, status, detail, code |
 //! | `PaginationQuery` | List endpoint params | limit, offset |
 //!
-//! # ErrorResponse Schema
+//! # `ErrorResponse` Schema
 //!
 //! Follows RFC 7807 "Problem Details for HTTP APIs":
 //!
@@ -67,7 +67,7 @@
 //! }
 //! ```
 //!
-//! # PaginationQuery Schema
+//! # `PaginationQuery` Schema
 //!
 //! Defines parameters for offset-based pagination:
 //!
@@ -94,7 +94,7 @@ use quote::quote;
 
 use crate::entity::parse::EntityDef;
 
-/// Generates the list of schema types to register with OpenAPI.
+/// Generates the list of schema types to register with `OpenAPI`.
 ///
 /// This function produces a comma-separated list of type identifiers
 /// for the `components(schemas(...))` attribute of `#[openapi]`.
@@ -156,10 +156,10 @@ pub fn generate_all_schema_types(entity: &EntityDef) -> TokenStream {
     quote! { #(#types),* }
 }
 
-/// Generates common schemas for the OpenAPI specification.
+/// Generates common schemas for the `OpenAPI` specification.
 ///
 /// This function produces code that registers `ErrorResponse` and
-/// `PaginationQuery` schemas in the OpenAPI components section. These
+/// `PaginationQuery` schemas in the `OpenAPI` components section. These
 /// schemas are built at runtime using utoipa's builder API rather than
 /// being derived from structs.
 ///
@@ -169,7 +169,7 @@ pub fn generate_all_schema_types(entity: &EntityDef) -> TokenStream {
 ///
 /// # Generated Schemas
 ///
-/// ## ErrorResponse
+/// ## `ErrorResponse`
 ///
 /// Implements RFC 7807 "Problem Details for HTTP APIs" with fields:
 ///
@@ -193,7 +193,7 @@ pub fn generate_all_schema_types(entity: &EntityDef) -> TokenStream {
 /// }
 /// ```
 ///
-/// ## PaginationQuery
+/// ## `PaginationQuery`
 ///
 /// Defines offset-based pagination parameters:
 ///

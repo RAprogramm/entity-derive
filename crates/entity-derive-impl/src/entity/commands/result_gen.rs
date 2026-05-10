@@ -7,7 +7,7 @@
 //!
 //! # Generated Code
 //!
-//! For `User` entity with Register, UpdateEmail, Deactivate commands:
+//! For `User` entity with Register, `UpdateEmail`, Deactivate commands:
 //!
 //! ```rust,ignore
 //! #[derive(Debug, Clone)]
@@ -41,9 +41,8 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     let variants = generate_variants(entity, commands);
 
     let doc = format!(
-        "Result enum for [`{}`] command execution.\n\n\
-         Each variant contains the result of the corresponding command.",
-        entity_name
+        "Result enum for [`{entity_name}`] command execution.\n\n\
+         Each variant contains the result of the corresponding command."
     );
 
     quote! {
@@ -90,7 +89,7 @@ fn generate_variants(entity: &EntityDef, commands: &[CommandDef]) -> TokenStream
                 }
             };
 
-            let doc = format!("Result of {} command.", variant_name);
+            let doc = format!("Result of {variant_name} command.");
 
             if let Some(ty) = result_type {
                 quote! {

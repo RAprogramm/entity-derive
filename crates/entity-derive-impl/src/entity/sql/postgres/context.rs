@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! Generation context for PostgreSQL repository.
+//! Generation context for `PostgreSQL` repository.
 //!
 //! Contains the [`Context`] struct that precomputes all identifiers and SQL
 //! fragments needed for method generation.
@@ -11,7 +11,7 @@ use quote::format_ident;
 use super::helpers::join_columns;
 use crate::entity::parse::{DatabaseDialect, EntityDef, ReturningMode};
 
-/// Context for PostgreSQL code generation.
+/// Context for `PostgreSQL` code generation.
 ///
 /// Precomputes all identifiers and SQL fragments needed for method generation.
 /// This avoids repeated computation and provides a clean API for method

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! ClickHouse implementation for repository code generation.
+//! `ClickHouse` implementation for repository code generation.
 //!
 //! # Status
 //!
@@ -11,7 +11,7 @@
 //!
 //! - Columnar storage optimizations
 //! - Batch insert support
-//! - MergeTree engine configuration
+//! - `MergeTree` engine configuration
 //! - Async insert mode
 
 use proc_macro2::TokenStream;
@@ -19,7 +19,7 @@ use quote::quote;
 
 use crate::entity::parse::EntityDef;
 
-/// Generate ClickHouse repository implementation.
+/// Generate `ClickHouse` repository implementation.
 ///
 /// Currently generates a compile error directing users to implement manually.
 pub fn generate(_entity: &EntityDef) -> TokenStream {

@@ -1,10 +1,10 @@
 // SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! CRUD handler generation with utoipa OpenAPI annotations.
+//! CRUD handler generation with utoipa `OpenAPI` annotations.
 //!
 //! This module generates production-ready REST API handlers for entities.
-//! Each handler includes comprehensive OpenAPI documentation via
+//! Each handler includes comprehensive `OpenAPI` documentation via
 //! `#[utoipa::path]` attributes, enabling automatic Swagger UI generation.
 //!
 //! # Overview
@@ -56,7 +56,7 @@
 //! ```
 //!
 //! This adds `401 Unauthorized` responses and security requirements to
-//! the OpenAPI spec.
+//! the `OpenAPI` spec.
 //!
 //! # Generated Code Structure
 //!
@@ -160,7 +160,7 @@ use crate::entity::parse::EntityDef;
 ///
 /// 1. **Check Configuration**: Reads `api(handlers(...))` from entity
 /// 2. **Filter Handlers**: Only generates handlers that are enabled
-/// 3. **Combine Output**: Merges all handler code into single TokenStream
+/// 3. **Combine Output**: Merges all handler code into single `TokenStream`
 ///
 /// # Arguments
 ///

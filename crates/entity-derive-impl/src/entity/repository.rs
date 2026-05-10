@@ -5,7 +5,7 @@
 //!
 //! Generates an async repository trait with standard CRUD operations.
 //! The trait serves as a database abstraction layer, allowing different
-//! backend implementations (PostgreSQL, ClickHouse, MongoDB).
+//! backend implementations (`PostgreSQL`, `ClickHouse`, `MongoDB`).
 //!
 //! # Generated Trait
 //!
@@ -184,7 +184,7 @@ fn generate_relation_methods(entity: &EntityDef, id_type: &syn::Type) -> TokenSt
     }
 }
 
-/// Generate a single `find_{entity}` method for a belongs_to relation.
+/// Generate a single `find_{entity}` method for a `belongs_to` relation.
 fn generate_belongs_to_method(field: &FieldDef, id_type: &syn::Type) -> Option<TokenStream> {
     let related_entity = field.belongs_to()?;
     let method_name = format_ident!("find_{}", related_entity.to_string().to_case(Case::Snake));
@@ -195,7 +195,7 @@ fn generate_belongs_to_method(field: &FieldDef, id_type: &syn::Type) -> Option<T
     })
 }
 
-/// Generate a `find_{entities}` method for a has_many relation.
+/// Generate a `find_{entities}` method for a `has_many` relation.
 fn generate_has_many_method(
     entity: &EntityDef,
     related: &syn::Ident,

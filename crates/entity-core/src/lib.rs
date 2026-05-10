@@ -37,7 +37,7 @@ pub mod prelude;
 pub mod stream;
 pub mod transaction;
 
-/// Re-export async_trait for generated code.
+/// Re-export `async_trait` for generated code.
 pub use async_trait::async_trait;
 
 /// Base repository trait.
@@ -120,6 +120,7 @@ impl Pagination {
     ///
     /// * `limit` — Maximum results to return
     /// * `offset` — Number of results to skip
+    #[must_use]
     pub const fn new(limit: i64, offset: i64) -> Self {
         Self {
             limit,
@@ -142,6 +143,7 @@ impl Pagination {
     /// let page_0 = Pagination::page(0, 25); // offset=0, limit=25
     /// let page_2 = Pagination::page(2, 25); // offset=50, limit=25
     /// ```
+    #[must_use]
     pub const fn page(page: i64, per_page: i64) -> Self {
         Self {
             limit:  per_page,
@@ -172,6 +174,7 @@ pub enum SortDirection {
 
 impl SortDirection {
     /// Convert to SQL keyword.
+    #[must_use]
     pub const fn as_sql(&self) -> &'static str {
         match self {
             Self::Asc => "ASC",
@@ -203,11 +206,13 @@ pub enum EventKind {
 
 impl EventKind {
     /// Check if this is a delete event (soft or hard).
+    #[must_use]
     pub const fn is_delete(&self) -> bool {
         matches!(self, Self::SoftDeleted | Self::HardDeleted)
     }
 
     /// Check if this is a mutation event (create, update, delete).
+    #[must_use]
     pub const fn is_mutation(&self) -> bool {
         !matches!(self, Self::Restored)
     }
@@ -245,7 +250,7 @@ pub enum CommandKind {
     /// Creates a new entity (e.g., Register, Create).
     Create,
 
-    /// Modifies an existing entity (e.g., UpdateEmail, ChangeStatus).
+    /// Modifies an existing entity (e.g., `UpdateEmail`, `ChangeStatus`).
     Update,
 
     /// Removes an entity (e.g., Delete, Deactivate).
@@ -257,11 +262,13 @@ pub enum CommandKind {
 
 impl CommandKind {
     /// Check if this command creates an entity.
+    #[must_use]
     pub const fn is_create(&self) -> bool {
         matches!(self, Self::Create)
     }
 
     /// Check if this command modifies state.
+    #[must_use]
     pub const fn is_mutation(&self) -> bool {
         !matches!(self, Self::Custom)
     }

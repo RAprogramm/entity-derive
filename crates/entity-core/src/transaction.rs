@@ -87,6 +87,7 @@ impl<'p, DB> Transaction<'p, DB> {
     }
 
     /// Get reference to the underlying pool.
+    #[must_use]
     pub const fn pool(&self) -> &'p DB {
         self.pool
     }
@@ -126,7 +127,8 @@ impl TransactionContext {
     ///
     /// * `tx` — Active database transaction
     #[doc(hidden)]
-    pub fn new(tx: sqlx::Transaction<'static, sqlx::Postgres>) -> Self {
+    #[must_use]
+    pub const fn new(tx: sqlx::Transaction<'static, sqlx::Postgres>) -> Self {
         Self {
             tx
         }
@@ -136,13 +138,17 @@ impl TransactionContext {
     ///
     /// Use this for custom queries within the transaction or
     /// for repository adapters to execute queries.
-    pub fn transaction(&mut self) -> &mut sqlx::Transaction<'static, sqlx::Postgres> {
+    pub const fn transaction(&mut self) -> &mut sqlx::Transaction<'static, sqlx::Postgres> {
         &mut self.tx
     }
 
     /// Commit the transaction.
     ///
     /// Consumes self and commits all changes.
+    ///
+    /// # Errors
+    ///
+    /// Propagates any `sqlx::Error` from the database transaction.
     pub async fn commit(self) -> Result<(), sqlx::Error> {
         self.tx.commit().await
     }
@@ -150,6 +156,10 @@ impl TransactionContext {
     /// Rollback the transaction.
     ///
     /// Consumes self and rolls back all changes.
+    ///
+    /// # Errors
+    ///
+    /// Propagates any `sqlx::Error` from the database transaction.
     pub async fn rollback(self) -> Result<(), sqlx::Error> {
         self.tx.rollback().await
     }
@@ -222,16 +232,16 @@ impl<E> TransactionError<E> {
 }
 
 #[cfg(feature = "postgres")]
-impl From<TransactionError<sqlx::Error>> for sqlx::Error {
-    fn from(err: TransactionError<sqlx::Error>) -> Self {
+impl From<TransactionError<Self>> for sqlx::Error {
+    fn from(err: TransactionError<Self>) -> Self {
         err.into_inner()
     }
 }
 
 // PostgreSQL implementation
 #[cfg(feature = "postgres")]
-impl<'p> Transaction<'p, sqlx::PgPool> {
-    /// Execute a closure within a PostgreSQL transaction.
+impl Transaction<'_, sqlx::PgPool> {
+    /// Execute a closure within a `PostgreSQL` transaction.
     ///
     /// Automatically commits on `Ok`, rolls back on `Err` or drop.
     ///
@@ -240,7 +250,7 @@ impl<'p> Transaction<'p, sqlx::PgPool> {
     /// - `F` — Closure type
     /// - `Fut` — Future returned by closure
     /// - `T` — Success type
-    /// - `E` — Error type (must be convertible from sqlx::Error)
+    /// - `E` — Error type (must be convertible from `sqlx::Error`)
     ///
     /// # Example
     ///
@@ -253,6 +263,10 @@ impl<'p> Transaction<'p, sqlx::PgPool> {
     ///     })
     ///     .await?;
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// Propagates any error from the closure or database transaction.
     pub async fn run<F, Fut, T, E>(self, f: F) -> Result<T, E>
     where
         F: FnOnce(TransactionContext) -> Fut + Send,
@@ -284,6 +298,10 @@ impl<'p> Transaction<'p, sqlx::PgPool> {
     ///     })
     ///     .await?;
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// Propagates any error from the closure or database transaction.
     pub async fn run_with_commit<F, Fut, T, E>(self, f: F) -> Result<T, E>
     where
         F: FnOnce(TransactionContext) -> Fut + Send,
@@ -297,6 +315,7 @@ impl<'p> Transaction<'p, sqlx::PgPool> {
 }
 
 #[cfg(test)]
+#[allow(clippy::uninlined_format_args)]
 mod tests {
     use std::error::Error;
 

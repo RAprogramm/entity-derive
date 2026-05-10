@@ -29,8 +29,8 @@ impl<R, P> PolicyError<R, P> {
 impl<R: fmt::Display, P: fmt::Display> fmt::Display for PolicyError<R, P> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Policy(e) => write!(f, "authorization denied: {}", e),
-            Self::Repository(e) => write!(f, "repository error: {}", e)
+            Self::Policy(e) => write!(f, "authorization denied: {e}"),
+            Self::Repository(e) => write!(f, "repository error: {e}")
         }
     }
 }
@@ -65,17 +65,20 @@ pub enum PolicyOperation {
 
 impl PolicyOperation {
     /// Check if this is a read-only operation.
+    #[must_use]
     pub const fn is_read_only(&self) -> bool {
         matches!(self, Self::Read | Self::List)
     }
 
     /// Check if this is a mutation operation.
+    #[must_use]
     pub const fn is_mutation(&self) -> bool {
         !self.is_read_only()
     }
 }
 
 #[cfg(test)]
+#[allow(clippy::uninlined_format_args)]
 mod tests {
     use std::error::Error;
 
