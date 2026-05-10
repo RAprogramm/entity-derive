@@ -37,4 +37,4 @@
 // Re-export derive macro
 // Re-export all core types
 pub use entity_core::*;
-pub use entity_derive_impl::Entity;
+pub use entity_derive_impl::{Entity, ValueObject};

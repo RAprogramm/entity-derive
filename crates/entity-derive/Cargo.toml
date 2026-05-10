@@ -3,9 +3,9 @@
 
 [package]
 name = "entity-derive"
-version = "0.5.0"
+version = "0.6.0"
 edition = "2024"
-rust-version = "1.92"
+rust-version = "1.95"
 authors = ["RAprogramm <andrey.rozanov.vl@gmail.com>"]
 description = "Derive macro for generating DTOs, repositories, and SQL from a single entity definition"
 license = "MIT"
@@ -25,8 +25,8 @@ api = []
 validate = []
 
 [dependencies]
-entity-core = { path = "../entity-core", version = "0.3.0" }
-entity-derive-impl = { path = "../entity-derive-impl", version = "0.3.0" }
+entity-core = { path = "../entity-core", version = "0.4" }
+entity-derive-impl = { path = "../entity-derive-impl", version = "0.4" }
 
 [dev-dependencies]
 trybuild = "1"
@@ -40,6 +40,7 @@ sqlx = { version = "0.8", features = [
   "postgres",
   "uuid",
   "chrono",
+  "derive",
 ] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 utoipa = { version = "5", features = ["chrono", "uuid"] }

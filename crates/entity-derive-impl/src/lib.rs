@@ -217,6 +217,7 @@
 mod entity;
 mod error;
 mod utils;
+mod value_object;
 
 use proc_macro::TokenStream;
 
@@ -500,4 +501,55 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(EntityError, attributes(status))]
 pub fn derive_entity_error(input: TokenStream) -> TokenStream {
     error::derive(input)
+}
+
+/// Derive macro for generating PostgreSQL enum boilerplate.
+///
+/// # Overview
+///
+/// The `ValueObject` derive macro generates all boilerplate code needed for
+/// a PostgreSQL enum type: `Display`, `FromStr`, `AsRef<str>`, and
+/// `TryFrom<&str>` implementations, plus `sqlx` and `serde` attributes.
+///
+/// # Generated Code
+///
+/// For an enum named `OrderStatus` with `pg_type = "order_status"`,
+/// the macro generates:
+///
+/// - **`Debug, Clone, PartialEq, Eq, PartialOrd`** derives
+/// - **`sqlx(type_name = "order_status", rename_all = "lowercase")`** attribute
+/// - **`serde(rename_all = "lowercase")`** attribute
+/// - **`impl Display`** — lowercase variant names
+/// - **`impl FromStr`** — case-insensitive parsing
+/// - **`impl AsRef<str>`** — lowercase string representation
+/// - **`impl TryFrom<&str>`** — delegates to `FromStr`
+///
+/// # Attributes
+///
+/// | Attribute | Required | Description |
+/// |-----------|----------|-------------|
+/// | `pg_type` | **Yes** | PostgreSQL enum type name (e.g., `"order_status"`) |
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use entity_derive::ValueObject;
+///
+/// #[derive(ValueObject)]
+/// #[value_object(pg_type = "order_status")]
+/// pub enum OrderStatus {
+///     Pending,
+///     Confirmed,
+///     Cancelled,
+/// }
+///
+/// // Generated:
+/// // impl Display for OrderStatus
+/// // impl FromStr for OrderStatus (case-insensitive)
+/// // impl AsRef<str> for OrderStatus
+/// // impl TryFrom<&str> for OrderStatus
+/// ```
+#[proc_macro_derive(ValueObject, attributes(value_object))]
+pub fn derive_value_object(input: TokenStream) -> TokenStream {
+    value_object::derive(input)
 }

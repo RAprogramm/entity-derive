@@ -269,5 +269,12 @@ pub struct EntityAttrs {
     /// // User::MIGRATION_DOWN → DROP TABLE core.users CASCADE
     /// ```
     #[darling(default)]
-    pub migrations: bool
+    pub migrations: bool,
+
+    /// Enable aggregate root pattern.
+    ///
+    /// When enabled, the entity is treated as an aggregate root in DDD.
+    #[darling(default)]
+    #[allow(dead_code)] // Reserved for future use
+    pub aggregate_root: bool
 }
