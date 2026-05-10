@@ -244,4 +244,61 @@ mod tests {
         assert!(tokens.contains("example"));
         assert!(tokens.contains("42"));
     }
+
+    #[test]
+    fn to_schema_attr_float() {
+        let example = ExampleValue::Float(3.14);
+        let tokens = example.to_schema_attr().to_string();
+        assert!(tokens.contains("example"));
+    }
+
+    #[test]
+    fn to_schema_attr_bool() {
+        let example = ExampleValue::Bool(true);
+        let tokens = example.to_schema_attr().to_string();
+        assert!(tokens.contains("example"));
+        assert!(tokens.contains("true"));
+    }
+
+    #[test]
+    fn to_tokens_string() {
+        let example = ExampleValue::String("test".to_string());
+        let tokens = example.to_tokens().to_string();
+        assert!(tokens.contains("test"));
+    }
+
+    #[test]
+    fn to_tokens_int() {
+        let example = ExampleValue::Int(42);
+        let tokens = example.to_tokens().to_string();
+        assert!(tokens.contains("42"));
+    }
+
+    #[test]
+    fn to_tokens_float() {
+        let example = ExampleValue::Float(2.71);
+        let tokens = example.to_tokens().to_string();
+        assert!(!tokens.is_empty());
+    }
+
+    #[test]
+    fn to_tokens_bool() {
+        let example = ExampleValue::Bool(false);
+        let tokens = example.to_tokens().to_string();
+        assert!(tokens.contains("false"));
+    }
+
+    #[test]
+    fn parse_example_expr_float() {
+        let attrs = parse_attrs(
+            r#"
+            struct Foo {
+                #[example = -0.5]
+                temp: f64,
+            }
+        "#
+        );
+        let example = parse_example_attr(&attrs);
+        assert!(matches!(example, Some(ExampleValue::Float(f)) if (f - (-0.5)).abs() < 0.001));
+    }
 }

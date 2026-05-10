@@ -359,4 +359,74 @@ mod tests {
         let attr: Attribute = parse_quote!(#[field(create)]);
         assert!(MapConfig::from_attr(&attr).is_none());
     }
+
+    #[test]
+    fn from_attr_namevalue_expr() {
+        let attr: Attribute = parse_quote!(#[map(expr = "row.raw.parse()")]);
+        let config = MapConfig::from_attr(&attr);
+        assert!(matches!(config, Some(MapConfig::Expr(s)) if s == "row.raw.parse()"));
+    }
+
+    #[test]
+    fn from_attr_path_only() {
+        let attr: Attribute = parse_quote!(#[map]);
+        let config = MapConfig::from_attr(&attr);
+        assert!(matches!(config, Some(MapConfig::None)));
+    }
+
+    #[test]
+    fn generate_unwrap_default_with_some() {
+        let config = MapConfig::UnwrapDefault;
+        let field = Ident::new("value", proc_macro2::Span::call_site());
+        let source = Ident::new("row", proc_macro2::Span::call_site());
+        let tokens = config.generate(&field, &source);
+        let tokens_str = tokens.to_string();
+        assert!(tokens_str.contains("Some"));
+        assert!(tokens_str.contains("unwrap_or_default"));
+    }
+
+    #[test]
+    fn generate_now_with_some() {
+        let config = MapConfig::Now;
+        let field = Ident::new("ts", proc_macro2::Span::call_site());
+        let source = Ident::new("row", proc_macro2::Span::call_site());
+        let tokens = config.generate(&field, &source);
+        let tokens_str = tokens.to_string();
+        assert!(tokens_str.contains("Some"));
+        assert!(tokens_str.contains("unwrap_or_else"));
+    }
+
+    #[test]
+    fn from_ident_with_numbers() {
+        let ident = Ident::new("empty_to_none", proc_macro2::Span::call_site());
+        assert!(matches!(
+            MapConfig::from_ident(&ident),
+            MapConfig::EmptyToNone
+        ));
+
+        let ident2 = Ident::new("unwrap_default", proc_macro2::Span::call_site());
+        assert!(matches!(
+            MapConfig::from_ident(&ident2),
+            MapConfig::UnwrapDefault
+        ));
+
+        let ident3 = Ident::new("now", proc_macro2::Span::call_site());
+        assert!(matches!(MapConfig::from_ident(&ident3), MapConfig::Now));
+    }
+
+    #[test]
+    fn parse_expr_with_spaces() {
+        let config = parse_map_attr(quote! { expr = "row.value.parse().unwrap_or(0)" });
+        assert!(matches!(config, MapConfig::Expr(s) if s.contains("parse")));
+    }
+
+    #[test]
+    fn generate_expr_complex() {
+        let config = MapConfig::Expr("row.custom.parse::<i32>().unwrap_or(42)".to_string());
+        let field = Ident::new("score", proc_macro2::Span::call_site());
+        let source = Ident::new("row", proc_macro2::Span::call_site());
+        let tokens = config.generate(&field, &source);
+        let tokens_str = tokens.to_string();
+        assert!(tokens_str.contains("unwrap_or"));
+    }
 }

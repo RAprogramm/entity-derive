@@ -438,4 +438,94 @@ mod tests {
         assert!(debug_str.contains("Begin"));
         assert!(debug_str.contains("test"));
     }
+
+    #[test]
+    fn transaction_error_into_inner_all_variants() {
+        let begin: TransactionError<String> = TransactionError::Begin("begin".to_string());
+        let commit: TransactionError<String> = TransactionError::Commit("commit".to_string());
+        let rollback: TransactionError<String> =
+            TransactionError::Rollback("rollback".to_string());
+        let operation: TransactionError<String> = TransactionError::Operation("op".to_string());
+
+        assert_eq!(begin.into_inner(), "begin");
+        assert_eq!(commit.into_inner(), "commit");
+        assert_eq!(rollback.into_inner(), "rollback");
+        assert_eq!(operation.into_inner(), "op");
+    }
+
+    #[test]
+    fn transaction_error_source_all_variants() {
+        let begin: TransactionError<std::io::Error> =
+            TransactionError::Begin(std::io::Error::other("src"));
+        let commit: TransactionError<std::io::Error> =
+            TransactionError::Commit(std::io::Error::other("src"));
+        let rollback: TransactionError<std::io::Error> =
+            TransactionError::Rollback(std::io::Error::other("src"));
+        let operation: TransactionError<std::io::Error> =
+            TransactionError::Operation(std::io::Error::other("src"));
+
+        assert!(begin.source().is_some());
+        assert!(commit.source().is_some());
+        assert!(rollback.source().is_some());
+        assert!(operation.source().is_some());
+    }
+
+    #[test]
+    fn transaction_error_display_all_variants() {
+        let begin: TransactionError<std::io::Error> =
+            TransactionError::Begin(std::io::Error::other("msg"));
+        let commit: TransactionError<std::io::Error> =
+            TransactionError::Commit(std::io::Error::other("msg"));
+        let rollback: TransactionError<std::io::Error> =
+            TransactionError::Rollback(std::io::Error::other("msg"));
+        let operation: TransactionError<std::io::Error> =
+            TransactionError::Operation(std::io::Error::other("msg"));
+
+        let begin_str = begin.to_string();
+        let commit_str = commit.to_string();
+        let rollback_str = rollback.to_string();
+        let operation_str = operation.to_string();
+
+        assert!(begin_str.contains("begin"));
+        assert!(commit_str.contains("commit"));
+        assert!(rollback_str.contains("rollback"));
+        assert!(operation_str.contains("operation"));
+    }
+
+    #[test]
+    fn transaction_error_is_all_variants() {
+        let begin: TransactionError<&str> = TransactionError::Begin("e");
+        let commit: TransactionError<&str> = TransactionError::Commit("e");
+        let rollback: TransactionError<&str> = TransactionError::Rollback("e");
+        let operation: TransactionError<&str> = TransactionError::Operation("e");
+
+        assert!(begin.is_begin());
+        assert!(commit.is_commit());
+        assert!(rollback.is_rollback());
+        assert!(operation.is_operation());
+
+        assert!(!begin.is_commit());
+        assert!(!begin.is_rollback());
+        assert!(!begin.is_operation());
+
+        assert!(!commit.is_begin());
+        assert!(!commit.is_rollback());
+        assert!(!commit.is_operation());
+
+        assert!(!rollback.is_begin());
+        assert!(!rollback.is_commit());
+        assert!(!rollback.is_operation());
+
+        assert!(!operation.is_begin());
+        assert!(!operation.is_commit());
+        assert!(!operation.is_rollback());
+    }
+
+    #[test]
+    fn transaction_builder_new_const() {
+        struct MockPool;
+        let pool = MockPool;
+        let tx = Transaction::new(&pool);
+        let _ = tx;
+    }
 }

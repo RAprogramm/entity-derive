@@ -322,4 +322,141 @@ mod tests {
         assert!(attrs_str.contains("max_length"));
         assert!(attrs_str.contains("email"));
     }
+
+    #[test]
+    fn parse_regex_pattern() {
+        let attrs = parse_attrs(
+            r#"
+            struct Foo {
+                #[validate(regex = "^[a-zA-Z]+$")]
+                name: String,
+            }
+        "#
+        );
+        let config = parse_validation_attrs(&attrs);
+        assert_eq!(config.pattern, Some("^[a-zA-Z]+$".to_string()));
+    }
+
+    #[test]
+    fn schema_attrs_with_minimum() {
+        let config = ValidationConfig {
+            minimum: Some(0),
+            maximum: Some(100),
+            ..Default::default()
+        };
+
+        let attrs = config.to_schema_attrs();
+        let attrs_str = attrs.to_string();
+
+        assert!(attrs_str.contains("minimum"));
+        assert!(attrs_str.contains("maximum"));
+    }
+
+    #[test]
+    fn schema_attrs_with_url() {
+        let config = ValidationConfig {
+            url: true,
+            ..Default::default()
+        };
+
+        let attrs = config.to_schema_attrs();
+        let attrs_str = attrs.to_string();
+
+        assert!(attrs_str.contains("format"));
+        assert!(attrs_str.contains("uri"));
+    }
+
+    #[test]
+    fn schema_attrs_with_pattern() {
+        let config = ValidationConfig {
+            pattern: Some("^[0-9]+$".to_string()),
+            ..Default::default()
+        };
+
+        let attrs = config.to_schema_attrs();
+        let attrs_str = attrs.to_string();
+
+        assert!(attrs_str.contains("pattern"));
+    }
+
+    #[test]
+    fn schema_attrs_empty_returns_empty() {
+        let config = ValidationConfig::default();
+        let attrs = config.to_schema_attrs();
+        assert!(attrs.is_empty());
+    }
+
+    #[test]
+    fn has_validation_with_min_length() {
+        let config = ValidationConfig {
+            min_length: Some(5),
+            ..Default::default()
+        };
+        assert!(config.has_validation());
+    }
+
+    #[test]
+    fn has_validation_with_pattern() {
+        let config = ValidationConfig {
+            pattern: Some("test".to_string()),
+            ..Default::default()
+        };
+        assert!(config.has_validation());
+    }
+
+    #[test]
+    fn has_validation_with_minimum() {
+        let config = ValidationConfig {
+            minimum: Some(1),
+            ..Default::default()
+        };
+        assert!(config.has_validation());
+    }
+
+    #[test]
+    fn has_validation_with_maximum() {
+        let config = ValidationConfig {
+            maximum: Some(100),
+            ..Default::default()
+        };
+        assert!(config.has_validation());
+    }
+
+    #[test]
+    fn has_validation_with_max_length() {
+        let config = ValidationConfig {
+            max_length: Some(255),
+            ..Default::default()
+        };
+        assert!(config.has_validation());
+    }
+
+    #[test]
+    fn has_validation_all_fields() {
+        let config = ValidationConfig {
+            min_length: Some(1),
+            max_length: Some(100),
+            minimum: Some(0),
+            maximum: Some(1000),
+            email: true,
+            url: true,
+            pattern: Some("test".to_string()),
+            ..Default::default()
+        };
+        assert!(config.has_validation());
+    }
+
+    #[test]
+    fn raw_attrs_stored() {
+        let attrs = parse_attrs(
+            r#"
+            struct Foo {
+                #[validate(length(min = 1))]
+                name: String,
+            }
+        "#
+        );
+        let config = parse_validation_attrs(&attrs);
+        assert!(!config.raw_attrs.is_empty());
+    }
 }
