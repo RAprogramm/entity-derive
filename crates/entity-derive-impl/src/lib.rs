@@ -443,7 +443,7 @@ use proc_macro::TokenStream;
     Entity,
     attributes(
         entity, field, id, auto, validate, belongs_to, has_many, projection, filter, command,
-        example, column
+        example, column, map
     )
 )]
 pub fn derive_entity(input: TokenStream) -> TokenStream {

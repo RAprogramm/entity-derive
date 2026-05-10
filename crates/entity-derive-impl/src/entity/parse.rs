@@ -124,7 +124,7 @@ pub use entity::{CompositeIndexDef, EntityDef, ProjectionDef};
 #[allow(unused_imports)] // Will be used for OpenAPI schema examples (#80)
 pub use field::ExampleValue;
 #[allow(unused_imports)] // Re-exported for migration generation tests
-pub use field::{ColumnConfig, FieldDef, FilterType, IndexType};
+pub use field::{ColumnConfig, FieldDef, FilterType, IndexType, MapConfig};
 pub use returning::ReturningMode;
 pub use sql_level::SqlLevel;
 pub use uuid_version::UuidVersion;

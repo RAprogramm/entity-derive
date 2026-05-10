@@ -30,6 +30,7 @@ mod column;
 mod example;
 mod expose;
 mod filter;
+pub mod map;
 mod storage;
 mod validation;
 
@@ -37,6 +38,7 @@ pub use column::{ColumnConfig, IndexType, ReferentialAction};
 pub use example::ExampleValue;
 pub use expose::ExposeConfig;
 pub use filter::{FilterConfig, FilterType};
+pub use map::MapConfig;
 pub use storage::StorageConfig;
 use syn::{Attribute, Field, Ident, Type};
 pub use validation::ValidationConfig;
@@ -130,7 +132,13 @@ pub struct FieldDef {
     ///
     /// Parsed from `#[example = ...]` attribute.
     #[allow(dead_code)] // Will be used for OpenAPI schema examples (#80)
-    pub example: Option<ExampleValue>
+    pub example: Option<ExampleValue>,
+
+    /// Row-to-entity mapping configuration.
+    ///
+    /// Parsed from `#[map(...)]` attributes for transforming fields
+    /// in the `From<Row> for Entity` implementation.
+    pub map: MapConfig
 }
 
 impl FieldDef {
@@ -155,6 +163,7 @@ impl FieldDef {
         let mut storage = StorageConfig::default();
         let mut filter = FilterConfig::default();
         let mut column = ColumnConfig::default();
+        let mut map = MapConfig::default();
 
         for attr in &field.attrs {
             if attr.path().is_ident("id") {
@@ -171,6 +180,10 @@ impl FieldDef {
                 filter = FilterConfig::from_attr(attr);
             } else if attr.path().is_ident("column") {
                 column = ColumnConfig::from_attr(attr);
+            } else if attr.path().is_ident("map") {
+                if let Some(parsed) = MapConfig::from_attr(attr) {
+                    map = parsed;
+                }
             }
         }
 
@@ -183,7 +196,8 @@ impl FieldDef {
             column,
             doc,
             validation,
-            example
+            example,
+            map
         })
     }
 
@@ -325,6 +339,22 @@ impl FieldDef {
     #[must_use]
     pub fn column(&self) -> &ColumnConfig {
         &self.column
+    }
+
+    /// Get the row-to-entity mapping configuration.
+    ///
+    /// Returns the parsed mapping rules for the `From<Row> for Entity`
+    /// implementation.
+    #[must_use]
+    pub fn map(&self) -> &MapConfig {
+        &self.map
+    }
+
+    /// Check if this field has a mapping configuration.
+    #[must_use]
+    #[allow(dead_code)] // Public API for future use
+    pub fn has_map(&self) -> bool {
+        !matches!(self.map, MapConfig::None)
     }
 
     /// Check if this column has a UNIQUE constraint.
@@ -595,5 +625,65 @@ mod tests {
         assert!(field.is_unique());
         assert!(field.has_index());
         assert_eq!(field.column().default, Some("NOW()".to_string()));
+    }
+
+    #[test]
+    fn field_map_empty_to_none() {
+        let field = parse_field(quote::quote! {
+            #[map(empty_to_none)]
+            pub nickname: Option<String>
+        });
+        assert!(matches!(field.map(), MapConfig::EmptyToNone));
+        assert!(field.has_map());
+    }
+
+    #[test]
+    fn field_map_unwrap_default() {
+        let field = parse_field(quote::quote! {
+            #[map(unwrap_default)]
+            pub age: Option<i32>
+        });
+        assert!(matches!(field.map(), MapConfig::UnwrapDefault));
+        assert!(field.has_map());
+    }
+
+    #[test]
+    fn field_map_now() {
+        let field = parse_field(quote::quote! {
+            #[map(now)]
+            pub last_seen: Option<chrono::DateTime<chrono::Utc>>
+        });
+        assert!(matches!(field.map(), MapConfig::Now));
+        assert!(field.has_map());
+    }
+
+    #[test]
+    fn field_map_expr() {
+        let field = parse_field(quote::quote! {
+            #[map(expr = "row.raw.parse().unwrap_or(0)")]
+            pub score: i32
+        });
+        assert!(matches!(field.map(), MapConfig::Expr(s) if s == "row.raw.parse().unwrap_or(0)"));
+        assert!(field.has_map());
+    }
+
+    #[test]
+    fn field_no_map() {
+        let field = parse_field(quote::quote! { pub name: String });
+        assert!(matches!(field.map(), MapConfig::None));
+        assert!(!field.has_map());
+    }
+
+    #[test]
+    fn field_map_with_other_attrs() {
+        let field = parse_field(quote::quote! {
+            #[field(create, response)]
+            #[map(empty_to_none)]
+            pub nickname: Option<String>
+        });
+        assert!(field.in_create());
+        assert!(field.in_response());
+        assert!(matches!(field.map(), MapConfig::EmptyToNone));
+        assert!(field.has_map());
     }
 }
