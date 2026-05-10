@@ -103,6 +103,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     let query_method = generate_query_method(entity);
     let stream_method = generate_stream_method(entity);
     let lookup_methods = generate_lookup_methods(entity, id_type);
+    let save_method = generate_save_method(entity);
     let marker = marker::generated();
 
     quote! {
@@ -147,6 +148,8 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             #projection_methods
 
             #soft_delete_methods
+
+            #save_method
         }
     }
 }
@@ -430,6 +433,29 @@ fn generate_trait_method(def: &LookupMethodDef) -> TokenStream {
     quote! {
         #doc_comment
         async fn #method_name(&self, #param_name: #param_type) -> Result<#return_type, Self::Error>;
+    }
+}
+
+/// Generate `save` method for aggregate root entities.
+///
+/// When `aggregate_root` is enabled, replaces `create` with `save` that takes
+/// `New{Entity}` and performs a transactional insert of the parent and all
+/// children.
+fn generate_save_method(entity: &EntityDef) -> TokenStream {
+    if !entity.is_aggregate_root() {
+        return TokenStream::new();
+    }
+
+    let entity_name = entity.name();
+    let new_name = entity.ident_with("New", "");
+
+    quote! {
+        /// Save an aggregate root with all its children in a single transaction.
+        ///
+        /// This method inserts the parent entity and all child entities
+        /// atomically. If any child insert fails, the entire operation
+        /// is rolled back.
+        async fn save(&self, new: #new_name) -> Result<#entity_name, Self::Error>;
     }
 }
 

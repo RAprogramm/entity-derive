@@ -67,6 +67,7 @@ mod notify;
 mod projections;
 mod query;
 mod relations;
+mod save;
 mod soft_delete;
 
 pub mod helpers;
@@ -110,6 +111,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     let projection_impls = ctx.projection_methods();
     let soft_delete_impls = ctx.soft_delete_methods();
     let lookup_impls = ctx.lookup_methods();
+    let save_impl = ctx.save_method();
     let marker = marker::generated();
 
     quote! {
@@ -135,6 +137,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             #relation_impls
             #projection_impls
             #soft_delete_impls
+            #save_impl
         }
     }
 }

@@ -307,6 +307,12 @@ impl EntityDef {
         &self.api_config
     }
 
+    /// Check if aggregate root pattern is enabled.
+    #[must_use]
+    pub fn is_aggregate_root(&self) -> bool {
+        self.aggregate_root
+    }
+
     /// Get fields with `#[column(unique)]` or `#[column(index)]`.
     ///
     /// These fields are used to generate lookup methods

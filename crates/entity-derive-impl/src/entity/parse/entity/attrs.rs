@@ -269,7 +269,7 @@ pub struct EntityAttrs {
     /// Enable aggregate root pattern.
     ///
     /// When enabled, the entity is treated as an aggregate root in DDD.
+    /// Generates `New{Name}` structs and a transactional `save` method.
     #[darling(default)]
-    #[allow(dead_code)] // Reserved for future use
     pub aggregate_root: bool
 }

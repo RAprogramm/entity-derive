@@ -215,5 +215,12 @@ pub struct EntityDef {
     /// Composite index definitions from `#[entity(index(...))]`.
     ///
     /// Each entry defines an index spanning multiple columns.
-    pub indexes: Vec<CompositeIndexDef>
+    pub indexes: Vec<CompositeIndexDef>,
+
+    /// Enable aggregate root pattern.
+    ///
+    /// When `true`, generates `New{Name}` structs for create-only DTOs,
+    /// `From<New{Name}>` impls with UUID generation, and a transactional
+    /// `save` method on the repository trait.
+    pub aggregate_root: bool
 }

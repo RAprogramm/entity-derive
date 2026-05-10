@@ -163,7 +163,8 @@ impl EntityDef {
             api_config,
             doc,
             migrations: attrs.migrations,
-            indexes
+            indexes,
+            aggregate_root: attrs.aggregate_root
         })
     }
 }

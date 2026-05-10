@@ -69,6 +69,7 @@ mod hooks;
 mod insertable;
 mod mappers;
 mod migrations;
+pub mod new_entity;
 pub mod parse;
 mod policy;
 mod projection;
@@ -110,6 +111,7 @@ fn generate(entity: EntityDef) -> TokenStream {
     let row = row::generate(&entity);
     let insertable = insertable::generate(&entity);
     let mappers = mappers::generate(&entity);
+    let new_entity = new_entity::generate(&entity);
     let sql = sql::generate(&entity);
     let migrations = migrations::generate(&entity);
 
@@ -128,6 +130,7 @@ fn generate(entity: EntityDef) -> TokenStream {
         #row
         #insertable
         #mappers
+        #new_entity
         #sql
         #migrations
     };
