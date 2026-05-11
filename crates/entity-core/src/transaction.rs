@@ -300,10 +300,14 @@ impl Transaction<'_, sqlx::PgPool> {
     /// # Errors
     ///
     /// Propagates any error from the closure, from `begin`, or from `commit`.
+    #[cfg_attr(
+        feature = "tracing",
+        ::tracing::instrument(skip_all, fields(op = "tx.run"), err(Debug))
+    )]
     pub async fn run<F, T, E>(self, f: F) -> Result<T, E>
     where
         F: AsyncFnOnce(&mut TransactionContext) -> Result<T, E>,
-        E: From<sqlx::Error>
+        E: From<sqlx::Error> + core::fmt::Debug
     {
         let tx = self.pool.begin().await.map_err(E::from)?;
         let mut ctx = TransactionContext::new(tx);
@@ -377,11 +381,15 @@ impl Transaction<'_, sqlx::PgPool> {
     /// # Errors
     ///
     /// Propagates any error from the closure or database transaction.
+    #[cfg_attr(
+        feature = "tracing",
+        ::tracing::instrument(skip_all, fields(op = "tx.run_with_commit"), err(Debug))
+    )]
     pub async fn run_with_commit<F, Fut, T, E>(self, f: F) -> Result<T, E>
     where
         F: FnOnce(TransactionContext) -> Fut + Send,
         Fut: Future<Output = Result<T, E>> + Send,
-        E: From<sqlx::Error>
+        E: From<sqlx::Error> + core::fmt::Debug
     {
         let tx = self.pool.begin().await.map_err(E::from)?;
         let ctx = TransactionContext::new(tx);

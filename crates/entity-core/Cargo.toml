@@ -3,7 +3,7 @@
 
 [package]
 name = "entity-core"
-version = "0.5.4"
+version = "0.6.0"
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
@@ -21,6 +21,7 @@ postgres = ["sqlx"]
 clickhouse = []
 mongodb = []
 streams = ["serde", "serde_json", "futures"]
+tracing = ["dep:tracing"]
 
 [dependencies]
 async-trait = "0.1"
@@ -30,6 +31,7 @@ sqlx = { version = "0.8", optional = true, default-features = false, features = 
 serde = { version = "1", features = ["derive"], optional = true }
 serde_json = { version = "1", optional = true }
 futures = { version = "0.3", optional = true }
+tracing = { version = "0.1", optional = true }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt"] }

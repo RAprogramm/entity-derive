@@ -13,6 +13,7 @@ default = ["postgres", "api"]
 postgres = []
 api = []
 validate = []
+tracing = []
 
 [dependencies]
 entity-derive = { path = "../../crates/entity-derive", features = ["postgres", "api"] }

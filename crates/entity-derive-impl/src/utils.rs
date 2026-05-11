@@ -10,7 +10,9 @@
 //! - [`docs`] — Documentation extraction from attributes
 //! - [`fields`] — Field assignment generation for `From` implementations
 //! - [`marker`] — Generated code marker comments
+//! - [`tracing`] — Optional `#[tracing::instrument]` attribute emission
 
 pub mod docs;
 pub mod fields;
 pub mod marker;
+pub mod tracing;

@@ -13,6 +13,11 @@ default = ["postgres", "api"]
 postgres = []
 api = []
 validate = []
+# Acknowledge the feature gate that entity-derive emits on generated
+# methods. We don't actually enable tracing instrumentation here, but
+# declaring the feature silences `unexpected cfg condition value`
+# warnings introduced by the cfg-check tightening in Rust 1.80+.
+tracing = []
 
 [dependencies]
 entity-derive = { path = "../../crates/entity-derive", features = ["postgres", "api"] }

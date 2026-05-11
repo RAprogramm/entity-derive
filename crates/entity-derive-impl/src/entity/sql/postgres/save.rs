@@ -41,7 +41,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 
 use super::context::Context;
-use crate::entity::parse::SqlLevel;
+use crate::{entity::parse::SqlLevel, utils::tracing::instrument};
 
 impl Context<'_> {
     /// Generate the `save` method implementation for aggregate roots.
@@ -73,7 +73,10 @@ impl Context<'_> {
         let bindings = super::helpers::insert_bindings(self.entity.all_fields());
         let error_type = self.entity.error_type();
 
+        let span = instrument(&entity_name.to_string(), "save");
+
         quote! {
+            #span
             async fn save(&self, new: #new_name) -> Result<#entity_name, #error_type> {
                 let mut tx = self.begin().await?;
 
