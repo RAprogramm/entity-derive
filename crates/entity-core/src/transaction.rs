@@ -313,21 +313,63 @@ impl Transaction<'_, sqlx::PgPool> {
 
     /// Execute a closure within a transaction with explicit commit.
     ///
-    /// Unlike [`run`](Self::run), this method passes `TransactionContext` by
-    /// value so the closure can call `ctx.commit().await` (or
-    /// `ctx.rollback().await`) itself. If the closure returns without
-    /// committing, the transaction is rolled back when `ctx` is dropped.
+    /// # ⚠️ The closure MUST call `ctx.commit().await` on every successful path
     ///
-    /// Use this when you need conditional commit logic; otherwise prefer `run`.
+    /// `run_with_commit` hands ownership of [`TransactionContext`] to the
+    /// closure. There is no type-level guarantee that the closure commits;
+    /// if it returns `Ok(...)` without calling
+    /// [`commit`][TransactionContext::commit], `ctx` is dropped and the
+    /// underlying `sqlx::Transaction::Drop` **silently rolls back**. The
+    /// caller observes `Ok` and assumes the writes persisted — they did
+    /// not. This is the same failure mode that affected the old `run()`
+    /// implementation; here it is preserved on purpose so callers can
+    /// implement conditional commit logic, at the cost of moving the
+    /// responsibility onto the closure.
     ///
-    /// # Example
+    /// **Prefer [`run`](Self::run) unless you genuinely need to decide
+    /// commit-or-rollback inside the closure.** `run` performs the commit
+    /// automatically on `Ok` and rolls back on `Err`, eliminating this
+    /// footgun.
+    ///
+    /// # Examples
+    ///
+    /// **Correct** — closure commits on the success path:
     ///
     /// ```rust,ignore
     /// Transaction::new(&pool)
     ///     .run_with_commit(|mut ctx| async move {
     ///         let user = ctx.users().create(dto).await?;
-    ///         ctx.commit().await?;
+    ///         ctx.commit().await?;     // <-- required
     ///         Ok(user)
+    ///     })
+    ///     .await?;
+    /// ```
+    ///
+    /// **Wrong** — closure returns `Ok` without committing; the write is
+    /// rolled back when `ctx` drops, but the caller sees `Ok(user)`:
+    ///
+    /// ```rust,ignore
+    /// Transaction::new(&pool)
+    ///     .run_with_commit(|mut ctx| async move {
+    ///         let user = ctx.users().create(dto).await?;
+    ///         // BUG: forgot `ctx.commit().await?` — the row is rolled back.
+    ///         Ok(user)
+    ///     })
+    ///     .await?;
+    /// ```
+    ///
+    /// **Conditional commit** — the intended use case:
+    ///
+    /// ```rust,ignore
+    /// Transaction::new(&pool)
+    ///     .run_with_commit(|mut ctx| async move {
+    ///         let user = ctx.users().create(dto).await?;
+    ///         if user.flagged {
+    ///             ctx.rollback().await?;
+    ///             return Ok(None);
+    ///         }
+    ///         ctx.commit().await?;
+    ///         Ok(Some(user))
     ///     })
     ///     .await?;
     /// ```
