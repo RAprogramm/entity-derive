@@ -6,6 +6,25 @@
 //! Generates a hooks trait for entities with `#[entity(hooks)]`.
 //! Hooks provide before/after callbacks for CRUD operations.
 //!
+//! # ⚠️ Status: trait emitted, invocation is manual (as of 0.8.2)
+//!
+//! This module emits the `{Entity}Hooks` trait for the user to
+//! implement. **The generated repository methods do not call it
+//! automatically yet.** The generated `impl {Entity}Repository for
+//! sqlx::PgPool` lives in a different crate from any user-provided
+//! `impl …Hooks for PgPool`, and Rust's orphan rule prevents the user
+//! from wiring the two together after the fact.
+//!
+//! Until full auto-invocation lands, the supported pattern is:
+//!
+//! 1. Implement `{Entity}Hooks` on a type you own (typically a wrapper around
+//!    `PgPool` or a service struct in your application).
+//! 2. Call the hook methods explicitly at your handler / service layer around
+//!    the calls into the generated CRUD methods. See
+//!    `examples/hooks/src/main.rs` for the wiring pattern.
+//!
+//! Tracking auto-invocation: [issue #127](https://github.com/RAprogramm/entity-derive/issues/127).
+//!
 //! # Generated Code
 //!
 //! For an entity `User`, generates:
@@ -24,12 +43,14 @@
 //! }
 //! ```
 //!
-//! # Usage
+//! # Usage (manual wiring)
 //!
 //! ```rust,ignore
-//! struct MyRepo(PgPool);
+//! struct AppService {
+//!     pool: PgPool,
+//! }
 //!
-//! impl UserHooks for MyRepo {
+//! impl UserHooks for AppService {
 //!     type Error = AppError;
 //!
 //!     async fn before_create(&self, dto: &mut CreateUserRequest) -> Result<(), Self::Error> {
@@ -41,6 +62,14 @@
 //!         send_welcome_email(&user.email).await?;
 //!         Ok(())
 //!     }
+//! }
+//!
+//! // At your handler layer:
+//! async fn create_user(svc: &AppService, mut req: CreateUserRequest) -> Result<User, AppError> {
+//!     svc.before_create(&mut req).await?;
+//!     let user = <PgPool as UserRepository>::create(&svc.pool, req).await?;
+//!     svc.after_create(&user).await?;
+//!     Ok(user)
 //! }
 //! ```
 
@@ -78,11 +107,21 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
         /// Implement this trait to add custom logic before/after CRUD operations.
         /// All methods have default no-op implementations.
         ///
+        /// # ⚠️ Invocation is manual
+        ///
+        /// The generated `Repository` impl on `sqlx::PgPool` does **not**
+        /// call these hooks automatically. Implement the trait on a type
+        /// you own (e.g. a service struct that wraps the pool) and call
+        /// the hook methods explicitly around your repository calls.
+        /// See `examples/hooks` and the module docs for the wiring pattern.
+        ///
+        /// Tracking auto-invocation: <https://github.com/RAprogramm/entity-derive/issues/127>.
+        ///
         /// # Error Handling
         ///
-        /// If a `before_*` hook returns an error, the operation is aborted.
-        /// If an `after_*` hook returns an error, the operation has already
-        /// completed but the error is propagated to the caller.
+        /// If a `before_*` hook returns an error, the caller should abort
+        /// the operation. If an `after_*` hook returns an error, the
+        /// operation has already completed but the error is propagated.
         #[async_trait::async_trait]
         #vis trait #hooks_trait: Send + Sync {
             /// Error type for hook operations.
