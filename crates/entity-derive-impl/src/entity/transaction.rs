@@ -305,13 +305,28 @@ fn generate_context_extension(entity: &EntityDef) -> TokenStream {
     }
 }
 
-/// Simple pluralization - adds 's' to the end.
+/// English pluralization for transaction accessor names.
 ///
-/// Handles some common cases:
-/// - Words ending in 's', 'x', 'z', 'ch', 'sh' -> add 'es'
-/// - Words ending in consonant + 'y' -> replace 'y' with 'ies'
-/// - Otherwise -> add 's'
+/// Used only to build method names like `ctx.<plural>()` and
+/// `Transaction::with_<plural>()`, so this is a "good enough" inflector,
+/// not a grammar engine. It covers:
+///
+/// 1. **Common irregulars** — explicit map for `child`, `person`, `mouse`,
+///    `goose`, `foot`, `tooth`, `man`, `woman`, `datum`, `criterion`. Anything
+///    not in this list falls through to the rules.
+/// 2. **`+es` after sibilants** — words ending in `s`, `x`, `z`, `ch`, `sh` →
+///    suffix `es`.
+/// 3. **Consonant + `y` → `ies`** — `category` → `categories`.
+/// 4. **Default `+s`** — every other word.
+///
+/// Anything more exotic than the irregulars above (Latin/Greek plurals,
+/// foreign loanwords, etc.) keeps the regular `+s` result — rename the
+/// entity or open an issue for a `#[entity(plural = "...")]` override.
 fn pluralize(word: &str) -> String {
+    if let Some(plural) = irregular_plural(word) {
+        return plural;
+    }
+
     if word.ends_with('s')
         || word.ends_with('x')
         || word.ends_with('z')
@@ -329,5 +344,149 @@ fn pluralize(word: &str) -> String {
         format!("{word}s")
     } else {
         format!("{word}s")
+    }
+}
+
+/// Look up a word in the built-in irregular-plural table.
+///
+/// Returns `Some(plural)` if `word` is one of the recognised irregulars
+/// (case-insensitive match on the singular), preserving the original
+/// casing strategy of the input: lower-case input → lower-case plural,
+/// title-case input → title-case plural.
+fn irregular_plural(word: &str) -> Option<String> {
+    /// `(singular, plural)` pairs in lower-case. Order is not significant.
+    const IRREGULARS: &[(&str, &str)] = &[
+        ("child", "children"),
+        ("person", "people"),
+        ("mouse", "mice"),
+        ("goose", "geese"),
+        ("foot", "feet"),
+        ("tooth", "teeth"),
+        ("man", "men"),
+        ("woman", "women"),
+        ("datum", "data"),
+        ("criterion", "criteria")
+    ];
+
+    let lower = word.to_ascii_lowercase();
+    let (_, plural) = IRREGULARS.iter().find(|(singular, _)| *singular == lower)?;
+
+    // entity names enter `pluralize` already in snake_case (the caller
+    // converts them via `convert_case`), so the input is always
+    // lower-case here. Keep the dual path anyway so the helper stays
+    // robust if a future caller passes a mixed-case word.
+    if word.chars().next().is_some_and(char::is_uppercase) {
+        let mut capitalised = String::with_capacity(plural.len());
+        let mut chars = plural.chars();
+        if let Some(first) = chars.next() {
+            capitalised.extend(first.to_uppercase());
+            capitalised.extend(chars);
+        }
+        Some(capitalised)
+    } else {
+        Some((*plural).to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn regular_plurals_unchanged() {
+        assert_eq!(pluralize("user"), "users");
+        assert_eq!(pluralize("order"), "orders");
+        assert_eq!(pluralize("account"), "accounts");
+    }
+
+    #[test]
+    fn sibilant_suffix_adds_es() {
+        assert_eq!(pluralize("box"), "boxes");
+        assert_eq!(pluralize("class"), "classes");
+        assert_eq!(pluralize("buzz"), "buzzes");
+        assert_eq!(pluralize("match"), "matches");
+        assert_eq!(pluralize("brush"), "brushes");
+    }
+
+    #[test]
+    fn consonant_y_becomes_ies() {
+        assert_eq!(pluralize("category"), "categories");
+        assert_eq!(pluralize("country"), "countries");
+        assert_eq!(pluralize("history"), "histories");
+    }
+
+    #[test]
+    fn vowel_y_stays_y_plus_s() {
+        assert_eq!(pluralize("day"), "days");
+        assert_eq!(pluralize("key"), "keys");
+        assert_eq!(pluralize("boy"), "boys");
+    }
+
+    #[test]
+    fn irregular_child_becomes_children() {
+        assert_eq!(pluralize("child"), "children");
+    }
+
+    #[test]
+    fn irregular_person_becomes_people() {
+        assert_eq!(pluralize("person"), "people");
+    }
+
+    #[test]
+    fn irregular_mouse_becomes_mice() {
+        assert_eq!(pluralize("mouse"), "mice");
+    }
+
+    #[test]
+    fn irregular_goose_becomes_geese() {
+        assert_eq!(pluralize("goose"), "geese");
+    }
+
+    #[test]
+    fn irregular_foot_becomes_feet() {
+        assert_eq!(pluralize("foot"), "feet");
+    }
+
+    #[test]
+    fn irregular_tooth_becomes_teeth() {
+        assert_eq!(pluralize("tooth"), "teeth");
+    }
+
+    #[test]
+    fn irregular_man_becomes_men() {
+        assert_eq!(pluralize("man"), "men");
+    }
+
+    #[test]
+    fn irregular_woman_becomes_women() {
+        assert_eq!(pluralize("woman"), "women");
+    }
+
+    #[test]
+    fn irregular_datum_becomes_data() {
+        assert_eq!(pluralize("datum"), "data");
+    }
+
+    #[test]
+    fn irregular_criterion_becomes_criteria() {
+        assert_eq!(pluralize("criterion"), "criteria");
+    }
+
+    #[test]
+    fn irregular_lookup_is_case_insensitive() {
+        // Title-case input keeps its capitalisation in the result.
+        assert_eq!(pluralize("Child"), "Children");
+        assert_eq!(pluralize("Person"), "People");
+        // Lower-case still works.
+        assert_eq!(pluralize("child"), "children");
+    }
+
+    #[test]
+    fn irregular_does_not_match_compound_words() {
+        // The lookup is exact, so a word that merely *contains* an
+        // irregular substring stays in the regular rule path. This avoids
+        // surprises like `childcare → childrencare`.
+        assert_eq!(pluralize("childcare"), "childcares");
+        assert_eq!(pluralize("manager"), "managers");
     }
 }
