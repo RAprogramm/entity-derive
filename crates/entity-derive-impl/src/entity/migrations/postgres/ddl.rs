@@ -130,9 +130,7 @@ fn generate_single_index(entity: &EntityDef, field: &FieldDef) -> String {
     let using = index_type.as_sql_using();
     let qualified_table = entity.full_table_name_for(&table);
 
-    format!(
-        "CREATE INDEX IF NOT EXISTS {index_name} ON {qualified_table}{using} ({column});\n"
-    )
+    format!("CREATE INDEX IF NOT EXISTS {index_name} ON {qualified_table}{using} ({column});\n")
 }
 
 /// Generate CREATE INDEX for a composite index.

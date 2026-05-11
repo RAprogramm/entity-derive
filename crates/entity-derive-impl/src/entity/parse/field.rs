@@ -181,9 +181,10 @@ impl FieldDef {
             } else if attr.path().is_ident("column") {
                 column = ColumnConfig::from_attr(attr);
             } else if attr.path().is_ident("map")
-                && let Some(parsed) = MapConfig::from_attr(attr) {
-                    map = parsed;
-                }
+                && let Some(parsed) = MapConfig::from_attr(attr)
+            {
+                map = parsed;
+            }
         }
 
         Ok(Self {

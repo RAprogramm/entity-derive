@@ -3,7 +3,8 @@
 
 //! Documentation extraction utilities.
 //!
-//! Extracts doc comments from Rust attributes for use in `OpenAPI` descriptions.
+//! Extracts doc comments from Rust attributes for use in `OpenAPI`
+//! descriptions.
 //!
 //! # Doc Comment Format
 //!

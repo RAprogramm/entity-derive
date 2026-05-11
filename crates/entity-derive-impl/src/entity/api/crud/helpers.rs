@@ -209,14 +209,17 @@ pub fn build_item_path(entity: &EntityDef) -> String {
 pub fn build_security_attr(entity: &EntityDef) -> TokenStream {
     let api_config = entity.api_config();
 
-    api_config.security.as_ref().map_or_else(TokenStream::new, |security| {
-        let security_name = match security.as_str() {
-            "bearer" => "bearerAuth",
-            "api_key" => "apiKey",
-            _ => "cookieAuth",
-        };
-        quote! { security((#security_name = [])) }
-    })
+    api_config
+        .security
+        .as_ref()
+        .map_or_else(TokenStream::new, |security| {
+            let security_name = match security.as_str() {
+                "bearer" => "bearerAuth",
+                "api_key" => "apiKey",
+                _ => "cookieAuth"
+            };
+            quote! { security((#security_name = [])) }
+        })
 }
 
 /// Generates the deprecated attribute for API endpoints.

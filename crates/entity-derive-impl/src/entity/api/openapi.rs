@@ -3,10 +3,10 @@
 
 //! `OpenAPI` struct generation for utoipa 5.x.
 //!
-//! This module generates complete `OpenAPI` documentation structs that implement
-//! `utoipa::OpenApi` for seamless Swagger UI integration. It leverages the
-//! `Modify` trait pattern to dynamically add security schemes, paths, and
-//! additional components at runtime.
+//! This module generates complete `OpenAPI` documentation structs that
+//! implement `utoipa::OpenApi` for seamless Swagger UI integration. It
+//! leverages the `Modify` trait pattern to dynamically add security schemes,
+//! paths, and additional components at runtime.
 //!
 //! # Architecture Overview
 //!

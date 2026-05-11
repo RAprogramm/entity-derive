@@ -3,8 +3,8 @@
 
 //! `ValueObject` derive macro implementation.
 //!
-//! Generates trait implementations for `PostgreSQL` enum types: Display, `FromStr`,
-//! `AsRef`<str>, and `TryFrom`<&str>.
+//! Generates trait implementations for `PostgreSQL` enum types: Display,
+//! `FromStr`, `AsRef`\<str\>, and `TryFrom`\<&str\>.
 //!
 //! # Example
 //!
@@ -186,7 +186,8 @@ fn generate(input: &DeriveInput) -> syn::Result<TokenStream2> {
 ///
 /// # Returns
 ///
-/// The `pg_type` string, or an error if no `#[value_object]` attribute is found.
+/// The `pg_type` string, or an error if no `#[value_object]` attribute is
+/// found.
 ///
 /// # Errors
 ///

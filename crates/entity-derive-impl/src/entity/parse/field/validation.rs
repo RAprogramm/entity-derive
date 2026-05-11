@@ -139,7 +139,10 @@ pub fn parse_validation_attrs(attrs: &[Attribute]) -> ValidationConfig {
             match path_str.as_deref() {
                 Some("length") => {
                     meta.parse_nested_meta(|nested| {
-                        let nested_path = nested.path.get_ident().map(std::string::ToString::to_string);
+                        let nested_path = nested
+                            .path
+                            .get_ident()
+                            .map(std::string::ToString::to_string);
                         match nested_path.as_deref() {
                             Some("min") => {
                                 let value: syn::LitInt = nested.value()?.parse()?;
@@ -156,7 +159,10 @@ pub fn parse_validation_attrs(attrs: &[Attribute]) -> ValidationConfig {
                 }
                 Some("range") => {
                     meta.parse_nested_meta(|nested| {
-                        let nested_path = nested.path.get_ident().map(std::string::ToString::to_string);
+                        let nested_path = nested
+                            .path
+                            .get_ident()
+                            .map(std::string::ToString::to_string);
                         match nested_path.as_deref() {
                             Some("min") => {
                                 let value: syn::LitInt = nested.value()?.parse()?;

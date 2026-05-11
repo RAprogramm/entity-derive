@@ -136,7 +136,9 @@ impl EntityDef {
 
     /// Check if this entity has any filterable fields.
     pub fn has_filters(&self) -> bool {
-        self.fields.iter().any(super::super::field::FieldDef::has_filter)
+        self.fields
+            .iter()
+            .any(super::super::field::FieldDef::has_filter)
     }
 
     /// Get has-many relations defined via `#[has_many(Entity)]`.

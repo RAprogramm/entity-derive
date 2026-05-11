@@ -133,10 +133,13 @@ impl EntityDef {
         let indexes = parse_index_attrs(&input.attrs);
         let doc = extract_doc_comments(&input.attrs);
 
-        let id_field_index = fields.iter().position(super::super::field::FieldDef::is_id).ok_or_else(|| {
-            darling::Error::custom("Entity must have exactly one field with #[id] attribute")
-                .with_span(&input.ident)
-        })?;
+        let id_field_index = fields
+            .iter()
+            .position(super::super::field::FieldDef::is_id)
+            .ok_or_else(|| {
+                darling::Error::custom("Entity must have exactly one field with #[id] attribute")
+                    .with_span(&input.ident)
+            })?;
 
         Ok(Self {
             ident: attrs.ident,

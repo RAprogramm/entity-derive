@@ -23,7 +23,8 @@ use syn::{Attribute, Meta};
 
 /// Index type for database indexes.
 ///
-/// `PostgreSQL` supports multiple index types optimized for different use cases.
+/// `PostgreSQL` supports multiple index types optimized for different use
+/// cases.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum IndexType {
     /// B-tree index (default). Best for equality and range queries.
