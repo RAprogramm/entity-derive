@@ -1,0 +1,5 @@
+error: expected `=`
+  --> tests/cases/fail/map_nested_meta_invalid.rs:17:30
+   |
+17 |     #[map(empty_to_none, expr(missing_equals))]
+   |                              ^

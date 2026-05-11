@@ -1,0 +1,7 @@
+error: `#[map(expr = "...")]` contains an invalid Rust expression: unexpected token
+  --> tests/cases/fail/map_expr_invalid.rs:10:10
+   |
+10 | #[derive(Entity)]
+   |          ^^^^^^
+   |
+   = note: this error originates in the derive macro `Entity` (in Nightly builds, run with -Z macro-backtrace for more info)

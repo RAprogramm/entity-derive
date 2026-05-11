@@ -50,7 +50,7 @@ use syn::{Attribute, Ident};
 ///
 /// Defines how a field should be transformed when mapping from a database row
 /// to the entity struct in the `From<Row> for Entity` implementation.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Default)]
 pub enum MapConfig {
     /// No mapping transformation.
     #[default]
@@ -95,8 +95,9 @@ pub enum MapConfig {
 
     /// Raw expression escape hatch.
     ///
-    /// The expression is used verbatim in the generated code.
-    /// No validation or transformation is applied.
+    /// The expression is parsed lazily in [`MapConfig::generate`]. If the
+    /// string is not a valid Rust expression, generation emits a
+    /// `compile_error!` instead of producing empty tokens.
     ///
     /// # Example
     ///
@@ -104,7 +105,14 @@ pub enum MapConfig {
     /// #[map(expr = "row.raw_value.parse().unwrap_or(0)")]
     /// pub field: i32
     /// ```
-    Expr(String)
+    Expr(String),
+
+    /// Attribute parsing failed.
+    ///
+    /// Stores the [`syn::Error`] surfaced while interpreting `#[map(...)]`.
+    /// [`MapConfig::generate`] turns this into a `compile_error!` so the
+    /// user sees a diagnostic instead of silently degraded codegen.
+    Invalid(syn::Error)
 }
 
 impl MapConfig {
@@ -135,7 +143,7 @@ impl MapConfig {
 
                 // Try nested meta: #[map(empty_to_none, expr = "...")]
                 let mut result = Self::None;
-                let _ = meta_list.parse_nested_meta(|meta| {
+                if let Err(err) = meta_list.parse_nested_meta(|meta| {
                     if meta.path.is_ident("empty_to_none") {
                         result = Self::EmptyToNone;
                     } else if meta.path.is_ident("unwrap_default") {
@@ -148,7 +156,9 @@ impl MapConfig {
                         result = Self::Expr(value.value());
                     }
                     Ok(())
-                });
+                }) {
+                    return Some(Self::Invalid(err));
+                }
 
                 Some(result)
             }
@@ -217,10 +227,16 @@ impl MapConfig {
             Self::Now => {
                 quote! { Some(#source_name.#field_name.unwrap_or_else(chrono::Utc::now)) }
             }
-            Self::Expr(expr) => {
-                let expr_tokens: TokenStream = expr.parse().unwrap_or_default();
-                quote! { #expr_tokens }
-            }
+            Self::Expr(expr) => match syn::parse_str::<syn::Expr>(expr) {
+                Ok(parsed) => quote! { #parsed },
+                Err(e) => {
+                    let msg = format!(
+                        "`#[map(expr = \"...\")]` contains an invalid Rust expression: {e}"
+                    );
+                    quote! { compile_error!(#msg) }
+                }
+            },
+            Self::Invalid(err) => err.to_compile_error()
         }
     }
 }
@@ -427,5 +443,73 @@ mod tests {
         let tokens = config.generate(&field, &source);
         let tokens_str = tokens.to_string();
         assert!(tokens_str.contains("unwrap_or"));
+    }
+
+    // Regression tests for error reporting in `#[map(...)]` parsing.
+    //
+    // Previously, `MapConfig::generate` swallowed parse errors via
+    // `unwrap_or_default()` and `MapConfig::from_attr` discarded
+    // `parse_nested_meta` errors via `let _ = ...`. Both paths now surface
+    // diagnostics as `compile_error!` tokens.
+
+    #[test]
+    fn generate_expr_invalid_syntax_emits_compile_error() {
+        let config = MapConfig::Expr("invalid $$$ rust".to_string());
+        let field = Ident::new("any", proc_macro2::Span::call_site());
+        let source = Ident::new("row", proc_macro2::Span::call_site());
+        let tokens = config.generate(&field, &source).to_string();
+        assert!(
+            tokens.contains("compile_error"),
+            "expected compile_error! token, got: {tokens}"
+        );
+        assert!(
+            tokens.contains("invalid Rust expression"),
+            "expected diagnostic message, got: {tokens}"
+        );
+    }
+
+    #[test]
+    fn generate_expr_invalid_syntax_is_not_empty_tokenstream() {
+        // Regression: the old code returned `TokenStream::default()` on parse
+        // failure, which produced cryptic downstream errors. The new code
+        // must emit a non-empty diagnostic.
+        let config = MapConfig::Expr("$$$".to_string());
+        let field = Ident::new("any", proc_macro2::Span::call_site());
+        let source = Ident::new("row", proc_macro2::Span::call_site());
+        let tokens = config.generate(&field, &source);
+        assert!(
+            !tokens.is_empty(),
+            "compile_error! must be emitted instead of empty tokens"
+        );
+    }
+
+    #[test]
+    fn from_attr_invalid_nested_meta_becomes_invalid_variant() {
+        // `expr` requires `= "..."`; using `expr(foo)` is malformed and the
+        // nested-meta parser should report it. Previously the error was
+        // dropped, leaving `MapConfig::None` and no diagnostic.
+        let attr: Attribute = parse_quote!(#[map(empty_to_none, expr(foo))]);
+        let config = MapConfig::from_attr(&attr);
+        assert!(
+            matches!(config, Some(MapConfig::Invalid(_))),
+            "expected Invalid variant carrying the parse error, got: {config:?}"
+        );
+    }
+
+    #[test]
+    fn invalid_variant_generates_compile_error_tokens() {
+        let err = syn::Error::new(proc_macro2::Span::call_site(), "bad map attr");
+        let config = MapConfig::Invalid(err);
+        let field = Ident::new("any", proc_macro2::Span::call_site());
+        let source = Ident::new("row", proc_macro2::Span::call_site());
+        let tokens = config.generate(&field, &source).to_string();
+        assert!(
+            tokens.contains("compile_error"),
+            "Invalid must emit compile_error!, got: {tokens}"
+        );
+        assert!(
+            tokens.contains("bad map attr"),
+            "error message must be preserved, got: {tokens}"
+        );
     }
 }

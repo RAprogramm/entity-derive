@@ -157,7 +157,7 @@ pub fn row_assigns(fields: &[FieldDef], source: &str) -> Vec<TokenStream> {
         .map(|f: &FieldDef| {
             let name = f.name();
             let map = f.map();
-            if map == &MapConfig::None {
+            if matches!(map, MapConfig::None) {
                 quote! { #name: #src.#name }
             } else {
                 let expr = map.generate(name, &src);
