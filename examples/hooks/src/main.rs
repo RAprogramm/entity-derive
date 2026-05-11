@@ -8,6 +8,16 @@
 //! - before_create, after_create
 //! - before_update, after_update
 //! - before_delete, after_delete
+//!
+//! # Manual wiring required (as of 0.8.2)
+//!
+//! The macro emits the `{Entity}Hooks` trait, but the generated
+//! `Repository` impl on `sqlx::PgPool` does NOT call it automatically.
+//! See the HTTP handlers below — each one calls `svc.before_*().await?`
+//! and `svc.after_*().await?` explicitly around the repository call.
+//! That is the supported pattern for now.
+//!
+//! Auto-invocation is tracked in <https://github.com/RAprogramm/entity-derive/issues/127>.
 
 use std::sync::Arc;
 

@@ -118,7 +118,7 @@ tracing-subscriber = "0.3"
 | **Transactions** | Multi-entity atomic operations |
 | **Lifecycle Events** | `Created`, `Updated`, `Deleted` events |
 | **Real-Time Streams** | Postgres LISTEN/NOTIFY integration |
-| **Lifecycle Hooks** | `before_create`, `after_update`, etc. |
+| **Lifecycle Hook Traits** | `{Entity}Hooks` trait emitted with `before_create` / `after_update` / etc.; invocation is currently manual at your service layer (tracking auto-invocation: [#127](https://github.com/RAprogramm/entity-derive/issues/127)) |
 | **CQRS Commands** | Business-oriented command pattern |
 | **Soft Delete** | `deleted_at` timestamp support |
 | **Structured Logging** | Opt-in `tracing` feature wraps every generated async method in `#[tracing::instrument]` with `entity` + `op` fields |
