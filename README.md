@@ -228,7 +228,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 With a subscriber initialized, a failed `User::create` surfaces as:
 
-```
+```text
 ERROR entity.User.create: error=database error: duplicate key value violates unique constraint
   in entity.User.create with entity="User" op="create"
 ```

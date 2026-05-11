@@ -34,6 +34,29 @@ use super::{
 };
 use crate::{entity::parse::ReturningMode, utils::tracing::instrument};
 
+/// Return the `(open, close, executor)` token fragments that bracket
+/// streams-aware DML.
+///
+/// - When `streams` is `true`, the caller wraps its work in a transaction so
+///   the DML and the subsequent `pg_notify` participate in one atomic unit.
+///   `open` opens the transaction, `close` commits it, and `executor` is `&mut
+///   *tx` (the right argument for `.execute` / `.fetch_one` on a transaction
+///   handle).
+/// - When `streams` is `false`, the wrapping fragments are empty and the
+///   executor is `self`, keeping the generated method a single SQL round-trip
+///   with no behavior change vs. earlier releases.
+fn tx_wrapping(streams: bool) -> (TokenStream, TokenStream, TokenStream) {
+    if streams {
+        (
+            quote! { let mut tx = self.begin().await?; },
+            quote! { tx.commit().await?; },
+            quote! { &mut *tx }
+        )
+    } else {
+        (TokenStream::new(), TokenStream::new(), quote! { self })
+    }
+}
+
 impl Context<'_> {
     /// Generate the `create` method implementation.
     ///
@@ -63,74 +86,86 @@ impl Context<'_> {
             placeholders_str,
             entity,
             returning,
+            streams,
             ..
         } = self;
         let bindings = insert_bindings(entity.all_fields());
 
         let span = instrument(&entity_name.to_string(), "create");
+        // When `streams` is on, the DML and the `pg_notify` must commit as
+        // one unit: Postgres only broadcasts `NOTIFY` on commit and discards
+        // it on rollback, so wrapping both in a transaction eliminates the
+        // crash-between-commit-and-notify window. Non-streams entities keep
+        // the single-statement fast path.
+        let (tx_open, tx_close, executor) = tx_wrapping(*streams);
+        let notify = self.notify_created();
 
         match returning {
             ReturningMode::Full => {
-                let notify = self.notify_created();
                 quote! {
                     #span
                     async fn create(&self, dto: #create_dto) -> Result<#entity_name, Self::Error> {
+                        #tx_open
                         let entity = #entity_name::from(dto);
                         let insertable = #insertable_name::from(&entity);
                         let row: #row_name = sqlx::query_as(
                             concat!("INSERT INTO ", #table, " (", #columns_str, ") VALUES (", #placeholders_str, ") RETURNING *")
                         )
                             #(#bindings)*
-                            .fetch_one(self).await?;
+                            .fetch_one(#executor).await?;
                         let entity = #entity_name::from(row);
                         #notify
+                        #tx_close
                         Ok(entity)
                     }
                 }
             }
             ReturningMode::Id => {
                 let id_name = self.id_name;
-                let notify = self.notify_created();
                 quote! {
                     #span
                     async fn create(&self, dto: #create_dto) -> Result<#entity_name, Self::Error> {
+                        #tx_open
                         let entity = #entity_name::from(dto);
                         let insertable = #insertable_name::from(&entity);
                         sqlx::query(concat!("INSERT INTO ", #table, " (", #columns_str, ") VALUES (", #placeholders_str, ") RETURNING ", stringify!(#id_name)))
                             #(#bindings)*
-                            .execute(self).await?;
+                            .execute(#executor).await?;
                         #notify
+                        #tx_close
                         Ok(entity)
                     }
                 }
             }
             ReturningMode::None => {
-                let notify = self.notify_created();
                 quote! {
                     #span
                     async fn create(&self, dto: #create_dto) -> Result<#entity_name, Self::Error> {
+                        #tx_open
                         let entity = #entity_name::from(dto);
                         let insertable = #insertable_name::from(&entity);
                         sqlx::query(concat!("INSERT INTO ", #table, " (", #columns_str, ") VALUES (", #placeholders_str, ")"))
                             #(#bindings)*
-                            .execute(self).await?;
+                            .execute(#executor).await?;
                         #notify
+                        #tx_close
                         Ok(entity)
                     }
                 }
             }
             ReturningMode::Custom(columns) => {
                 let returning_cols = columns.join(", ");
-                let notify = self.notify_created();
                 quote! {
                     #span
                     async fn create(&self, dto: #create_dto) -> Result<#entity_name, Self::Error> {
+                        #tx_open
                         let entity = #entity_name::from(dto);
                         let insertable = #insertable_name::from(&entity);
                         sqlx::query(&format!("INSERT INTO {} ({}) VALUES ({}) RETURNING {}", #table, #columns_str, #placeholders_str, #returning_cols))
                             #(#bindings)*
-                            .execute(self).await?;
+                            .execute(#executor).await?;
                         #notify
+                        #tx_close
                         Ok(entity)
                     }
                 }
@@ -209,6 +244,7 @@ impl Context<'_> {
             dialect,
             trait_name,
             returning,
+            streams,
             ..
         } = self;
 
@@ -218,25 +254,50 @@ impl Context<'_> {
         let where_placeholder = dialect.placeholder(update_fields.len() + 1);
         let bindings = update_bindings(&update_fields);
 
-        let fetch_old = self.fetch_old_for_update();
-        let notify = self.notify_updated();
         let span = instrument(&entity_name.to_string(), "update");
 
+        // Streams-on path: SELECT FOR UPDATE → UPDATE RETURNING * → notify,
+        // all in one transaction. Always fetches the full row (regardless
+        // of `returning` config) because the Updated event payload requires
+        // it; a streams entity that asked for a narrower `RETURNING` clause
+        // would have to re-fetch separately anyway, defeating the optimization.
+        if *streams {
+            let fetch_old = self.fetch_old_for_update();
+            let notify = self.notify_updated();
+            return quote! {
+                #span
+                async fn update(&self, id: #id_type, dto: #update_dto) -> Result<#entity_name, Self::Error> {
+                    let mut tx = self.begin().await?;
+                    #fetch_old
+                    let row: #row_name = sqlx::query_as(
+                        &format!("UPDATE {} SET {} WHERE {} = {} RETURNING *", #table, #set_clause, stringify!(#id_name), #where_placeholder)
+                    )
+                        #(#bindings)*
+                        .bind(&id)
+                        .fetch_one(&mut *tx).await?;
+                    let entity = #entity_name::from(row);
+                    #notify
+                    tx.commit().await?;
+                    Ok(entity)
+                }
+            };
+        }
+
+        // Non-streams path: keep the historical single-statement variants,
+        // honoring the entity's `returning` configuration. Notify is empty
+        // here so we don't pay for a transaction we don't need.
         match returning {
             ReturningMode::Full => {
                 quote! {
                     #span
                     async fn update(&self, id: #id_type, dto: #update_dto) -> Result<#entity_name, Self::Error> {
-                        #fetch_old
                         let row: #row_name = sqlx::query_as(
                             &format!("UPDATE {} SET {} WHERE {} = {} RETURNING *", #table, #set_clause, stringify!(#id_name), #where_placeholder)
                         )
                             #(#bindings)*
                             .bind(&id)
                             .fetch_one(self).await?;
-                        let entity = #entity_name::from(row);
-                        #notify
-                        Ok(entity)
+                        Ok(#entity_name::from(row))
                     }
                 }
             }
@@ -244,14 +305,11 @@ impl Context<'_> {
                 quote! {
                     #span
                     async fn update(&self, id: #id_type, dto: #update_dto) -> Result<#entity_name, Self::Error> {
-                        #fetch_old
                         sqlx::query(&format!("UPDATE {} SET {} WHERE {} = {}", #table, #set_clause, stringify!(#id_name), #where_placeholder))
                             #(#bindings)*
                             .bind(&id)
                             .execute(self).await?;
-                        let entity = <Self as #trait_name>::find_by_id(self, id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
-                        #notify
-                        Ok(entity)
+                        <Self as #trait_name>::find_by_id(self, id).await?.ok_or_else(|| sqlx::Error::RowNotFound)
                     }
                 }
             }
@@ -260,14 +318,11 @@ impl Context<'_> {
                 quote! {
                     #span
                     async fn update(&self, id: #id_type, dto: #update_dto) -> Result<#entity_name, Self::Error> {
-                        #fetch_old
                         sqlx::query(&format!("UPDATE {} SET {} WHERE {} = {} RETURNING {}", #table, #set_clause, stringify!(#id_name), #where_placeholder, #returning_cols))
                             #(#bindings)*
                             .bind(&id)
                             .execute(self).await?;
-                        let entity = <Self as #trait_name>::find_by_id(self, id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
-                        #notify
-                        Ok(entity)
+                        <Self as #trait_name>::find_by_id(self, id).await?.ok_or_else(|| sqlx::Error::RowNotFound)
                     }
                 }
             }
@@ -296,9 +351,14 @@ impl Context<'_> {
             id_type,
             dialect,
             soft_delete,
+            streams,
             ..
         } = self;
         let placeholder = dialect.placeholder(1);
+        // When streams are on, wrap the DML + notify in one transaction so
+        // the event commits atomically with the deletion. Single SQL
+        // statement otherwise — no perf regression for non-streams entities.
+        let (tx_open, tx_close, executor) = tx_wrapping(*streams);
 
         if *soft_delete {
             let notify = self.notify_soft_deleted();
@@ -306,14 +366,16 @@ impl Context<'_> {
             quote! {
                 #span
                 async fn delete(&self, id: #id_type) -> Result<bool, Self::Error> {
+                    #tx_open
                     let result = sqlx::query(&format!(
                         "UPDATE {} SET deleted_at = NOW() WHERE {} = {} AND deleted_at IS NULL",
                         #table, stringify!(#id_name), #placeholder
-                    )).bind(&id).execute(self).await?;
+                    )).bind(&id).execute(#executor).await?;
                     let deleted = result.rows_affected() > 0;
                     if deleted {
                         #notify
                     }
+                    #tx_close
                     Ok(deleted)
                 }
             }
@@ -323,12 +385,14 @@ impl Context<'_> {
             quote! {
                 #span
                 async fn delete(&self, id: #id_type) -> Result<bool, Self::Error> {
+                    #tx_open
                     let result = sqlx::query(&format!("DELETE FROM {} WHERE {} = {}", #table, stringify!(#id_name), #placeholder))
-                        .bind(&id).execute(self).await?;
+                        .bind(&id).execute(#executor).await?;
                     let deleted = result.rows_affected() > 0;
                     if deleted {
                         #notify
                     }
+                    #tx_close
                     Ok(deleted)
                 }
             }
