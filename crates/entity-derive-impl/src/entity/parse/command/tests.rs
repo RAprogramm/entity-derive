@@ -56,7 +56,7 @@ fn parse_simple_command() {
         #[command(Register)]
         struct User {}
     };
-    let cmds = parse_command_attrs(&input.attrs);
+    let cmds = parse_command_attrs(&input.attrs).expect("valid command parse");
     assert_eq!(cmds.len(), 1);
     assert_eq!(cmds[0].name.to_string(), "Register");
     assert_eq!(cmds[0].source, CommandSource::Create);
@@ -69,7 +69,7 @@ fn parse_command_with_fields() {
         #[command(UpdateEmail: email)]
         struct User {}
     };
-    let cmds = parse_command_attrs(&input.attrs);
+    let cmds = parse_command_attrs(&input.attrs).expect("valid command parse");
     assert_eq!(cmds.len(), 1);
     assert_eq!(cmds[0].name.to_string(), "UpdateEmail");
     if let CommandSource::Fields(ref fields) = cmds[0].source {
@@ -87,7 +87,7 @@ fn parse_command_with_multiple_fields() {
         #[command(UpdateProfile: name, avatar, bio)]
         struct User {}
     };
-    let cmds = parse_command_attrs(&input.attrs);
+    let cmds = parse_command_attrs(&input.attrs).expect("valid command parse");
     assert_eq!(cmds.len(), 1);
     if let CommandSource::Fields(ref fields) = cmds[0].source {
         assert_eq!(fields.len(), 3);
@@ -105,7 +105,7 @@ fn parse_requires_id_command() {
         #[command(Deactivate, requires_id)]
         struct User {}
     };
-    let cmds = parse_command_attrs(&input.attrs);
+    let cmds = parse_command_attrs(&input.attrs).expect("valid command parse");
     assert_eq!(cmds.len(), 1);
     assert!(cmds[0].requires_id);
     assert_eq!(cmds[0].source, CommandSource::None);
@@ -117,7 +117,7 @@ fn parse_custom_payload_command() {
         #[command(Transfer, payload = "TransferPayload")]
         struct Account {}
     };
-    let cmds = parse_command_attrs(&input.attrs);
+    let cmds = parse_command_attrs(&input.attrs).expect("valid command parse");
     assert_eq!(cmds.len(), 1);
     assert!(matches!(cmds[0].source, CommandSource::Custom(_)));
 }
@@ -128,7 +128,7 @@ fn parse_command_with_result() {
         #[command(Transfer, payload = "TransferPayload", result = "TransferResult")]
         struct Account {}
     };
-    let cmds = parse_command_attrs(&input.attrs);
+    let cmds = parse_command_attrs(&input.attrs).expect("valid command parse");
     assert_eq!(cmds.len(), 1);
     assert!(cmds[0].result_type.is_some());
 }
@@ -141,7 +141,7 @@ fn parse_multiple_commands() {
         #[command(Deactivate, requires_id)]
         struct User {}
     };
-    let cmds = parse_command_attrs(&input.attrs);
+    let cmds = parse_command_attrs(&input.attrs).expect("valid command parse");
     assert_eq!(cmds.len(), 3);
     assert_eq!(cmds[0].name.to_string(), "Register");
     assert_eq!(cmds[1].name.to_string(), "UpdateEmail");
@@ -154,7 +154,7 @@ fn parse_kind_hint() {
         #[command(Delete, requires_id, kind = "delete")]
         struct User {}
     };
-    let cmds = parse_command_attrs(&input.attrs);
+    let cmds = parse_command_attrs(&input.attrs).expect("valid command parse");
     assert_eq!(cmds.len(), 1);
     assert_eq!(cmds[0].kind, CommandKindHint::Delete);
 }
@@ -177,7 +177,7 @@ fn parse_source_update() {
         #[command(Modify, source = "update")]
         struct User {}
     };
-    let cmds = parse_command_attrs(&input.attrs);
+    let cmds = parse_command_attrs(&input.attrs).expect("valid command parse");
     assert_eq!(cmds.len(), 1);
     assert_eq!(cmds[0].source, CommandSource::Update);
     assert!(cmds[0].requires_id);
@@ -190,7 +190,7 @@ fn parse_source_none() {
         #[command(Ping, source = "none")]
         struct User {}
     };
-    let cmds = parse_command_attrs(&input.attrs);
+    let cmds = parse_command_attrs(&input.attrs).expect("valid command parse");
     assert_eq!(cmds.len(), 1);
     assert_eq!(cmds[0].source, CommandSource::None);
 }
@@ -201,7 +201,7 @@ fn parse_source_create_explicit() {
         #[command(Register, source = "create")]
         struct User {}
     };
-    let cmds = parse_command_attrs(&input.attrs);
+    let cmds = parse_command_attrs(&input.attrs).expect("valid command parse");
     assert_eq!(cmds.len(), 1);
     assert_eq!(cmds[0].source, CommandSource::Create);
 }
@@ -212,7 +212,7 @@ fn parse_kind_create() {
         #[command(Register, kind = "create")]
         struct User {}
     };
-    let cmds = parse_command_attrs(&input.attrs);
+    let cmds = parse_command_attrs(&input.attrs).expect("valid command parse");
     assert_eq!(cmds.len(), 1);
     assert_eq!(cmds[0].kind, CommandKindHint::Create);
 }
@@ -223,7 +223,7 @@ fn parse_kind_update() {
         #[command(Modify, kind = "update")]
         struct User {}
     };
-    let cmds = parse_command_attrs(&input.attrs);
+    let cmds = parse_command_attrs(&input.attrs).expect("valid command parse");
     assert_eq!(cmds.len(), 1);
     assert_eq!(cmds[0].kind, CommandKindHint::Update);
 }
@@ -234,7 +234,7 @@ fn parse_kind_custom() {
         #[command(Process, kind = "custom")]
         struct User {}
     };
-    let cmds = parse_command_attrs(&input.attrs);
+    let cmds = parse_command_attrs(&input.attrs).expect("valid command parse");
     assert_eq!(cmds.len(), 1);
     assert_eq!(cmds[0].kind, CommandKindHint::Custom);
 }
@@ -245,39 +245,76 @@ fn parse_trailing_comma() {
         #[command(Register,)]
         struct User {}
     };
-    let cmds = parse_command_attrs(&input.attrs);
+    let cmds = parse_command_attrs(&input.attrs).expect("valid command parse");
     assert_eq!(cmds.len(), 1);
     assert_eq!(cmds[0].name.to_string(), "Register");
 }
 
+// Regression tests for #129 — invalid `#[command(...)]` attributes used to
+// be silently dropped via `filter_map(...ok())`, leaving the user with no
+// diagnostic and a mysteriously missing generated method. They now surface
+// as a `syn::Error` from `parse_command_attrs`, which the calling derive
+// emits as a `compile_error!` at the attribute span.
+
 #[test]
-fn parse_invalid_source_returns_empty() {
+fn parse_invalid_source_returns_error() {
     let input: syn::DeriveInput = syn::parse_quote! {
         #[command(Test, source = "invalid")]
         struct User {}
     };
-    let cmds = parse_command_attrs(&input.attrs);
-    assert!(cmds.is_empty());
+    let err =
+        parse_command_attrs(&input.attrs).expect_err("invalid source must report a parse error");
+    assert!(
+        err.to_string().contains("source must be"),
+        "diagnostic must name the offending option, got: {err}"
+    );
 }
 
 #[test]
-fn parse_invalid_kind_returns_empty() {
+fn parse_invalid_kind_returns_error() {
     let input: syn::DeriveInput = syn::parse_quote! {
         #[command(Test, kind = "invalid")]
         struct User {}
     };
-    let cmds = parse_command_attrs(&input.attrs);
-    assert!(cmds.is_empty());
+    let err =
+        parse_command_attrs(&input.attrs).expect_err("invalid kind must report a parse error");
+    assert!(
+        err.to_string().contains("kind must be"),
+        "diagnostic must name the offending option, got: {err}"
+    );
 }
 
 #[test]
-fn parse_unknown_option_returns_empty() {
+fn parse_unknown_option_returns_error() {
     let input: syn::DeriveInput = syn::parse_quote! {
         #[command(Test, unknown_option)]
         struct User {}
     };
-    let cmds = parse_command_attrs(&input.attrs);
-    assert!(cmds.is_empty());
+    let err =
+        parse_command_attrs(&input.attrs).expect_err("unknown option must report a parse error");
+    assert!(
+        err.to_string().contains("unknown command option"),
+        "diagnostic must mention the unknown option, got: {err}"
+    );
+}
+
+#[test]
+fn parse_combines_multiple_errors() {
+    // Both attributes are malformed in different ways. The accumulator
+    // should surface a single combined `syn::Error` so the user sees both
+    // in one compile pass.
+    let input: syn::DeriveInput = syn::parse_quote! {
+        #[command(First, source = "invalid")]
+        #[command(Second, kind = "invalid")]
+        struct User {}
+    };
+    let err = parse_command_attrs(&input.attrs)
+        .expect_err("two malformed attrs must produce one combined error");
+    let text = err.to_string();
+    assert!(
+        text.contains("source must be") || text.contains("kind must be"),
+        "combined error must reference at least one cause, got: {text}"
+    );
 }
 
 #[test]
@@ -287,7 +324,7 @@ fn ignores_non_command_attributes() {
         #[entity(table = "users")]
         struct User {}
     };
-    let cmds = parse_command_attrs(&input.attrs);
+    let cmds = parse_command_attrs(&input.attrs).expect("valid command parse");
     assert!(cmds.is_empty());
 }
 
@@ -297,7 +334,7 @@ fn parse_security_bearer() {
         #[command(AdminDelete, requires_id, security = "admin")]
         struct User {}
     };
-    let cmds = parse_command_attrs(&input.attrs);
+    let cmds = parse_command_attrs(&input.attrs).expect("valid command parse");
     assert_eq!(cmds.len(), 1);
     assert_eq!(cmds[0].security(), Some("admin"));
     assert!(!cmds[0].is_public());
@@ -309,7 +346,7 @@ fn parse_security_none() {
         #[command(PublicList, security = "none")]
         struct User {}
     };
-    let cmds = parse_command_attrs(&input.attrs);
+    let cmds = parse_command_attrs(&input.attrs).expect("valid command parse");
     assert_eq!(cmds.len(), 1);
     assert!(cmds[0].is_public());
     assert!(cmds[0].has_security_override());
@@ -321,7 +358,7 @@ fn default_no_security_override() {
         #[command(Register)]
         struct User {}
     };
-    let cmds = parse_command_attrs(&input.attrs);
+    let cmds = parse_command_attrs(&input.attrs).expect("valid command parse");
     assert_eq!(cmds.len(), 1);
     assert!(!cmds[0].has_security_override());
     assert!(!cmds[0].is_public());

@@ -71,9 +71,12 @@
 //!
 //! # Error Handling
 //!
-//! Invalid commands are silently filtered out (via `filter_map`).
-//! This allows partial compilation with some valid commands even if
-//! others have syntax errors.
+//! Parse errors from malformed `#[command(...)]` attributes are accumulated
+//! across the whole struct via [`syn::Error::combine`] and returned as a
+//! single error from [`parse_command_attrs`]. The macro then surfaces it
+//! as a `compile_error!` at the relevant attribute span, so the user sees
+//! every broken command in one compile pass instead of having them
+//! silently disappear (the old behavior — fixed in #129).
 
 use syn::{Attribute, Ident, Type};
 
@@ -81,30 +84,23 @@ use super::types::{CommandDef, CommandKindHint, CommandSource};
 
 /// Parses all `#[command(...)]` attributes from a struct.
 ///
-/// This function filters struct attributes for `#[command(...)]`, parses
-/// each one, and collects valid command definitions. Invalid commands are
-/// silently skipped to allow partial success.
+/// Iterates struct attributes, parses every `#[command(...)]`, and collects
+/// the successful definitions. Parse failures are accumulated into a single
+/// [`syn::Error`] via [`syn::Error::combine`] and returned together — the
+/// caller emits the combined error as a `compile_error!` token so the user
+/// sees every malformed attribute in one compile pass.
 ///
 /// # Arguments
 ///
 /// * `attrs` - Slice of `syn::Attribute` from the struct definition
 ///
-/// # Returns
+/// # Errors
 ///
-/// A `Vec<CommandDef>` containing all successfully parsed commands.
-/// May be empty if no valid commands are found.
-///
-/// # Parsing Process
-///
-/// ```text
-/// attrs.iter()
-///     │
-///     ├─► filter(is "command") ──► Only #[command(...)] attrs
-///     │
-///     ├─► filter_map(parse) ────► Parse each, skip errors
-///     │
-///     └─► collect() ────────────► Vec<CommandDef>
-/// ```
+/// Returns the accumulated [`syn::Error`] if any `#[command(...)]` failed
+/// to parse. Valid commands parsed before / after the failure point are
+/// dropped in this case because partial code generation with missing
+/// commands tends to produce more cryptic downstream errors than the
+/// original parse diagnostic.
 ///
 /// # Syntax Examples
 ///
@@ -133,12 +129,24 @@ use super::types::{CommandDef, CommandKindHint, CommandSource};
 /// #[command(PublicList, security = "none")]
 /// #[command(AdminDelete, requires_id, security = "admin")]
 /// ```
-pub fn parse_command_attrs(attrs: &[Attribute]) -> Vec<CommandDef> {
-    attrs
-        .iter()
-        .filter(|attr| attr.path().is_ident("command"))
-        .filter_map(|attr| parse_single_command(attr).ok())
-        .collect()
+pub fn parse_command_attrs(attrs: &[Attribute]) -> syn::Result<Vec<CommandDef>> {
+    let mut commands = Vec::new();
+    let mut combined: Option<syn::Error> = None;
+
+    for attr in attrs.iter().filter(|a| a.path().is_ident("command")) {
+        match parse_single_command(attr) {
+            Ok(cmd) => commands.push(cmd),
+            Err(err) => match combined.as_mut() {
+                Some(existing) => existing.combine(err),
+                None => combined = Some(err)
+            }
+        }
+    }
+
+    if let Some(err) = combined {
+        return Err(err);
+    }
+    Ok(commands)
 }
 
 /// Parse a single `#[command(...)]` attribute.

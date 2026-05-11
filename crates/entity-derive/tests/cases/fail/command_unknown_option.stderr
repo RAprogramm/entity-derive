@@ -1,0 +1,5 @@
+error: unknown command option 'bogus_option', expected: requires_id, source, payload, result, kind, security
+  --> tests/cases/fail/command_unknown_option.rs:12:17
+   |
+12 | #[command(Test, bogus_option)]
+   |                 ^^^^^^^^^^^^

@@ -128,7 +128,7 @@ impl EntityDef {
 
         let has_many = parse_has_many_attrs(&input.attrs);
         let projections = parse_projection_attrs(&input.attrs);
-        let command_defs = parse_command_attrs(&input.attrs);
+        let command_defs = parse_command_attrs(&input.attrs).map_err(darling::Error::from)?;
         let api_config = parse_api_attr(&input.attrs);
         let indexes = parse_index_attrs(&input.attrs);
         let doc = extract_doc_comments(&input.attrs);
