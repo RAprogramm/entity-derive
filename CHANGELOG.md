@@ -11,12 +11,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.8.1...HEAD)
+## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.8.2...HEAD)
+
+### 📚 Documentation
+
+- **hooks:** Clarify manual-wiring requirement; track auto-invocation in #127 (#128) ([61300c6](https://github.com/RAprogramm/entity-derive/commit/61300c6bad3da19c64880372170e2c0ba62da8dc)) by [@RAprogramm](https://github.com/RAprogramm) in [#128](https://github.com/RAprogramm/entity-derive/pull/128)
+
+## [0.8.2](https://github.com/RAprogramm/entity-derive/releases/tag/v0.8.2) — 2026-05-11
 
 ### 🐛 Bug Fixes
 
 - **atomicity:** Wrap streams CRUD + pg_notify in one transaction (#125) ([b36292f](https://github.com/RAprogramm/entity-derive/commit/b36292f248a1d365ee35f27a2f627827490d0393)) by [@RAprogramm](https://github.com/RAprogramm) in [#125](https://github.com/RAprogramm/entity-derive/pull/125)
 
+**Full Changelog**: [`v0.8.1...v0.8.2`](https://github.com/RAprogramm/entity-derive/compare/v0.8.1...v0.8.2)
 ## [0.8.1](https://github.com/RAprogramm/entity-derive/releases/tag/v0.8.1) — 2026-05-11
 
 ### 📚 Documentation
