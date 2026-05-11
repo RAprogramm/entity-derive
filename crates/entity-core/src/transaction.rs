@@ -238,6 +238,40 @@ impl From<TransactionError<Self>> for sqlx::Error {
     }
 }
 
+/// Finalize a transaction lifecycle: commit on `Ok`, drop (rollback) on `Err`.
+///
+/// Backend-agnostic helper extracted so the commit/rollback decision can be
+/// unit-tested without a live database connection. Tests provide a mock
+/// `ctx` and a tracking `commit_fn` to assert that:
+///
+/// - `commit_fn` runs exactly once when `result` is `Ok`
+/// - `commit_fn` does **not** run when `result` is `Err`
+/// - Errors from `commit_fn` propagate via `E::from`
+///
+/// # Errors
+///
+/// Returns the closure's original error on `Err`, or the converted commit
+/// error if `commit_fn` fails on `Ok`.
+#[cfg(any(feature = "postgres", test))]
+async fn finalize_with_commit<C, T, E, CommitErr, Cf, Fut>(
+    ctx: C,
+    result: Result<T, E>,
+    commit_fn: Cf
+) -> Result<T, E>
+where
+    Cf: FnOnce(C) -> Fut,
+    Fut: core::future::Future<Output = Result<(), CommitErr>>,
+    E: From<CommitErr>
+{
+    match result {
+        Ok(value) => {
+            commit_fn(ctx).await.map_err(E::from)?;
+            Ok(value)
+        }
+        Err(e) => Err(e)
+    }
+}
+
 // PostgreSQL implementation
 #[cfg(feature = "postgres")]
 impl Transaction<'_, sqlx::PgPool> {
@@ -278,14 +312,8 @@ impl Transaction<'_, sqlx::PgPool> {
     {
         let tx = self.pool.begin().await.map_err(E::from)?;
         let mut ctx = TransactionContext::new(tx);
-
-        match f(&mut ctx).await {
-            Ok(result) => {
-                ctx.commit().await.map_err(E::from)?;
-                Ok(result)
-            }
-            Err(e) => Err(e)
-        }
+        let result = f(&mut ctx).await;
+        finalize_with_commit(ctx, result, |c| c.commit()).await
     }
 
     /// Execute a closure within a transaction with explicit commit.
@@ -558,19 +586,120 @@ mod tests {
         let _ = tx;
     }
 
-    // Compile-time regression guard for the `run()` signature.
+    // Regression tests for `finalize_with_commit`.
     //
-    // Earlier versions accepted `FnOnce(TransactionContext) -> Fut` and
-    // dropped the context on Ok, which silently rolled back the transaction.
-    // The fix is to take `&mut TransactionContext` so `run` keeps ownership
-    // and can call `commit().await` explicitly on Ok.
-    //
-    // This test does NOT execute (no real pool) — it only checks that the
-    // signature accepts an async closure receiving `&mut TransactionContext`.
-    #[cfg(feature = "postgres")]
-    #[allow(dead_code, clippy::no_effect_underscore_binding)]
-    fn _run_signature_accepts_mut_ref(pool: &sqlx::PgPool) {
-        let _fut = Transaction::new(pool)
-            .run(async |_ctx: &mut TransactionContext| Ok::<(), sqlx::Error>(()));
+    // Prior to this fix, `Transaction::run` consumed `TransactionContext` and
+    // dropped it before commit was ever called, so successful runs silently
+    // rolled back. The fix is to keep ownership of `ctx` in `run` and call
+    // commit on Ok. The backend-agnostic decision lives in
+    // `finalize_with_commit`, which these tests cover end-to-end with a mock
+    // context and a tracking commit closure — no database required.
+
+    #[derive(Debug, PartialEq, Eq)]
+    struct MockCtx;
+
+    #[derive(Debug, PartialEq, Eq)]
+    struct CommitErr(&'static str);
+
+    #[derive(Debug, PartialEq, Eq)]
+    enum AppErr {
+        Closure(&'static str),
+        Commit(&'static str)
+    }
+
+    impl From<CommitErr> for AppErr {
+        fn from(e: CommitErr) -> Self {
+            Self::Commit(e.0)
+        }
+    }
+
+    #[tokio::test]
+    async fn finalize_commits_on_ok() {
+        let committed = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let flag = committed.clone();
+
+        let result: Result<i32, AppErr> = finalize_with_commit::<_, _, _, CommitErr, _, _>(
+            MockCtx,
+            Ok::<i32, AppErr>(42),
+            move |_ctx| {
+                let flag = flag.clone();
+                async move {
+                    flag.store(true, std::sync::atomic::Ordering::SeqCst);
+                    Ok::<(), CommitErr>(())
+                }
+            }
+        )
+        .await;
+
+        assert_eq!(result, Ok(42));
+        assert!(
+            committed.load(std::sync::atomic::Ordering::SeqCst),
+            "commit_fn must run on Ok"
+        );
+    }
+
+    #[tokio::test]
+    async fn finalize_skips_commit_on_err() {
+        let committed = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let flag = committed.clone();
+
+        let result: Result<i32, AppErr> = finalize_with_commit::<_, _, _, CommitErr, _, _>(
+            MockCtx,
+            Err::<i32, AppErr>(AppErr::Closure("nope")),
+            move |_ctx| {
+                let flag = flag.clone();
+                async move {
+                    flag.store(true, std::sync::atomic::Ordering::SeqCst);
+                    Ok::<(), CommitErr>(())
+                }
+            }
+        )
+        .await;
+
+        assert_eq!(result, Err(AppErr::Closure("nope")));
+        assert!(
+            !committed.load(std::sync::atomic::Ordering::SeqCst),
+            "commit_fn must NOT run on Err"
+        );
+    }
+
+    #[tokio::test]
+    async fn finalize_propagates_commit_error_on_ok() {
+        let result: Result<i32, AppErr> = finalize_with_commit::<_, _, _, CommitErr, _, _>(
+            MockCtx,
+            Ok::<i32, AppErr>(42),
+            |_ctx| async { Err::<(), CommitErr>(CommitErr("commit failed")) }
+        )
+        .await;
+
+        assert_eq!(result, Err(AppErr::Commit("commit failed")));
+    }
+
+    #[tokio::test]
+    async fn finalize_preserves_closure_value_on_ok() {
+        // Confirms the Ok payload survives the commit step (return type
+        // matches the closure's success type, not the commit_fn result).
+        let result: Result<String, AppErr> = finalize_with_commit::<_, _, _, CommitErr, _, _>(
+            MockCtx,
+            Ok::<String, AppErr>("payload".to_string()),
+            |_ctx| async { Ok::<(), CommitErr>(()) }
+        )
+        .await;
+
+        assert_eq!(result, Ok("payload".to_string()));
+    }
+
+    #[tokio::test]
+    async fn finalize_does_not_swallow_closure_error_when_commit_also_would_fail() {
+        // On Err, commit_fn is never called, so a faulty commit_fn cannot
+        // hide the closure's original error.
+        let result: Result<(), AppErr> = finalize_with_commit::<_, _, _, CommitErr, _, _>(
+            MockCtx,
+            Err::<(), AppErr>(AppErr::Closure("original")),
+            |_ctx| async { Err::<(), CommitErr>(CommitErr("never reached")) }
+        )
+        .await;
+
+        assert_eq!(result, Err(AppErr::Closure("original")));
     }
 }
