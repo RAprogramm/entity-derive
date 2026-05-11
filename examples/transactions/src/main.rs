@@ -104,7 +104,7 @@ async fn transfer(
     let result = Transaction::new(&*state.pool)
         .with_bank_accounts()
         .with_transfer_logs()
-        .run(|mut ctx| async move {
+        .run(async |ctx| {
             // Step 1: Get source account
             let from = ctx
                 .bank_accounts()

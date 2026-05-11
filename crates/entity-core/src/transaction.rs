@@ -22,7 +22,7 @@
 //!     Transaction::new(pool)
 //!         .with_accounts()
 //!         .with_transfers()
-//!         .run(|mut ctx| async move {
+//!         .run(async |ctx| {
 //!             let from_acc = ctx.accounts().find_by_id(from).await?.ok_or(AppError::NotFound)?;
 //!
 //!             ctx.accounts().update(from, UpdateAccount {
@@ -57,7 +57,7 @@ use std::{error::Error as StdError, fmt};
 /// Transaction::new(&pool)
 ///     .with_users()
 ///     .with_orders()
-///     .run(|mut ctx| async move {
+///     .run(async |ctx| {
 ///         let user = ctx.users().find_by_id(id).await?;
 ///         ctx.orders().create(order).await?;
 ///         Ok(())
@@ -243,12 +243,16 @@ impl From<TransactionError<Self>> for sqlx::Error {
 impl Transaction<'_, sqlx::PgPool> {
     /// Execute a closure within a `PostgreSQL` transaction.
     ///
-    /// Automatically commits on `Ok`, rolls back on `Err` or drop.
+    /// Commits the transaction explicitly when the closure returns `Ok`.
+    /// On `Err`, the transaction context is dropped and `sqlx` rolls back
+    /// automatically via its `Drop` implementation.
+    ///
+    /// The closure receives `&mut TransactionContext` (not by value) so that
+    /// `run` retains ownership and can invoke `commit().await` on success.
     ///
     /// # Type Parameters
     ///
-    /// - `F` — Closure type
-    /// - `Fut` — Future returned by closure
+    /// - `F` — Async closure
     /// - `T` — Success type
     /// - `E` — Error type (must be convertible from `sqlx::Error`)
     ///
@@ -257,7 +261,7 @@ impl Transaction<'_, sqlx::PgPool> {
     /// ```rust,ignore
     /// Transaction::new(&pool)
     ///     .with_users()
-    ///     .run(|mut ctx| async move {
+    ///     .run(async |ctx| {
     ///         let user = ctx.users().create(dto).await?;
     ///         Ok(user)
     ///     })
@@ -266,26 +270,32 @@ impl Transaction<'_, sqlx::PgPool> {
     ///
     /// # Errors
     ///
-    /// Propagates any error from the closure or database transaction.
-    pub async fn run<F, Fut, T, E>(self, f: F) -> Result<T, E>
+    /// Propagates any error from the closure, from `begin`, or from `commit`.
+    pub async fn run<F, T, E>(self, f: F) -> Result<T, E>
     where
-        F: FnOnce(TransactionContext) -> Fut + Send,
-        Fut: Future<Output = Result<T, E>> + Send,
+        F: AsyncFnOnce(&mut TransactionContext) -> Result<T, E>,
         E: From<sqlx::Error>
     {
         let tx = self.pool.begin().await.map_err(E::from)?;
-        let ctx = TransactionContext::new(tx);
+        let mut ctx = TransactionContext::new(tx);
 
-        match f(ctx).await {
-            Ok(result) => Ok(result),
+        match f(&mut ctx).await {
+            Ok(result) => {
+                ctx.commit().await.map_err(E::from)?;
+                Ok(result)
+            }
             Err(e) => Err(e)
         }
     }
 
     /// Execute a closure within a transaction with explicit commit.
     ///
-    /// Unlike `run`, this method requires the closure to explicitly
-    /// commit the transaction by calling `ctx.commit()`.
+    /// Unlike [`run`](Self::run), this method passes `TransactionContext` by
+    /// value so the closure can call `ctx.commit().await` (or
+    /// `ctx.rollback().await`) itself. If the closure returns without
+    /// committing, the transaction is rolled back when `ctx` is dropped.
+    ///
+    /// Use this when you need conditional commit logic; otherwise prefer `run`.
     ///
     /// # Example
     ///
@@ -546,5 +556,21 @@ mod tests {
         let pool = MockPool;
         let tx = Transaction::new(&pool);
         let _ = tx;
+    }
+
+    // Compile-time regression guard for the `run()` signature.
+    //
+    // Earlier versions accepted `FnOnce(TransactionContext) -> Fut` and
+    // dropped the context on Ok, which silently rolled back the transaction.
+    // The fix is to take `&mut TransactionContext` so `run` keeps ownership
+    // and can call `commit().await` explicitly on Ok.
+    //
+    // This test does NOT execute (no real pool) — it only checks that the
+    // signature accepts an async closure receiving `&mut TransactionContext`.
+    #[cfg(feature = "postgres")]
+    #[allow(dead_code, clippy::no_effect_underscore_binding)]
+    fn _run_signature_accepts_mut_ref(pool: &sqlx::PgPool) {
+        let _fut = Transaction::new(pool)
+            .run(async |_ctx: &mut TransactionContext| Ok::<(), sqlx::Error>(()));
     }
 }
