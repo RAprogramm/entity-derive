@@ -11,7 +11,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.7.2...HEAD)
+## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.7.3...HEAD)
+
+### ✨ Features
+
+- Opt-in tracing instrumentation on generated entity methods (#119) ([1b4b1b6](https://github.com/RAprogramm/entity-derive/commit/1b4b1b6ddaa893ab73b032e24eb9445fa05c6a4a)) by [@RAprogramm](https://github.com/RAprogramm) in [#119](https://github.com/RAprogramm/entity-derive/pull/119)
+
+## [0.7.3](https://github.com/RAprogramm/entity-derive/releases/tag/v0.7.3) — 2026-05-11
 
 ### 🐛 Bug Fixes
 
@@ -22,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **transactions:** Make run_with_commit's silent-rollback contract impossible to miss (#113) ([8da735a](https://github.com/RAprogramm/entity-derive/commit/8da735a7536c248e7f8cebea80600b0263d0a6d5)) by [@RAprogramm](https://github.com/RAprogramm) in [#113](https://github.com/RAprogramm/entity-derive/pull/113)
 
+**Full Changelog**: [`v0.7.2...v0.7.3`](https://github.com/RAprogramm/entity-derive/compare/v0.7.2...v0.7.3)
 ## [0.7.2](https://github.com/RAprogramm/entity-derive/releases/tag/v0.7.2) — 2026-05-11
 
 ### 🐛 Bug Fixes
