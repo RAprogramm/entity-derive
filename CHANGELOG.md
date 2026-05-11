@@ -11,6 +11,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.7.2...HEAD)
+
+### 🐛 Bug Fixes
+
+- **ci:** Enrich release notes with author/PR details (#115) ([7aa50a6](https://github.com/RAprogramm/entity-derive/commit/7aa50a64da7982845421238b73a783db18b968f8)) by [@RAprogramm](https://github.com/RAprogramm) in [#115](https://github.com/RAprogramm/entity-derive/pull/115)
+
+
+### 📚 Documentation
+
+- **transactions:** Make run_with_commit's silent-rollback contract impossible to miss (#113) ([8da735a](https://github.com/RAprogramm/entity-derive/commit/8da735a7536c248e7f8cebea80600b0263d0a6d5)) by [@RAprogramm](https://github.com/RAprogramm) in [#113](https://github.com/RAprogramm/entity-derive/pull/113)
+
+## [0.7.2](https://github.com/RAprogramm/entity-derive/releases/tag/v0.7.2) — 2026-05-11
+
+### 🐛 Bug Fixes
+
+- **transactions:** Deprecate generated with_*() no-op builder + release 0.7.2 (#111) ([159876d](https://github.com/RAprogramm/entity-derive/commit/159876d34920fddcf235a0d7fcf25c47b812d1f3)) by [@RAprogramm](https://github.com/RAprogramm) in [#111](https://github.com/RAprogramm/entity-derive/pull/111)
+- **map:** Emit compile_error for invalid expr and nested-meta failures (#109) ([c6c5557](https://github.com/RAprogramm/entity-derive/commit/c6c555727ae422078616321d81fac7d1f03348d7)) by [@RAprogramm](https://github.com/RAprogramm) in [#109](https://github.com/RAprogramm/entity-derive/pull/109)
+
+**Full Changelog**: [`v0.7.1...v0.7.2`](https://github.com/RAprogramm/entity-derive/compare/v0.7.1...v0.7.2)
+## [0.7.1](https://github.com/RAprogramm/entity-derive/releases/tag/v0.7.1) — 2026-05-11
+
+### 🧪 Testing
+
+- Cover Transaction::run commit logic with backend-free unit tests (#105) ([556370f](https://github.com/RAprogramm/entity-derive/commit/556370f3d7baf2f862e0120211af5ec69595a2de)) by [@RAprogramm](https://github.com/RAprogramm) in [#105](https://github.com/RAprogramm/entity-derive/pull/105)
+
+**Full Changelog**: [`v0.7.0...v0.7.1`](https://github.com/RAprogramm/entity-derive/compare/v0.7.0...v0.7.1)
+## [0.7.0](https://github.com/RAprogramm/entity-derive/releases/tag/v0.7.0) — 2026-05-11
+
+### 🐛 Bug Fixes
+
+- Transaction::run() now commits explicitly on Ok (#103) ([21ede5e](https://github.com/RAprogramm/entity-derive/commit/21ede5e61ce033aee496305dbd8d6e725887f709)) by [@RAprogramm](https://github.com/RAprogramm) in [#103](https://github.com/RAprogramm/entity-derive/pull/103)
+
+**Full Changelog**: [`v0.6.0...v0.7.0`](https://github.com/RAprogramm/entity-derive/compare/v0.6.0...v0.7.0)
 ## [0.5.0](https://github.com/RAprogramm/entity-derive/releases/tag/v0.5.0) — 2026-01-08
 
 ### ✨ Features
@@ -35,12 +68,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### ✨ Features
 
+- Implement SQL methods in TransactionRepo ([6691df5](https://github.com/RAprogramm/entity-derive/commit/6691df539bc6fc617b045227369dcfa5d372cabc)) by [@RAprogramm](https://github.com/RAprogramm)
 - **transactions:** Add type-safe transaction scripts support ([3a38be3](https://github.com/RAprogramm/entity-derive/commit/3a38be39f7996ba0a08ed1584b8fe7831da85c0f)) by [@RAprogramm](https://github.com/RAprogramm)
 
 
 ### 🐛 Bug Fixes
 
 - Resolve doc link and formatting issues ([eae9d6e](https://github.com/RAprogramm/entity-derive/commit/eae9d6e7e7a1191932550fde85a92f407bf97c99)) by [@RAprogramm](https://github.com/RAprogramm)
+
+
+### 🔧 Miscellaneous
+
+- Exclude postgres_impl from coverage ([ca58557](https://github.com/RAprogramm/entity-derive/commit/ca585577acb61d26ce674738a01e2a68a41ce7fe)) by [@RAprogramm](https://github.com/RAprogramm)
+
+
+### 🧪 Testing
+
+- Add transaction test cases, bump versions ([c36460d](https://github.com/RAprogramm/entity-derive/commit/c36460d7867c0ab85c231bd3985e609aed47feba)) by [@RAprogramm](https://github.com/RAprogramm)
+- Add comprehensive tests for transaction module ([0ad2310](https://github.com/RAprogramm/entity-derive/commit/0ad2310aebcfb84e75f2f998aed8725e62939b3c)) by [@RAprogramm](https://github.com/RAprogramm)
 
 **Full Changelog**: [`v0.3.2...v0.3.3`](https://github.com/RAprogramm/entity-derive/compare/v0.3.2...v0.3.3)
 ## [0.3.2](https://github.com/RAprogramm/entity-derive/releases/tag/v0.3.2) — 2026-01-06
@@ -57,21 +102,93 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **Full Changelog**: [`v0.3.1...v0.3.2`](https://github.com/RAprogramm/entity-derive/compare/v0.3.1...v0.3.2)
 ## [0.3.1](https://github.com/RAprogramm/entity-derive/releases/tag/v0.3.1) — 2026-01-06
 
+### ♻️ Refactor
+
+- Remove dead code and unused methods ([911e724](https://github.com/RAprogramm/entity-derive/commit/911e724f0d9ab91b1a446ef7aa24a0e2582432fa)) by [@RAprogramm](https://github.com/RAprogramm)
+- Validate #[id] at parse time, remove all panic! ([f5ccc49](https://github.com/RAprogramm/entity-derive/commit/f5ccc49b6c61a5d1bc396eb4a03d83ec79430758)) by [@RAprogramm](https://github.com/RAprogramm)
+- Professional crate structure (sqlx/axum style) ([4090ad5](https://github.com/RAprogramm/entity-derive/commit/4090ad56f9c52ddc8e119a1c665447b82f95ca84)) by [@RAprogramm](https://github.com/RAprogramm)
+- Split large files into logical submodules ([859ebda](https://github.com/RAprogramm/entity-derive/commit/859ebdae8e6268f717ee3875856af74a63213d26)) by [@RAprogramm](https://github.com/RAprogramm)
+- Separate field semantics from database metadata ([b58e35b](https://github.com/RAprogramm/entity-derive/commit/b58e35bed227b3d5da849e76a65ef924ef27c0f3)) by [@RAprogramm](https://github.com/RAprogramm)
+- Extract SQL generation into dialect-specific modules ([530455b](https://github.com/RAprogramm/entity-derive/commit/530455b43371dd3aaecec31fc05045fb762c81f0)) by [@RAprogramm](https://github.com/RAprogramm)
+
+
+### ✨ Features
+
+- Integrate pg_notify into CRUD operations ([758bdc3](https://github.com/RAprogramm/entity-derive/commit/758bdc3431a2f3dac13e70b02fa1c62bf2a1c323)) by [@RAprogramm](https://github.com/RAprogramm)
+- Add streams module with Subscriber generation ([c092a9a](https://github.com/RAprogramm/entity-derive/commit/c092a9a14265d5fa66827f1d36534e7c2901ffd2)) by [@RAprogramm](https://github.com/RAprogramm)
+- Add serde derives to events when streams enabled ([9ffb5f8](https://github.com/RAprogramm/entity-derive/commit/9ffb5f8453ec342a156285b5604fcf2bdb88f6c2)) by [@RAprogramm](https://github.com/RAprogramm)
+- Add streams attribute to entity parsing ([3a6b524](https://github.com/RAprogramm/entity-derive/commit/3a6b524cfb5c7aa6b12037b5cef6565c3134addd)) by [@RAprogramm](https://github.com/RAprogramm)
+- Add StreamError and streams feature to entity-core ([381fe4b](https://github.com/RAprogramm/entity-derive/commit/381fe4b981a7c74daab4bac2d03e025d4479af8e)) by [@RAprogramm](https://github.com/RAprogramm)
+- Add policy code generation module ([6ae604d](https://github.com/RAprogramm/entity-derive/commit/6ae604d330affd13f36fb19ea99757d57920f8ef)) by [@RAprogramm](https://github.com/RAprogramm)
+- Add policy attribute to entity parsing ([47dba44](https://github.com/RAprogramm/entity-derive/commit/47dba44286f8f7821bee1f91e430572f02cedfce)) by [@RAprogramm](https://github.com/RAprogramm)
+- Add PolicyError and PolicyOperation to entity-core ([18d34af](https://github.com/RAprogramm/entity-derive/commit/18d34af9b9522d5fb5dd90452458504cbe21699c)) by [@RAprogramm](https://github.com/RAprogramm)
+- Add command hooks to lifecycle hooks trait ([d70f4d6](https://github.com/RAprogramm/entity-derive/commit/d70f4d6e85b676b284b47dc9250ee23d5680aec6)) by [@RAprogramm](https://github.com/RAprogramm)
+- Add CQRS command code generation ([4487d56](https://github.com/RAprogramm/entity-derive/commit/4487d567155a458f4923d44ce26b440ba833ab68)) by [@RAprogramm](https://github.com/RAprogramm)
+- Add command parsing for CQRS pattern ([ced450e](https://github.com/RAprogramm/entity-derive/commit/ced450ee523aee389a58737c8d4744746981da29)) by [@RAprogramm](https://github.com/RAprogramm)
+- Add CommandKind and EntityCommand to entity-core ([ff8ffb7](https://github.com/RAprogramm/entity-derive/commit/ff8ffb7fbe593ba4760a6f859a3450ede0209bd8)) by [@RAprogramm](https://github.com/RAprogramm)
+- Add lifecycle hooks for entities ([342b122](https://github.com/RAprogramm/entity-derive/commit/342b122b1766fc3727c237e6ff0a323fb09c7884)) by [@RAprogramm](https://github.com/RAprogramm)
+- Add lifecycle events for entities ([0e5883a](https://github.com/RAprogramm/entity-derive/commit/0e5883abc7da87c2205a6c89e8eef01be4804336)) by [@RAprogramm](https://github.com/RAprogramm)
+- Extract entity-core crate from monolith ([a6bd8c3](https://github.com/RAprogramm/entity-derive/commit/a6bd8c3b9a741677dfd815da1b5a707c72a6047a)) by [@RAprogramm](https://github.com/RAprogramm)
+- Add query filtering with #[filter] attribute ([5da116f](https://github.com/RAprogramm/entity-derive/commit/5da116feb9ea9167456aa08369e771aadb4f52b1)) by [@RAprogramm](https://github.com/RAprogramm)
+- Add custom columns support for RETURNING ([db7a666](https://github.com/RAprogramm/entity-derive/commit/db7a6663105f3e453efac3a97c0b376ede1dddcf)) by [@RAprogramm](https://github.com/RAprogramm)
+- Add flexible RETURNING clause options ([e4f7071](https://github.com/RAprogramm/entity-derive/commit/e4f70713313a6d95e8b3d778a357db71e232278a)) by [@RAprogramm](https://github.com/RAprogramm)
+- Add soft delete support ([cebb6e7](https://github.com/RAprogramm/entity-derive/commit/cebb6e7aaa939e8924856bc3325d165f21c8d58f)) by [@RAprogramm](https://github.com/RAprogramm)
+- Add entity projections for partial selects ([cc48d21](https://github.com/RAprogramm/entity-derive/commit/cc48d21b57d7ea285d09c32a6cc2f68b11cf2827)) by [@RAprogramm](https://github.com/RAprogramm)
+- Add belongs_to and has_many relation support ([746a77c](https://github.com/RAprogramm/entity-derive/commit/746a77c238979c048a93d645d748d50fed03a1be)) by [@RAprogramm](https://github.com/RAprogramm)
+- Add generated code marker comments ([a572926](https://github.com/RAprogramm/entity-derive/commit/a572926066f0b77d61daf61b6647a29f6d4b3209)) by [@RAprogramm](https://github.com/RAprogramm)
+- Add pool accessor to repository trait ([f712fd4](https://github.com/RAprogramm/entity-derive/commit/f712fd48e41a43dc9f272ba09521b83f3628a0e1)) by [@RAprogramm](https://github.com/RAprogramm)
+- Add custom error type support ([c69b659](https://github.com/RAprogramm/entity-derive/commit/c69b65912506a0790c4d2238bcd8a94f2d801dad)) by [@RAprogramm](https://github.com/RAprogramm)
+
+
 ### 🐛 Bug Fixes
 
 - **ci:** Correct YAML syntax in release notes generation ([397438c](https://github.com/RAprogramm/entity-derive/commit/397438c3bff63c767d01efce6f483ebd93eea972)) by [@RAprogramm](https://github.com/RAprogramm)
 - Improve CI release detection and docs.rs configuration ([1977a2c](https://github.com/RAprogramm/entity-derive/commit/1977a2c3bf458341b9e2b0a321f76ccb542cb094)) by [@RAprogramm](https://github.com/RAprogramm)
+- Align PolicyRepository list signature with repository trait ([b1ca80f](https://github.com/RAprogramm/entity-derive/commit/b1ca80ff59835830091c2570067639a07b22a5c3)) by [@RAprogramm](https://github.com/RAprogramm)
+- Remove unused test helper function ([8abf8b9](https://github.com/RAprogramm/entity-derive/commit/8abf8b9ba90a1a0f2c5cbe54a19f8f1ff70af106)) by [@RAprogramm](https://github.com/RAprogramm)
+- Remove unused methods and use derive for Default ([486572c](https://github.com/RAprogramm/entity-derive/commit/486572cc853f309249d139aed1bde8c4a5c5fa85)) by [@RAprogramm](https://github.com/RAprogramm)
+- Escape SQL wildcards in LIKE patterns ([995c99a](https://github.com/RAprogramm/entity-derive/commit/995c99a1aaf279c059ebcec0eaa7f23cf204892b)) by [@RAprogramm](https://github.com/RAprogramm)
+- Use entity schema for related tables instead of hardcoded 'public' ([bc0e9ac](https://github.com/RAprogramm/entity-derive/commit/bc0e9ac537facfe72fb26d4b64607890fb16a877)) by [@RAprogramm](https://github.com/RAprogramm)
+- Use actual id field name in events instead of hardcoded 'id' ([43406f6](https://github.com/RAprogramm/entity-derive/commit/43406f6b3e516371eed998d0eaa9de40daef0ccc)) by [@RAprogramm](https://github.com/RAprogramm)
+- Replace unreachable!() with graceful handling ([3938169](https://github.com/RAprogramm/entity-derive/commit/3938169a10b62502a56ff5aedc8ddffe44331c30)) by [@RAprogramm](https://github.com/RAprogramm)
+- Use compile-time parse_quote! for default error type ([5a70738](https://github.com/RAprogramm/entity-derive/commit/5a7073871d76bfcc85ad0a605d6d17957eb693b7)) by [@RAprogramm](https://github.com/RAprogramm)
+- Replace expect() with proper error handling in field parsing ([c7243df](https://github.com/RAprogramm/entity-derive/commit/c7243df5d6e68482dbcef6b5a498ffb078a5d38e)) by [@RAprogramm](https://github.com/RAprogramm)
+- Remove memory leak from .leak() in update_method ([7629b43](https://github.com/RAprogramm/entity-derive/commit/7629b43f5cc5f5368d242a05cc817fe8a874ac4c)) by [@RAprogramm](https://github.com/RAprogramm)
+- Use fully qualified syntax to avoid find_by_id ambiguity ([901b036](https://github.com/RAprogramm/entity-derive/commit/901b03651903b6cec573985c2c95a0299051c8b1)) by [@RAprogramm](https://github.com/RAprogramm)
+- Use PostgreSQL 18 ([789f2c3](https://github.com/RAprogramm/entity-derive/commit/789f2c36ec27ca238d692235bf5c9ad3b52e0fcf)) by [@RAprogramm](https://github.com/RAprogramm)
 - Remove invalid crates-io registry from dependabot ([38f27e3](https://github.com/RAprogramm/entity-derive/commit/38f27e3045da206c1538158e74467a003c9f7430)) by [@RAprogramm](https://github.com/RAprogramm)
 
 
 ### 📚 Documentation
 
+- Compact documentation table with flag links ([7868334](https://github.com/RAprogramm/entity-derive/commit/786833495c0ee384de678b9117d4898295d85aa4)) by [@RAprogramm](https://github.com/RAprogramm)
+- Simplify README with wiki links ([48e84c5](https://github.com/RAprogramm/entity-derive/commit/48e84c58c6d920d44bd84fd57655ede9790b8b84)) by [@RAprogramm](https://github.com/RAprogramm)
+- Complete README with error attribute, command options, EntityCommand trait ([956e7cc](https://github.com/RAprogramm/entity-derive/commit/956e7cc3b8922c78f1049a1c770414e3fc140070)) by [@RAprogramm](https://github.com/RAprogramm)
+- Add Events, Hooks, Commands documentation to README ([ad7af5b](https://github.com/RAprogramm/entity-derive/commit/ad7af5bb7bbdf3b4fa123947a4a5b176319c7361)) by [@RAprogramm](https://github.com/RAprogramm)
+- Update README with new features ([17231d8](https://github.com/RAprogramm/entity-derive/commit/17231d8ba4d53932b2a7aece4f02d6d1f77187f0)) by [@RAprogramm](https://github.com/RAprogramm)
+- Add Axum CRUD example ([874a3b8](https://github.com/RAprogramm/entity-derive/commit/874a3b88350c892a1fcbff82e0d54e28db8aeb91)) by [@RAprogramm](https://github.com/RAprogramm)
+- Add stability policy and semver guarantees ([dc97205](https://github.com/RAprogramm/entity-derive/commit/dc97205661ee4415bf841d4848dab840ec97aca4)) by [@RAprogramm](https://github.com/RAprogramm)
+- Enhance module documentation ([f01ce8a](https://github.com/RAprogramm/entity-derive/commit/f01ce8af0ee470c87b9259d53cb625b0a952754e)) by [@RAprogramm](https://github.com/RAprogramm)
 - Remove regular comments, use doc comments only ([109119f](https://github.com/RAprogramm/entity-derive/commit/109119ff1778f080fc36d3d79ae1fed49db439ac)) by [@RAprogramm](https://github.com/RAprogramm)
 
 
 ### 🔧 Miscellaneous
 
 - Implement cascading crate publication ([4b254ea](https://github.com/RAprogramm/entity-derive/commit/4b254ea27ecc3cabef2f477ad332af5a0c9274f1)) by [@RAprogramm](https://github.com/RAprogramm)
+- Add SPDX header to FUNDING.yml ([b8ad87f](https://github.com/RAprogramm/entity-derive/commit/b8ad87fd2918f85b036d69cccc7276ca7318db03)) by [@RAprogramm](https://github.com/RAprogramm)
+- Sync crate versions to 0.3.0 ([c77ac34](https://github.com/RAprogramm/entity-derive/commit/c77ac34e71fa459f15c70ac140a09cc18d00f316)) by [@RAprogramm](https://github.com/RAprogramm)
+
+
+### 🧪 Testing
+
+- Improve coverage for streams module ([3385fe2](https://github.com/RAprogramm/entity-derive/commit/3385fe2da44e394e96b5c30830c4e50172b61427)) by [@RAprogramm](https://github.com/RAprogramm)
+- Add coverage for PolicyError and PolicyOperation ([c56cc3f](https://github.com/RAprogramm/entity-derive/commit/c56cc3f448267f92ef7822ba56bd64c329cc89aa)) by [@RAprogramm](https://github.com/RAprogramm)
+- Improve coverage for command pattern ([5559dcb](https://github.com/RAprogramm/entity-derive/commit/5559dcb65d2a4ad29e73349840e35d13e422862a)) by [@RAprogramm](https://github.com/RAprogramm)
+- Add trybuild tests for command pattern ([5cb539f](https://github.com/RAprogramm/entity-derive/commit/5cb539f9429056b760b6b49db8da5c1169bd8987)) by [@RAprogramm](https://github.com/RAprogramm)
+- Add coverage for hooks without CRUD fields ([cc53389](https://github.com/RAprogramm/entity-derive/commit/cc53389af9bec1a5d13b735d0d13dfe76863adeb)) by [@RAprogramm](https://github.com/RAprogramm)
+- Improve coverage with FilterConfig tests ([fc07ff3](https://github.com/RAprogramm/entity-derive/commit/fc07ff3a94056342b432db954f3c7d08734508f1)) by [@RAprogramm](https://github.com/RAprogramm)
+- Add returning_id test for coverage ([60f76e6](https://github.com/RAprogramm/entity-derive/commit/60f76e6a6305055a14e79fb55aca98c68b7b4bec)) by [@RAprogramm](https://github.com/RAprogramm)
+- Add unit tests for error type parsing ([877ce40](https://github.com/RAprogramm/entity-derive/commit/877ce409ff5afa39e0d388371376e8accb32c9b5)) by [@RAprogramm](https://github.com/RAprogramm)
 
 **Full Changelog**: [`v0.2.0...v0.3.1`](https://github.com/RAprogramm/entity-derive/compare/v0.2.0...v0.3.1)
 ## [0.2.0](https://github.com/RAprogramm/entity-derive/releases/tag/v0.2.0) — 2025-12-24
