@@ -69,7 +69,14 @@ conventional_commits = true
 filter_unconventional = true
 split_commits = false
 commit_preprocessors = [
-    # Link issue references
+    # Strip the leading `#NN ` issue prefix this repo uses on commit subjects
+    # (e.g. `#112 docs(scope): …`) so the remainder parses as a clean
+    # conventional commit. The PR number is still recovered by cliff from the
+    # squash-merge metadata (`commit.remote.pr_number`) and linked in the
+    # template; the issue number stays referenced via `Closes #NN` in the
+    # commit body.
+    { pattern = '^#(\d+)\s+', replace = "" },
+    # Link inline issue references like `(close #123)` to the issue page.
     { pattern = '\((\w+)\s?\#([0-9]+)\)', replace = "([#${2}](https://github.com/RAprogramm/entity-derive/issues/${2}))" },
 ]
 commit_parsers = [

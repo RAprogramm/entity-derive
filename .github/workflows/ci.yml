@@ -516,14 +516,21 @@ jobs:
           LATEST_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
           echo "Latest tag: ${LATEST_TAG:-none}"
 
+          # Pass --github-token so cliff can resolve commit.remote.username
+          # and commit.remote.pr_number, which the cliff.toml template uses
+          # to render author and PR links in each entry.
           if [ -n "$LATEST_TAG" ]; then
-            NOTES=$(git cliff --config cliff.toml --unreleased --strip header --tag "$TAG" 2>/dev/null || echo "")
+            NOTES=$(git cliff --config cliff.toml --github-token "$GITHUB_TOKEN" --unreleased --strip header --tag "$TAG" 2>/dev/null || echo "")
           else
-            NOTES=$(git cliff --config cliff.toml --strip header --tag "$TAG" 2>/dev/null || echo "")
+            NOTES=$(git cliff --config cliff.toml --github-token "$GITHUB_TOKEN" --strip header --tag "$TAG" 2>/dev/null || echo "")
           fi
 
-          # Fallback: extract from merged PR if changelog is empty
-          if [ -z "$NOTES" ] || [ "$(echo "$NOTES" | wc -w)" -lt 10 ]; then
+          # Fallback: extract from merged PRs if cliff produced nothing
+          # substantial. The previous threshold of 10 words considered a
+          # template skeleton (heading + "Full Changelog" link, ~14 words)
+          # to be a successful render; bump to 30 so an empty body still
+          # triggers the fallback.
+          if [ -z "$NOTES" ] || [ "$(echo "$NOTES" | wc -w)" -lt 30 ]; then
             echo "git-cliff output empty, extracting from merged PRs..."
 
             # Find merged PRs since last tag
