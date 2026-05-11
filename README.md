@@ -78,7 +78,28 @@ pub struct User {
 
 ```toml
 [dependencies]
-entity-derive = { version = "0.4", features = ["postgres", "api"] }
+entity-derive = { version = "0.8", features = ["postgres", "api"] }
+```
+
+### Feature flags
+
+| Feature | What it does |
+|---------|--------------|
+| `postgres` *(default)* | Generate `sqlx::PgPool`-backed repository implementations |
+| `clickhouse` | Generate ClickHouse-backed repositories *(planned)* |
+| `mongodb` | Generate MongoDB-backed repositories *(planned)* |
+| `streams` | Generate `{Entity}Subscriber` using Postgres `LISTEN`/`NOTIFY` |
+| `api` | Generate HTTP handlers (`axum`) and `utoipa` OpenAPI schemas |
+| `validate` | Wire up `validator::Validate` on generated DTOs |
+| `tracing` | Wrap every generated async method in `#[tracing::instrument]` carrying `entity` + `op` span fields |
+
+Enable extras alongside the defaults:
+
+```toml
+[dependencies]
+entity-derive = { version = "0.8", features = ["postgres", "api", "tracing", "streams"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
 ```
 
 ---
@@ -100,6 +121,7 @@ entity-derive = { version = "0.4", features = ["postgres", "api"] }
 | **Lifecycle Hooks** | `before_create`, `after_update`, etc. |
 | **CQRS Commands** | Business-oriented command pattern |
 | **Soft Delete** | `deleted_at` timestamp support |
+| **Structured Logging** | Opt-in `tracing` feature wraps every generated async method in `#[tracing::instrument]` with `entity` + `op` fields |
 
 ---
 
@@ -166,6 +188,53 @@ entity-derive = { version = "0.4", features = ["postgres", "api"] }
 #[has_many(Entity)]            // One-to-many relation
 #[projection(Name: fields)]    // Partial view
 ```
+
+### Transactions
+
+Mark each participating entity with `#[entity(table = "…", transactions)]` and
+drive a multi-entity transaction through `Transaction::run`. The closure
+receives `&mut TransactionContext`; `run` commits on `Ok` and rolls back on
+`Err` (or any panic) automatically:
+
+```rust,ignore
+use entity_core::transaction::Transaction;
+
+Transaction::new(&pool)
+    .run(async |ctx| {
+        let user = ctx.users().create(create_user).await?;
+        ctx.orders().create(order_for(user.id)).await?;
+        Ok::<_, sqlx::Error>(user)
+    })
+    .await?;
+```
+
+Need conditional commit/rollback inside the closure? Use
+[`run_with_commit`](https://docs.rs/entity-core/latest/entity_core/transaction/struct.Transaction.html#method.run_with_commit)
+— it takes `TransactionContext` by value so the closure can call
+`ctx.commit().await` (or `ctx.rollback().await`) itself.
+
+### Tracing
+
+Opt-in with the `tracing` feature. Every generated async method
+(`create`, `find_by_id`, `update`, `delete`, `list`, `find_by_<field>`,
+projections, transaction adapters, stream subscribers) is wrapped in
+`#[tracing::instrument(skip_all, fields(entity, op), err(Debug))]`.
+
+```toml
+entity-derive = { version = "0.8", features = ["postgres", "tracing"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+```
+
+With a subscriber initialized, a failed `User::create` surfaces as:
+
+```
+ERROR entity.User.create: error=database error: duplicate key value violates unique constraint
+  in entity.User.create with entity="User" op="create"
+```
+
+When the feature is off, generated code is byte-for-byte identical to a
+build without the attribute — zero runtime cost.
 
 ---
 
