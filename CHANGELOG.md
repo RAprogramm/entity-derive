@@ -11,12 +11,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.8.4...HEAD)
+## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.8.5...HEAD)
+
+### 🐛 Bug Fixes
+
+- **transactions:** Handle common irregular English plurals in pluralize() (#136) ([6a2b783](https://github.com/RAprogramm/entity-derive/commit/6a2b7835c654a0b9b059d131df5904aac17c4287)) by [@RAprogramm](https://github.com/RAprogramm) in [#136](https://github.com/RAprogramm/entity-derive/pull/136)
+
+## [0.8.5](https://github.com/RAprogramm/entity-derive/releases/tag/v0.8.5) — 2026-05-11
 
 ### 🐛 Bug Fixes
 
 - **aggregate_root:** Emit Created event from save() for streams entities (#134) ([ab05134](https://github.com/RAprogramm/entity-derive/commit/ab05134dc09c8ce3984543114e87e2503f39f1c7)) by [@RAprogramm](https://github.com/RAprogramm) in [#134](https://github.com/RAprogramm/entity-derive/pull/134)
 
+**Full Changelog**: [`v0.8.4...v0.8.5`](https://github.com/RAprogramm/entity-derive/compare/v0.8.4...v0.8.5)
 ## [0.8.4](https://github.com/RAprogramm/entity-derive/releases/tag/v0.8.4) — 2026-05-11
 
 ### ✨ Features
