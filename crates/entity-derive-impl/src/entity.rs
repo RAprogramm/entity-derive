@@ -208,3 +208,79 @@ fn guard_disabled_attribute(
     );
     quote! { ::core::compile_error!(#msg); }
 }
+
+#[cfg(test)]
+mod tests {
+    use syn::parse_quote;
+
+    use super::*;
+
+    fn parse_minimal_entity() -> EntityDef {
+        let input: syn::DeriveInput = parse_quote! {
+            #[entity(table = "users")]
+            pub struct User {
+                #[id]
+                pub id: ::uuid::Uuid
+            }
+        };
+        EntityDef::from_derive_input(&input).expect("minimal entity must parse")
+    }
+
+    #[test]
+    fn guard_returns_empty_when_attribute_not_requested() {
+        let entity = parse_minimal_entity();
+        let tokens = guard_disabled_attribute(&entity, "commands", false);
+        assert!(
+            tokens.is_empty(),
+            "no compile_error must be emitted when the attribute is absent, got: {tokens}"
+        );
+    }
+
+    #[test]
+    fn guard_emits_compile_error_when_attribute_requested_without_feature() {
+        let entity = parse_minimal_entity();
+        let tokens = guard_disabled_attribute(&entity, "commands", true).to_string();
+        assert!(
+            tokens.contains("compile_error"),
+            "must emit compile_error! token, got: {tokens}"
+        );
+        assert!(
+            tokens.contains("commands"),
+            "diagnostic must name the missing feature, got: {tokens}"
+        );
+        assert!(
+            tokens.contains("features = "),
+            "diagnostic must show the user how to enable, got: {tokens}"
+        );
+    }
+
+    #[test]
+    fn guard_includes_entity_name_in_diagnostic() {
+        let entity = parse_minimal_entity();
+        let tokens = guard_disabled_attribute(&entity, "hooks", true).to_string();
+        assert!(
+            tokens.contains("User"),
+            "diagnostic must name the offending entity, got: {tokens}"
+        );
+    }
+
+    #[test]
+    fn guard_message_references_correct_feature_name() {
+        let entity = parse_minimal_entity();
+        for feature in [
+            "events",
+            "commands",
+            "hooks",
+            "transactions",
+            "aggregate_root",
+            "migrations",
+            "projections"
+        ] {
+            let tokens = guard_disabled_attribute(&entity, feature, true).to_string();
+            assert!(
+                tokens.contains(feature),
+                "diagnostic for `{feature}` must mention it, got: {tokens}"
+            );
+        }
+    }
+}
