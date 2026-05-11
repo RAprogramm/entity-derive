@@ -50,7 +50,10 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
 use super::context::Context;
-use crate::entity::parse::{FieldDef, SqlLevel};
+use crate::{
+    entity::parse::{FieldDef, SqlLevel},
+    utils::tracing::instrument
+};
 
 impl Context<'_> {
     /// Generate all lookup method implementations.
@@ -116,8 +119,11 @@ impl Context<'_> {
         let field_type = field.ty();
         let method_name = format_ident!("find_by_{}", field_name_str);
         let placeholder = dialect.placeholder(1);
+        let op = format!("find_by_{field_name_str}");
+        let span = instrument(&entity_name.to_string(), &op);
 
         quote! {
+            #span
             async fn #method_name(&self, #field_name: #field_type) -> Result<Option<#entity_name>, Self::Error> {
                 let row: Option<#row_name> = sqlx::query_as(
                     &format!("SELECT * FROM {} WHERE {} = {}", #table, stringify!(#field_name), #placeholder)
@@ -136,6 +142,7 @@ impl Context<'_> {
     /// ```
     fn exists_by_method(&self, field: &FieldDef) -> TokenStream {
         let Self {
+            entity_name,
             table,
             dialect,
             ..
@@ -146,8 +153,11 @@ impl Context<'_> {
         let field_type = field.ty();
         let method_name = format_ident!("exists_by_{}", field_name_str);
         let placeholder = dialect.placeholder(1);
+        let op = format!("exists_by_{field_name_str}");
+        let span = instrument(&entity_name.to_string(), &op);
 
         quote! {
+            #span
             async fn #method_name(&self, #field_name: #field_type) -> Result<bool, Self::Error> {
                 let exists: bool = sqlx::query_scalar(
                     &format!("SELECT EXISTS(SELECT 1 FROM {} WHERE {} = {})", #table, stringify!(#field_name), #placeholder)

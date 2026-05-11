@@ -32,7 +32,7 @@ use super::{
     context::Context,
     helpers::{insert_bindings, update_bindings}
 };
-use crate::entity::parse::ReturningMode;
+use crate::{entity::parse::ReturningMode, utils::tracing::instrument};
 
 impl Context<'_> {
     /// Generate the `create` method implementation.
@@ -67,10 +67,13 @@ impl Context<'_> {
         } = self;
         let bindings = insert_bindings(entity.all_fields());
 
+        let span = instrument(&entity_name.to_string(), "create");
+
         match returning {
             ReturningMode::Full => {
                 let notify = self.notify_created();
                 quote! {
+                    #span
                     async fn create(&self, dto: #create_dto) -> Result<#entity_name, Self::Error> {
                         let entity = #entity_name::from(dto);
                         let insertable = #insertable_name::from(&entity);
@@ -89,6 +92,7 @@ impl Context<'_> {
                 let id_name = self.id_name;
                 let notify = self.notify_created();
                 quote! {
+                    #span
                     async fn create(&self, dto: #create_dto) -> Result<#entity_name, Self::Error> {
                         let entity = #entity_name::from(dto);
                         let insertable = #insertable_name::from(&entity);
@@ -103,6 +107,7 @@ impl Context<'_> {
             ReturningMode::None => {
                 let notify = self.notify_created();
                 quote! {
+                    #span
                     async fn create(&self, dto: #create_dto) -> Result<#entity_name, Self::Error> {
                         let entity = #entity_name::from(dto);
                         let insertable = #insertable_name::from(&entity);
@@ -118,6 +123,7 @@ impl Context<'_> {
                 let returning_cols = columns.join(", ");
                 let notify = self.notify_created();
                 quote! {
+                    #span
                     async fn create(&self, dto: #create_dto) -> Result<#entity_name, Self::Error> {
                         let entity = #entity_name::from(dto);
                         let insertable = #insertable_name::from(&entity);
@@ -160,7 +166,10 @@ impl Context<'_> {
             ""
         };
 
+        let span = instrument(&entity_name.to_string(), "find_by_id");
+
         quote! {
+            #span
             async fn find_by_id(&self, id: #id_type) -> Result<Option<#entity_name>, Self::Error> {
                 let row: Option<#row_name> = sqlx::query_as(
                     &format!("SELECT {} FROM {} WHERE {} = {}{}", #columns_str, #table, stringify!(#id_name), #placeholder, #deleted_filter)
@@ -211,10 +220,12 @@ impl Context<'_> {
 
         let fetch_old = self.fetch_old_for_update();
         let notify = self.notify_updated();
+        let span = instrument(&entity_name.to_string(), "update");
 
         match returning {
             ReturningMode::Full => {
                 quote! {
+                    #span
                     async fn update(&self, id: #id_type, dto: #update_dto) -> Result<#entity_name, Self::Error> {
                         #fetch_old
                         let row: #row_name = sqlx::query_as(
@@ -231,6 +242,7 @@ impl Context<'_> {
             }
             ReturningMode::Id | ReturningMode::None => {
                 quote! {
+                    #span
                     async fn update(&self, id: #id_type, dto: #update_dto) -> Result<#entity_name, Self::Error> {
                         #fetch_old
                         sqlx::query(&format!("UPDATE {} SET {} WHERE {} = {}", #table, #set_clause, stringify!(#id_name), #where_placeholder))
@@ -246,6 +258,7 @@ impl Context<'_> {
             ReturningMode::Custom(columns) => {
                 let returning_cols = columns.join(", ");
                 quote! {
+                    #span
                     async fn update(&self, id: #id_type, dto: #update_dto) -> Result<#entity_name, Self::Error> {
                         #fetch_old
                         sqlx::query(&format!("UPDATE {} SET {} WHERE {} = {} RETURNING {}", #table, #set_clause, stringify!(#id_name), #where_placeholder, #returning_cols))
@@ -277,6 +290,7 @@ impl Context<'_> {
     /// ```
     pub fn delete_method(&self) -> TokenStream {
         let Self {
+            entity_name,
             table,
             id_name,
             id_type,
@@ -288,7 +302,9 @@ impl Context<'_> {
 
         if *soft_delete {
             let notify = self.notify_soft_deleted();
+            let span = instrument(&entity_name.to_string(), "soft_delete");
             quote! {
+                #span
                 async fn delete(&self, id: #id_type) -> Result<bool, Self::Error> {
                     let result = sqlx::query(&format!(
                         "UPDATE {} SET deleted_at = NOW() WHERE {} = {} AND deleted_at IS NULL",
@@ -303,7 +319,9 @@ impl Context<'_> {
             }
         } else {
             let notify = self.notify_hard_deleted();
+            let span = instrument(&entity_name.to_string(), "delete");
             quote! {
+                #span
                 async fn delete(&self, id: #id_type) -> Result<bool, Self::Error> {
                     let result = sqlx::query(&format!("DELETE FROM {} WHERE {} = {}", #table, stringify!(#id_name), #placeholder))
                         .bind(&id).execute(self).await?;
@@ -346,7 +364,10 @@ impl Context<'_> {
             ""
         };
 
+        let span = instrument(&entity_name.to_string(), "list");
+
         quote! {
+            #span
             async fn list(&self, limit: i64, offset: i64) -> Result<Vec<#entity_name>, Self::Error> {
                 let rows: Vec<#row_name> = sqlx::query_as(
                     &format!("SELECT {} FROM {} {}ORDER BY {} DESC LIMIT {} OFFSET {}",

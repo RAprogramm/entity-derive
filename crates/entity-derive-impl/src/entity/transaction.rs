@@ -31,7 +31,7 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
 use super::{parse::EntityDef, sql::postgres::Context};
-use crate::utils::marker;
+use crate::utils::{marker, tracing::instrument};
 
 /// Generate all transaction-related code for an entity.
 ///
@@ -80,11 +80,14 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
         ""
     };
 
+    let entity_name_str = entity_name.to_string();
+    let create_span = instrument(&entity_name_str, "tx.create");
     let create_method = if entity.create_fields().is_empty() {
         TokenStream::new()
     } else {
         quote! {
             /// Create a new entity within the transaction.
+            #create_span
             pub async fn create(
                 &mut self,
                 dto: #create_dto
@@ -101,6 +104,7 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
         }
     };
 
+    let update_span = instrument(&entity_name_str, "tx.update");
     let update_method = if entity.update_fields().is_empty() {
         TokenStream::new()
     } else {
@@ -113,6 +117,7 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
 
         quote! {
             /// Update an entity within the transaction.
+            #update_span
             pub async fn update(
                 &mut self,
                 id: #id_type,
@@ -148,6 +153,15 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
         }
     };
 
+    let find_span = instrument(&entity_name_str, "tx.find_by_id");
+    let delete_op = if soft_delete {
+        "tx.soft_delete"
+    } else {
+        "tx.delete"
+    };
+    let delete_span = instrument(&entity_name_str, delete_op);
+    let list_span = instrument(&entity_name_str, "tx.list");
+
     quote! {
         #marker
         /// Transaction repository adapter for #entity_name.
@@ -168,6 +182,7 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
             #create_method
 
             /// Find an entity by ID within the transaction.
+            #find_span
             pub async fn find_by_id(
                 &mut self,
                 id: #id_type
@@ -182,6 +197,7 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
             #update_method
 
             /// Delete an entity within the transaction.
+            #delete_span
             pub async fn delete(
                 &mut self,
                 id: #id_type
@@ -190,6 +206,7 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
             }
 
             /// List entities within the transaction.
+            #list_span
             pub async fn list(
                 &mut self,
                 limit: i64,

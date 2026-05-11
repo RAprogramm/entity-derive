@@ -24,7 +24,7 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
 use super::context::Context;
-use crate::entity::parse::ProjectionDef;
+use crate::{entity::parse::ProjectionDef, utils::tracing::instrument};
 
 impl Context<'_> {
     /// Generate all projection methods.
@@ -67,7 +67,11 @@ impl Context<'_> {
             .collect::<Vec<_>>()
             .join(", ");
 
+        let op = format!("find_by_id_{proj_snake}");
+        let span = instrument(&entity_name.to_string(), &op);
+
         quote! {
+            #span
             async fn #method_name(&self, id: #id_type) -> Result<Option<#proj_type>, Self::Error> {
                 let row = sqlx::query_as::<_, #proj_type>(
                     &format!("SELECT {} FROM {} WHERE {} = {}", #columns_str, #table, stringify!(#id_name), #placeholder)

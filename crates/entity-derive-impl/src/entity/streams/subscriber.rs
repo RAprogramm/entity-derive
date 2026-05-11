@@ -8,15 +8,22 @@
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
-use crate::{entity::parse::EntityDef, utils::marker};
+use crate::{
+    entity::parse::EntityDef,
+    utils::{marker, tracing::instrument}
+};
 
 /// Generate the subscriber struct and implementation.
 pub fn generate(entity: &EntityDef) -> TokenStream {
     let vis = &entity.vis;
     let entity_name = entity.name();
+    let entity_name_str = entity_name.to_string();
     let subscriber_name = format_ident!("{}Subscriber", entity_name);
     let event_name = format_ident!("{}Event", entity_name);
     let marker = marker::generated();
+    let new_span = instrument(&entity_name_str, "stream.subscribe");
+    let recv_span = instrument(&entity_name_str, "stream.recv");
+    let try_recv_span = instrument(&entity_name_str, "stream.try_recv");
 
     let doc = format!(
         "Subscriber for real-time [`{entity_name}`] change events.\n\n\
@@ -34,6 +41,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             /// Create a new subscriber connected to the database pool.
             ///
             /// Automatically subscribes to the entity's notification channel.
+            #new_span
             pub async fn new(pool: &::sqlx::PgPool) -> Result<Self, ::sqlx::Error> {
                 let mut listener = ::sqlx::postgres::PgListener::connect_with(pool).await?;
                 listener.listen(#entity_name::CHANNEL).await?;
@@ -43,6 +51,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             /// Receive the next event.
             ///
             /// Blocks until an event is available.
+            #recv_span
             pub async fn recv(
                 &mut self,
             ) -> Result<#event_name, ::entity_core::stream::StreamError<::sqlx::Error>> {
@@ -59,6 +68,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             /// Try to receive an event without blocking.
             ///
             /// Returns `None` if no event is immediately available.
+            #try_recv_span
             pub async fn try_recv(
                 &mut self,
             ) -> Result<Option<#event_name>, ::entity_core::stream::StreamError<::sqlx::Error>> {

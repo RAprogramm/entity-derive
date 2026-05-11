@@ -13,6 +13,9 @@ default = ["postgres", "api"]
 postgres = []
 api = []
 validate = []
+# Acknowledge the feature gate that entity-derive emits on generated
+# methods (silences `unexpected cfg condition value` warnings).
+tracing = []
 
 [dependencies]
 entity-derive = { path = "../../crates/entity-derive", features = ["postgres", "api", "streams"] }
