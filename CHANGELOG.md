@@ -11,7 +11,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.8.2...HEAD)
+## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.8.3...HEAD)
+
+### ✨ Features
+
+- **cargo:** Split entity-attribute generators into opt-out features (#132) ([937ddf0](https://github.com/RAprogramm/entity-derive/commit/937ddf0ac9b849dee7d852101693d53db9e039b9)) by [@RAprogramm](https://github.com/RAprogramm) in [#132](https://github.com/RAprogramm/entity-derive/pull/132)
+
+## [0.8.3](https://github.com/RAprogramm/entity-derive/releases/tag/v0.8.3) — 2026-05-11
 
 ### 🐛 Bug Fixes
 
@@ -22,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **hooks:** Clarify manual-wiring requirement; track auto-invocation in #127 (#128) ([61300c6](https://github.com/RAprogramm/entity-derive/commit/61300c6bad3da19c64880372170e2c0ba62da8dc)) by [@RAprogramm](https://github.com/RAprogramm) in [#128](https://github.com/RAprogramm/entity-derive/pull/128)
 
+**Full Changelog**: [`v0.8.2...v0.8.3`](https://github.com/RAprogramm/entity-derive/compare/v0.8.2...v0.8.3)
 ## [0.8.2](https://github.com/RAprogramm/entity-derive/releases/tag/v0.8.2) — 2026-05-11
 
 ### 🐛 Bug Fixes
