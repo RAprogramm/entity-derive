@@ -11,15 +11,13 @@
 //! For an entity `User` with `#[entity(transactions)]`:
 //!
 //! - `UserTransactionRepo<'t>` — Repository adapter for transaction context
-//! - `with_users()` — Builder method on `Transaction` (fluent, chainable)
+//! - `with_users()` — Deprecated no-op builder, kept for source compatibility
 //! - `users()` — Accessor method on `TransactionContext`
 //!
 //! # Example
 //!
 //! ```rust,ignore
 //! Transaction::new(&pool)
-//!     .with_users()
-//!     .with_orders()
 //!     .run(async |ctx| {
 //!         let user = ctx.users().find_by_id(id).await?;
 //!         ctx.orders().create(order).await?;
@@ -211,7 +209,16 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
 /// Generate the builder extension trait.
 ///
 /// Creates an extension trait that adds `with_{entities}()` method to
-/// `Transaction`. This method is chainable and returns self.
+/// `Transaction`. The method is a deprecated no-op kept only for source
+/// compatibility with code written against earlier 0.x releases.
+///
+/// Repository access happens inside the closure passed to `run` /
+/// `run_with_commit` via the `ContextExt` trait
+/// (e.g. `ctx.users().find_by_id(id).await?`), independently of whether
+/// `with_*` was called. The fluent chain therefore does not actually
+/// register anything; users should drop the calls.
+///
+/// Planned removal: 0.8.0.
 fn generate_builder_extension(entity: &EntityDef) -> TokenStream {
     let vis = &entity.vis;
     let entity_name = entity.name();
@@ -221,17 +228,25 @@ fn generate_builder_extension(entity: &EntityDef) -> TokenStream {
     let method_name = format_ident!("with_{}", plural);
     let trait_name = format_ident!("TransactionWith{}", entity_name);
     let marker = marker::generated();
+    let deprecation_note = format!(
+        "no-op; repositories are accessed via `ctx.{plural}()` inside the closure of \
+         `Transaction::run` / `run_with_commit`. Drop the `.{method_name}()` call. \
+         Slated for removal in 0.8.0."
+    );
 
     quote! {
         #marker
-        /// Extension trait to add #entity_name to a transaction builder.
+        /// Extension trait left for source compatibility with earlier 0.x releases.
         ///
-        /// This is a fluent API method - it returns self for chaining.
-        /// The actual repository is accessed via `ctx.{entities}()` in the closure.
+        /// **Deprecated** — the method is a no-op. Repositories are accessed via
+        /// `ctx.<entities>()` inside the closure of `Transaction::run` /
+        /// `run_with_commit`, independent of whether this method is called.
+        /// Planned for removal in 0.8.0.
         #vis trait #trait_name<'p> {
-            /// Add #entity_name repository to the transaction.
+            /// Deprecated no-op kept for source compatibility.
             ///
-            /// Returns self for chaining with other `with_*` calls.
+            /// See the trait docs for the supported usage.
+            #[deprecated(note = #deprecation_note)]
             fn #method_name(self) -> Self;
         }
 

@@ -20,8 +20,6 @@
 //!
 //! async fn transfer(pool: &PgPool, from: Uuid, to: Uuid, amount: i64) -> Result<(), AppError> {
 //!     Transaction::new(pool)
-//!         .with_accounts()
-//!         .with_transfers()
 //!         .run(async |ctx| {
 //!             let from_acc = ctx.accounts().find_by_id(from).await?.ok_or(AppError::NotFound)?;
 //!
@@ -55,8 +53,6 @@ use std::{error::Error as StdError, fmt};
 ///
 /// ```rust,ignore
 /// Transaction::new(&pool)
-///     .with_users()
-///     .with_orders()
 ///     .run(async |ctx| {
 ///         let user = ctx.users().find_by_id(id).await?;
 ///         ctx.orders().create(order).await?;
@@ -294,7 +290,6 @@ impl Transaction<'_, sqlx::PgPool> {
     ///
     /// ```rust,ignore
     /// Transaction::new(&pool)
-    ///     .with_users()
     ///     .run(async |ctx| {
     ///         let user = ctx.users().create(dto).await?;
     ///         Ok(user)

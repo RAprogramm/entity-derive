@@ -254,9 +254,6 @@ async fn place_order(
     }
 
     let result = Transaction::new(&*pool)
-        .with_orders()
-        .with_order_items()
-        .with_products()
         .run(async |ctx| {
             // Create order
             let order = ctx
