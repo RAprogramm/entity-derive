@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.8.2...HEAD)
 
+### 🐛 Bug Fixes
+
+- **commands:** Surface parse errors instead of silently dropping invalid #[command(...)] (#130) ([8801315](https://github.com/RAprogramm/entity-derive/commit/8801315da095f84a7a66a1e6314a3e1999793375)) by [@RAprogramm](https://github.com/RAprogramm) in [#130](https://github.com/RAprogramm/entity-derive/pull/130)
+
+
 ### 📚 Documentation
 
 - **hooks:** Clarify manual-wiring requirement; track auto-invocation in #127 (#128) ([61300c6](https://github.com/RAprogramm/entity-derive/commit/61300c6bad3da19c64880372170e2c0ba62da8dc)) by [@RAprogramm](https://github.com/RAprogramm) in [#128](https://github.com/RAprogramm/entity-derive/pull/128)
