@@ -4,12 +4,12 @@
 [package]
 name = "entity-core"
 version = "0.4.0"
-edition = "2024"
-rust-version = "1.95"
-authors = ["RAprogramm <andrey.rozanov.vl@gmail.com>"]
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
 description = "Core traits and types for entity-derive"
-license = "MIT"
-repository = "https://github.com/RAprogramm/entity-derive"
+license.workspace = true
+repository.workspace = true
 documentation = "https://docs.rs/entity-core"
 readme = "README.md"
 keywords = ["entity", "repository", "traits", "database"]

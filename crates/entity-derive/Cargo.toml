@@ -4,12 +4,12 @@
 [package]
 name = "entity-derive"
 version = "0.6.0"
-edition = "2024"
-rust-version = "1.95"
-authors = ["RAprogramm <andrey.rozanov.vl@gmail.com>"]
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
 description = "Derive macro for generating DTOs, repositories, and SQL from a single entity definition"
-license = "MIT"
-repository = "https://github.com/RAprogramm/entity-derive"
+license.workspace = true
+repository.workspace = true
 documentation = "https://docs.rs/entity-derive"
 readme = "README.md"
 keywords = ["derive", "macro", "entity", "dto", "repository"]
