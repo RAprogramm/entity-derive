@@ -31,7 +31,7 @@
 //!         err,
 //!     )
 //! )]
-//! pub async fn create(&self, dto: CreateUserRequest) -> Result<User, sqlx::Error> { … }
+//! pub async fn create(&self, dto: CreateUserRequest) -> Result<User, sqlx::Error> { /* ... */ }
 //! ```
 
 use proc_macro2::TokenStream;
