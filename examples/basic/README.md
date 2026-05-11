@@ -121,3 +121,43 @@ The `Entity` derive generates:
 - `UserResponse` — DTO for API responses
 - `UserRepository` — Async trait with CRUD methods
 - `impl UserRepository for PgPool` — PostgreSQL implementation
+
+---
+
+## Aggregate Root Pattern
+
+For entities that represent DDD aggregate roots, use `#[entity(aggregate_root)]`:
+
+```rust
+#[derive(Entity)]
+#[entity(table = "orders", aggregate_root)]
+pub struct Order {
+    #[id]
+    pub id: Uuid,
+
+    #[field(create)]
+    pub buyer_id: Uuid,
+
+    #[field(create)]
+    pub seller_id: Uuid,
+
+    #[field(response)]
+    #[auto]
+    pub created_at: DateTime<Utc>,
+}
+```
+
+Generates:
+
+- `NewOrder` — create-only DTO without ID
+- `From<NewOrder> for Order` — converts to entity with auto-generated UUID
+- `save(&self, new: NewOrder)` — transactional insert on repository
+
+Usage:
+
+```rust
+let order = pool.save(NewOrder {
+    buyer_id: buyer_uuid,
+    seller_id: seller_uuid,
+}).await?;
+```

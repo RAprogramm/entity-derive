@@ -4,7 +4,7 @@
 //! Axum handler generation with utoipa annotations.
 //!
 //! Generates HTTP handlers for each command defined on the entity.
-//! Each handler includes `#[utoipa::path]` annotations for OpenAPI
+//! Each handler includes `#[utoipa::path]` annotations for `OpenAPI`
 //! documentation.
 //!
 //! # Generated Handlers
@@ -201,7 +201,7 @@ fn generate_handler_without_id(
     }
 }
 
-/// Generate handler for commands that require an ID (e.g., UpdateEmail).
+/// Generate handler for commands that require an ID (e.g., `UpdateEmail`).
 #[allow(clippy::too_many_arguments)]
 fn generate_handler_with_id(
     entity: &EntityDef,
@@ -261,14 +261,14 @@ fn build_path(entity: &EntityDef, cmd: &CommandDef) -> String {
     let cmd_path = cmd.name.to_string().to_case(Case::Kebab);
 
     if cmd.requires_id {
-        format!("{}/{}/{{id}}/{}", prefix, entity_path, cmd_path)
+        format!("{prefix}/{entity_path}/{{id}}/{cmd_path}")
     } else {
-        format!("{}/{}/{}", prefix, entity_path, cmd_path)
+        format!("{prefix}/{entity_path}/{cmd_path}")
     }
 }
 
 /// Get HTTP method for a command based on its kind.
-fn http_method_for_command(cmd: &CommandDef) -> &'static str {
+const fn http_method_for_command(cmd: &CommandDef) -> &'static str {
     match cmd.kind {
         CommandKindHint::Create => "post",
         CommandKindHint::Update => "put",
@@ -277,7 +277,7 @@ fn http_method_for_command(cmd: &CommandDef) -> &'static str {
     }
 }
 
-/// Map security scheme name to OpenAPI security scheme identifier.
+/// Map security scheme name to `OpenAPI` security scheme identifier.
 fn security_scheme_name(scheme: &str) -> &'static str {
     match scheme {
         "bearer" => "bearer_auth",

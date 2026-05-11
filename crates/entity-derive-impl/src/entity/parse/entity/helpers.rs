@@ -211,7 +211,7 @@ pub fn parse_index_attrs(attrs: &[Attribute]) -> Vec<CompositeIndexDef> {
     indexes
 }
 
-/// Parse the content of an index(...) or unique_index(...) attribute.
+/// Parse the content of an index(...) or `unique_index`(...) attribute.
 fn parse_index_content(
     meta: &syn::meta::ParseNestedMeta<'_>,
     unique: bool

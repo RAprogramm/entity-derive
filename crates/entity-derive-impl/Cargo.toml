@@ -3,13 +3,13 @@
 
 [package]
 name = "entity-derive-impl"
-version = "0.3.0"
-edition = "2024"
-rust-version = "1.92"
-authors = ["RAprogramm <andrey.rozanov.vl@gmail.com>"]
+version = "0.4.0"
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
 description = "Internal proc-macro implementation for entity-derive. Use entity-derive instead."
-license = "MIT"
-repository = "https://github.com/RAprogramm/entity-derive"
+license.workspace = true
+repository.workspace = true
 documentation = "https://docs.rs/entity-derive-impl"
 readme = "README.md"
 keywords = ["derive", "macro", "entity", "internal"]
@@ -27,6 +27,7 @@ quote = "1"
 proc-macro2 = "1"
 darling = "0.23"
 convert_case = "0.11"
+serde = { version = "1", features = ["derive"] }
 
 [dev-dependencies]
 trybuild = "1"

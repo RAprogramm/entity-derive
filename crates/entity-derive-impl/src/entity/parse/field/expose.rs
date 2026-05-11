@@ -3,7 +3,7 @@
 
 //! DTO exposure configuration for entity fields.
 //!
-//! Controls which DTOs a field appears in: CreateRequest, UpdateRequest,
+//! Controls which DTOs a field appears in: `CreateRequest`, `UpdateRequest`,
 //! Response.
 
 use syn::{Attribute, Meta};
@@ -43,8 +43,8 @@ impl ExposeConfig {
     ///
     /// # Recognized options
     ///
-    /// - `create` → include in CreateRequest
-    /// - `update` → include in UpdateRequest
+    /// - `create` → include in `CreateRequest`
+    /// - `update` → include in `UpdateRequest`
     /// - `response` → include in Response
     /// - `skip` → exclude from all DTOs
     pub fn from_attr(attr: &Attribute) -> Self {
@@ -68,15 +68,15 @@ impl ExposeConfig {
         config
     }
 
-    /// Check if field should appear in CreateRequest.
+    /// Check if field should appear in `CreateRequest`.
     #[must_use]
-    pub fn in_create(&self) -> bool {
+    pub const fn in_create(&self) -> bool {
         !self.skip && self.create
     }
 
-    /// Check if field should appear in UpdateRequest.
+    /// Check if field should appear in `UpdateRequest`.
     #[must_use]
-    pub fn in_update(&self) -> bool {
+    pub const fn in_update(&self) -> bool {
         !self.skip && self.update
     }
 }

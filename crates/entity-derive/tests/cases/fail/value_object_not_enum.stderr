@@ -1,0 +1,8 @@
+error: ValueObject can only be derived for enums
+  --> tests/cases/fail/value_object_not_enum.rs:7:1
+   |
+ 7 | / #[value_object(pg_type = "status")]
+ 8 | | pub struct NotAnEnum {
+ 9 | |     field: String,
+10 | | }
+   | |_^

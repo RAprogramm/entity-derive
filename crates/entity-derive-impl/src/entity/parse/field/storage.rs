@@ -45,14 +45,14 @@ pub struct StorageConfig {
     /// Effects:
     /// - Auto-generates UUID (v7 or v4 based on entity config)
     /// - Always included in Response DTO
-    /// - Excluded from CreateRequest and UpdateRequest
+    /// - Excluded from `CreateRequest` and `UpdateRequest`
     pub is_id: bool,
 
     /// Auto-generated field (`#[auto]`).
     ///
     /// Effects:
     /// - Gets `Default::default()` in From implementations
-    /// - Excluded from CreateRequest and UpdateRequest
+    /// - Excluded from `CreateRequest` and `UpdateRequest`
     /// - Typically used for `created_at`, `updated_at` timestamps
     pub is_auto: bool,
 
@@ -88,7 +88,7 @@ pub struct StorageConfig {
 impl StorageConfig {
     /// Check if this field is a foreign key relation.
     #[must_use]
-    pub fn is_relation(&self) -> bool {
+    pub const fn is_relation(&self) -> bool {
         self.belongs_to.is_some()
     }
 }

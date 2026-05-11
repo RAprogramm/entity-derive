@@ -15,6 +15,7 @@
 //! | [`assigns`] | `name: source.name` |
 //! | [`assigns_clone`] | `name: source.name.clone()` |
 //! | [`create_assigns`] | `name: dto.name` or `name: Uuid::now_v7()` |
+//! | [`row_assigns`] | `name: row.name` or with `#[map]` transformations |
 //!
 //! # Usage
 //!
@@ -35,7 +36,7 @@ use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::Ident;
 
-use crate::entity::parse::{FieldDef, UuidVersion};
+use crate::entity::parse::{FieldDef, MapConfig, UuidVersion};
 
 /// Generates move assignments: `name: source.name`.
 ///
@@ -124,4 +125,150 @@ pub fn create_assigns(
             }
         })
         .collect()
+}
+
+/// Generates field assignments for `From<Row> for Entity`.
+///
+/// Applies `#[map]` transformations where present. When a field has no
+/// mapping configuration, generates a simple field copy.
+///
+/// # Arguments
+///
+/// * `fields` — All fields of the entity.
+/// * `source` — Source variable name (e.g., `"row"`).
+///
+/// # Returns
+///
+/// A vector of `TokenStream` representing field assignments.
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// let assigns = row_assigns(entity.all_fields(), "row");
+/// // For a field with #[map(empty_to_none)]:
+/// // Generates: nickname: row.nickname.filter(|s| !s.is_empty())
+/// // For a field without #[map]:
+/// // Generates: name: row.name
+/// ```
+pub fn row_assigns(fields: &[FieldDef], source: &str) -> Vec<TokenStream> {
+    let src = Ident::new(source, Span::call_site());
+    fields
+        .iter()
+        .map(|f: &FieldDef| {
+            let name = f.name();
+            let map = f.map();
+            if map == &MapConfig::None {
+                quote! { #name: #src.#name }
+            } else {
+                let expr = map.generate(name, &src);
+                quote! { #name: #expr }
+            }
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use quote::quote;
+    use syn::parse_quote;
+
+    use super::*;
+
+    fn make_field(tokens: proc_macro2::TokenStream) -> FieldDef {
+        let field: syn::Field = parse_quote!(#tokens);
+        FieldDef::from_field(&field).unwrap()
+    }
+
+    #[test]
+    fn row_assigns_simple() {
+        let fields = vec![make_field(quote::quote! { pub name: String })];
+        let assigns = row_assigns(&fields, "row");
+        assert_eq!(assigns.len(), 1);
+        let expected = quote! { name: row.name };
+        assert_eq!(assigns[0].to_string(), expected.to_string());
+    }
+
+    #[test]
+    fn row_assigns_multiple() {
+        let fields = vec![
+            make_field(quote::quote! { pub id: uuid::Uuid }),
+            make_field(quote::quote! { pub name: String }),
+        ];
+        let assigns = row_assigns(&fields, "row");
+        assert_eq!(assigns.len(), 2);
+    }
+
+    #[test]
+    fn row_assigns_empty_to_none() {
+        let field = make_field(quote::quote! {
+            #[map(empty_to_none)]
+            pub nickname: Option<String>
+        });
+        let assigns = row_assigns(&[field], "row");
+        let expected = quote! { nickname: row.nickname.filter(|s| !s.is_empty()) };
+        assert_eq!(assigns[0].to_string(), expected.to_string());
+    }
+
+    #[test]
+    fn row_assigns_unwrap_default() {
+        let field = make_field(quote::quote! {
+            #[map(unwrap_default)]
+            pub age: Option<i32>
+        });
+        let assigns = row_assigns(&[field], "row");
+        let expected = quote! { age: Some(row.age.unwrap_or_default()) };
+        assert_eq!(assigns[0].to_string(), expected.to_string());
+    }
+
+    #[test]
+    fn row_assigns_now() {
+        let field = make_field(quote::quote! {
+            #[map(now)]
+            pub last_seen: Option<chrono::DateTime<chrono::Utc>>
+        });
+        let assigns = row_assigns(&[field], "row");
+        let expected = quote! { last_seen: Some(row.last_seen.unwrap_or_else(chrono::Utc::now)) };
+        assert_eq!(assigns[0].to_string(), expected.to_string());
+    }
+
+    #[test]
+    fn row_assigns_expr() {
+        let field = make_field(quote::quote! {
+            #[map(expr = "row.raw.parse().unwrap_or(0)")]
+            pub score: i32
+        });
+        let assigns = row_assigns(&[field], "row");
+        let expected = quote! { score: row.raw.parse().unwrap_or(0) };
+        assert_eq!(assigns[0].to_string(), expected.to_string());
+    }
+
+    #[test]
+    fn row_assigns_mixed() {
+        let fields = vec![
+            make_field(quote::quote! { pub id: uuid::Uuid }),
+            make_field(quote::quote! {
+                #[map(empty_to_none)]
+                pub nickname: Option<String>
+            }),
+            make_field(quote::quote! { pub email: String }),
+        ];
+        let assigns = row_assigns(&fields, "row");
+        assert_eq!(assigns.len(), 3);
+
+        let expected_id = quote! { id: row.id };
+        let expected_nickname = quote! { nickname: row.nickname.filter(|s| !s.is_empty()) };
+        let expected_email = quote! { email: row.email };
+
+        assert_eq!(assigns[0].to_string(), expected_id.to_string());
+        assert_eq!(assigns[1].to_string(), expected_nickname.to_string());
+        assert_eq!(assigns[2].to_string(), expected_email.to_string());
+    }
+
+    #[test]
+    fn row_assigns_source_name() {
+        let fields = vec![make_field(quote::quote! { pub name: String })];
+        let assigns = row_assigns(&fields, "src");
+        let expected = quote! { name: src.name };
+        assert_eq!(assigns[0].to_string(), expected.to_string());
+    }
 }

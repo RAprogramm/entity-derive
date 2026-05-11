@@ -42,7 +42,7 @@ fn event_serialization() {
         status: "pending".to_string()
     };
 
-    let event = OrderEvent::created(order.clone());
+    let event = OrderEvent::created(order);
     let json = serde_json::to_string(&event).expect("serialize");
     let parsed: OrderEvent = serde_json::from_str(&json).expect("deserialize");
 

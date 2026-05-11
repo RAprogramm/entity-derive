@@ -5,11 +5,11 @@
 //!
 //! Extracts `#[validate(...)]` attributes from fields for:
 //! - Passing through to generated DTOs
-//! - Converting to OpenAPI schema constraints
+//! - Converting to `OpenAPI` schema constraints
 //!
 //! # Supported Validators
 //!
-//! | Validator | OpenAPI Constraint |
+//! | Validator | `OpenAPI` Constraint |
 //! |-----------|-------------------|
 //! | `length(min = N)` | `minLength: N` |
 //! | `length(max = N)` | `maxLength: N` |
@@ -70,7 +70,7 @@ impl ValidationConfig {
     /// Check if any validation is configured.
     #[must_use]
     #[allow(dead_code)] // Will be used when generating schema constraints
-    pub fn has_validation(&self) -> bool {
+    pub const fn has_validation(&self) -> bool {
         self.min_length.is_some()
             || self.max_length.is_some()
             || self.minimum.is_some()
@@ -80,9 +80,9 @@ impl ValidationConfig {
             || self.pattern.is_some()
     }
 
-    /// Generate OpenAPI schema attributes for utoipa.
+    /// Generate `OpenAPI` schema attributes for utoipa.
     ///
-    /// Returns TokenStream with schema constraints like `min_length = N`.
+    /// Returns `TokenStream` with schema constraints like `min_length = N`.
     #[must_use]
     #[allow(dead_code)] // Will be used when generating schema constraints
     pub fn to_schema_attrs(&self) -> TokenStream {
@@ -134,12 +134,15 @@ pub fn parse_validation_attrs(attrs: &[Attribute]) -> ValidationConfig {
 
         // Parse the attribute content
         let _ = attr.parse_nested_meta(|meta| {
-            let path_str = meta.path.get_ident().map(|i| i.to_string());
+            let path_str = meta.path.get_ident().map(std::string::ToString::to_string);
 
             match path_str.as_deref() {
                 Some("length") => {
                     meta.parse_nested_meta(|nested| {
-                        let nested_path = nested.path.get_ident().map(|i| i.to_string());
+                        let nested_path = nested
+                            .path
+                            .get_ident()
+                            .map(std::string::ToString::to_string);
                         match nested_path.as_deref() {
                             Some("min") => {
                                 let value: syn::LitInt = nested.value()?.parse()?;
@@ -156,7 +159,10 @@ pub fn parse_validation_attrs(attrs: &[Attribute]) -> ValidationConfig {
                 }
                 Some("range") => {
                     meta.parse_nested_meta(|nested| {
-                        let nested_path = nested.path.get_ident().map(|i| i.to_string());
+                        let nested_path = nested
+                            .path
+                            .get_ident()
+                            .map(std::string::ToString::to_string);
                         match nested_path.as_deref() {
                             Some("min") => {
                                 let value: syn::LitInt = nested.value()?.parse()?;
@@ -321,5 +327,142 @@ mod tests {
         assert!(attrs_str.contains("min_length"));
         assert!(attrs_str.contains("max_length"));
         assert!(attrs_str.contains("email"));
+    }
+
+    #[test]
+    fn parse_regex_pattern() {
+        let attrs = parse_attrs(
+            r#"
+            struct Foo {
+                #[validate(regex = "^[a-zA-Z]+$")]
+                name: String,
+            }
+        "#
+        );
+        let config = parse_validation_attrs(&attrs);
+        assert_eq!(config.pattern, Some("^[a-zA-Z]+$".to_string()));
+    }
+
+    #[test]
+    fn schema_attrs_with_minimum() {
+        let config = ValidationConfig {
+            minimum: Some(0),
+            maximum: Some(100),
+            ..Default::default()
+        };
+
+        let attrs = config.to_schema_attrs();
+        let attrs_str = attrs.to_string();
+
+        assert!(attrs_str.contains("minimum"));
+        assert!(attrs_str.contains("maximum"));
+    }
+
+    #[test]
+    fn schema_attrs_with_url() {
+        let config = ValidationConfig {
+            url: true,
+            ..Default::default()
+        };
+
+        let attrs = config.to_schema_attrs();
+        let attrs_str = attrs.to_string();
+
+        assert!(attrs_str.contains("format"));
+        assert!(attrs_str.contains("uri"));
+    }
+
+    #[test]
+    fn schema_attrs_with_pattern() {
+        let config = ValidationConfig {
+            pattern: Some("^[0-9]+$".to_string()),
+            ..Default::default()
+        };
+
+        let attrs = config.to_schema_attrs();
+        let attrs_str = attrs.to_string();
+
+        assert!(attrs_str.contains("pattern"));
+    }
+
+    #[test]
+    fn schema_attrs_empty_returns_empty() {
+        let config = ValidationConfig::default();
+        let attrs = config.to_schema_attrs();
+        assert!(attrs.is_empty());
+    }
+
+    #[test]
+    fn has_validation_with_min_length() {
+        let config = ValidationConfig {
+            min_length: Some(5),
+            ..Default::default()
+        };
+        assert!(config.has_validation());
+    }
+
+    #[test]
+    fn has_validation_with_pattern() {
+        let config = ValidationConfig {
+            pattern: Some("test".to_string()),
+            ..Default::default()
+        };
+        assert!(config.has_validation());
+    }
+
+    #[test]
+    fn has_validation_with_minimum() {
+        let config = ValidationConfig {
+            minimum: Some(1),
+            ..Default::default()
+        };
+        assert!(config.has_validation());
+    }
+
+    #[test]
+    fn has_validation_with_maximum() {
+        let config = ValidationConfig {
+            maximum: Some(100),
+            ..Default::default()
+        };
+        assert!(config.has_validation());
+    }
+
+    #[test]
+    fn has_validation_with_max_length() {
+        let config = ValidationConfig {
+            max_length: Some(255),
+            ..Default::default()
+        };
+        assert!(config.has_validation());
+    }
+
+    #[test]
+    fn has_validation_all_fields() {
+        let config = ValidationConfig {
+            min_length: Some(1),
+            max_length: Some(100),
+            minimum: Some(0),
+            maximum: Some(1000),
+            email: true,
+            url: true,
+            pattern: Some("test".to_string()),
+            ..Default::default()
+        };
+        assert!(config.has_validation());
+    }
+
+    #[test]
+    fn raw_attrs_stored() {
+        let attrs = parse_attrs(
+            r#"
+            struct Foo {
+                #[validate(length(min = 1))]
+                name: String,
+            }
+        "#
+        );
+        let config = parse_validation_attrs(&attrs);
+        assert!(!config.raw_attrs.is_empty());
     }
 }

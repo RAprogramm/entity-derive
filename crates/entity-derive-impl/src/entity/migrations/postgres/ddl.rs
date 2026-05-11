@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! DDL (Data Definition Language) generation for PostgreSQL.
+//! DDL (Data Definition Language) generation for `PostgreSQL`.
 //!
 //! Generates CREATE TABLE, CREATE INDEX, and DROP TABLE statements.
 
@@ -94,12 +94,12 @@ fn generate_column_def(
 
     // DEFAULT value
     if let Some(ref default) = field.column().default {
-        parts.push(format!("DEFAULT {}", default));
+        parts.push(format!("DEFAULT {default}"));
     }
 
     // CHECK constraint
     if let Some(ref check) = field.column().check {
-        parts.push(format!("CHECK ({})", check));
+        parts.push(format!("CHECK ({check})"));
     }
 
     // Foreign key REFERENCES from #[belongs_to]
@@ -107,9 +107,8 @@ fn generate_column_def(
         && let Some(parent) = field.belongs_to()
     {
         let parent_table = parent.to_string().to_case(Case::Snake);
-        // Use same schema as current entity for the reference
-        let ref_table = format!("{}.{}", entity.schema, pluralize(&parent_table));
-        let mut fk_str = format!("REFERENCES {}(id)", ref_table);
+        let ref_table = entity.full_table_name_for(&pluralize(&parent_table));
+        let mut fk_str = format!("REFERENCES {ref_table}(id)");
 
         if let Some(action) = &field.storage.on_delete {
             fk_str.push_str(&format!(" ON DELETE {}", action.as_sql()));
@@ -123,37 +122,32 @@ fn generate_column_def(
 
 /// Generate CREATE INDEX for a single column.
 fn generate_single_index(entity: &EntityDef, field: &FieldDef) -> String {
-    let table = &entity.table;
-    let schema = &entity.schema;
+    let table = entity.table.clone();
     let column = field.column_name();
 
     let index_type = field.column().index.unwrap_or_default();
-    let index_name = format!("idx_{}_{}", table, column);
+    let index_name = format!("idx_{table}_{column}");
     let using = index_type.as_sql_using();
+    let qualified_table = entity.full_table_name_for(&table);
 
-    format!(
-        "CREATE INDEX IF NOT EXISTS {} ON {}.{}{} ({});\n",
-        index_name, schema, table, using, column
-    )
+    format!("CREATE INDEX IF NOT EXISTS {index_name} ON {qualified_table}{using} ({column});\n")
 }
 
 /// Generate CREATE INDEX for a composite index.
 fn generate_composite_index(entity: &EntityDef, idx: &CompositeIndexDef) -> String {
-    let table = &entity.table;
-    let schema = &entity.schema;
-
-    let index_name = idx.name_or_default(table);
+    let table = entity.table.clone();
+    let index_name = idx.name_or_default(&table);
     let using = idx.index_type.as_sql_using();
     let unique_str = if idx.unique { "UNIQUE " } else { "" };
     let columns = idx.columns.join(", ");
+    let qualified_table = entity.full_table_name_for(&table);
 
     let mut sql = format!(
-        "CREATE {}INDEX IF NOT EXISTS {} ON {}.{}{} ({})",
-        unique_str, index_name, schema, table, using, columns
+        "CREATE {unique_str}INDEX IF NOT EXISTS {index_name} ON {qualified_table}{using} ({columns})"
     );
 
     if let Some(ref where_clause) = idx.where_clause {
-        sql.push_str(&format!(" WHERE {}", where_clause));
+        sql.push_str(&format!(" WHERE {where_clause}"));
     }
 
     sql.push_str(";\n");
@@ -163,11 +157,11 @@ fn generate_composite_index(entity: &EntityDef, idx: &CompositeIndexDef) -> Stri
 /// Simple pluralization for table names.
 fn pluralize(s: &str) -> String {
     if s.ends_with('s') || s.ends_with("sh") || s.ends_with("ch") || s.ends_with('x') {
-        format!("{}es", s)
+        format!("{s}es")
     } else if s.ends_with('y') && !s.ends_with("ay") && !s.ends_with("ey") && !s.ends_with("oy") {
         format!("{}ies", &s[..s.len() - 1])
     } else {
-        format!("{}s", s)
+        format!("{s}s")
     }
 }
 
@@ -237,7 +231,7 @@ mod tests {
             }
         });
         let sql = generate_up(&entity);
-        assert!(sql.contains("CREATE TABLE IF NOT EXISTS public.users"));
+        assert!(sql.contains("CREATE TABLE IF NOT EXISTS users"));
         assert!(sql.contains("id UUID PRIMARY KEY"));
         assert!(sql.contains("name TEXT NOT NULL"));
     }
@@ -380,7 +374,7 @@ mod tests {
             }
         });
         let sql = generate_up(&entity);
-        assert!(sql.contains("REFERENCES public.users(id)"));
+        assert!(sql.contains("REFERENCES users(id)"));
     }
 
     #[test]
@@ -396,7 +390,7 @@ mod tests {
             }
         });
         let sql = generate_up(&entity);
-        assert!(sql.contains("REFERENCES public.users(id) ON DELETE CASCADE"));
+        assert!(sql.contains("REFERENCES users(id) ON DELETE CASCADE"));
     }
 
     #[test]
@@ -508,5 +502,93 @@ mod tests {
         });
         let sql = generate_up(&entity);
         assert!(sql.contains("CREATE INDEX IF NOT EXISTS idx_users_name_email"));
+    }
+
+    #[test]
+    fn generate_up_with_explicit_public_schema() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "users", schema = "public", migrations)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                pub name: String,
+            }
+        });
+        let sql = generate_up(&entity);
+        assert!(sql.contains("CREATE TABLE IF NOT EXISTS public.users"));
+    }
+
+    #[test]
+    fn generate_up_with_custom_schema() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "users", schema = "core", migrations)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                pub name: String,
+            }
+        });
+        let sql = generate_up(&entity);
+        assert!(sql.contains("CREATE TABLE IF NOT EXISTS core.users"));
+    }
+
+    #[test]
+    fn generate_down_with_explicit_schema() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "users", schema = "core", migrations)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        });
+        let sql = generate_down(&entity);
+        assert_eq!(sql, "DROP TABLE IF EXISTS core.users CASCADE;\n");
+    }
+
+    #[test]
+    fn generate_down_without_schema() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "users", migrations)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        });
+        let sql = generate_down(&entity);
+        assert_eq!(sql, "DROP TABLE IF EXISTS users CASCADE;\n");
+    }
+
+    #[test]
+    fn generate_single_index_with_explicit_schema() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "users", schema = "core", migrations)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                #[column(index)]
+                pub email: String,
+            }
+        });
+        let sql = generate_up(&entity);
+        assert!(sql.contains("CREATE INDEX IF NOT EXISTS idx_users_email ON core.users"));
+    }
+
+    #[test]
+    fn generate_single_index_without_schema() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "users", migrations)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                #[column(index)]
+                pub email: String,
+            }
+        });
+        let sql = generate_up(&entity);
+        assert!(sql.contains("CREATE INDEX IF NOT EXISTS idx_users_email ON users"));
     }
 }

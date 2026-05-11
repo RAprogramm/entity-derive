@@ -124,7 +124,7 @@ use crate::entity::parse::EntityDef;
 ///
 /// A `TokenStream` containing the complete handler function with:
 /// - Doc comments describing the endpoint
-/// - `#[utoipa::path]` attribute for OpenAPI documentation
+/// - `#[utoipa::path]` attribute for `OpenAPI` documentation
 /// - The async handler function implementation
 ///
 /// # Generated Components
@@ -173,9 +173,9 @@ pub fn generate_delete_handler(entity: &EntityDef) -> TokenStream {
     let security_attr = build_security_attr(entity);
     let deprecated_attr = build_deprecated_attr(entity);
 
-    let id_desc = format!("{} unique identifier", entity_name);
-    let success_desc = format!("{} deleted successfully", entity_name);
-    let not_found_desc = format!("{} not found", entity_name);
+    let id_desc = format!("{entity_name} unique identifier");
+    let success_desc = format!("{entity_name} deleted successfully");
+    let not_found_desc = format!("{entity_name} not found");
 
     let utoipa_attr = if has_security {
         quote! {
@@ -228,7 +228,7 @@ pub fn generate_delete_handler(entity: &EntityDef) -> TokenStream {
         entity_name
     );
 
-    let not_found_msg = format!("{} not found", entity_name);
+    let not_found_msg = format!("{entity_name} not found");
 
     quote! {
         #[doc = #doc]

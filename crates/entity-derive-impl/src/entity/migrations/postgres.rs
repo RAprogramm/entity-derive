@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! PostgreSQL migration generation.
+//! `PostgreSQL` migration generation.
 //!
-//! Generates `MIGRATION_UP` and `MIGRATION_DOWN` constants for PostgreSQL.
+//! Generates `MIGRATION_UP` and `MIGRATION_DOWN` constants for `PostgreSQL`.
 
 mod ddl;
 
@@ -12,7 +12,7 @@ use quote::quote;
 
 use crate::{entity::parse::EntityDef, utils::marker};
 
-/// Generate migration constants for PostgreSQL.
+/// Generate migration constants for `PostgreSQL`.
 ///
 /// # Generated Code
 ///

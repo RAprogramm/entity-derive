@@ -37,18 +37,42 @@ env:
 
 jobs:
   # ════════════════════════════════════════════════════════════════════════════
+  # STAGE 0: PREPARE (single source of truth for MSRV)
+  # ════════════════════════════════════════════════════════════════════════════
+
+  prepare:
+    name: Prepare
+    runs-on: ubuntu-latest
+    outputs:
+      msrv: ${{ steps.msrv.outputs.msrv }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Read MSRV from workspace Cargo.toml
+        id: msrv
+        run: |
+          MSRV=$(grep -m1 -E '^rust-version' Cargo.toml | sed 's/.*"\(.*\)".*/\1/')
+          if [[ -z "$MSRV" ]]; then
+            echo "::error::Failed to read rust-version from Cargo.toml"
+            exit 1
+          fi
+          echo "msrv=$MSRV" >> "$GITHUB_OUTPUT"
+          echo "Detected MSRV: $MSRV"
+
+  # ════════════════════════════════════════════════════════════════════════════
   # STAGE 1: CHECKS (parallel)
   # ════════════════════════════════════════════════════════════════════════════
 
   check:
     name: Check (${{ matrix.rust }} / ${{ matrix.os }})
+    needs: prepare
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          # MSRV
-          - rust: "1.92"
+          # MSRV (from workspace Cargo.toml)
+          - rust: ${{ needs.prepare.outputs.msrv }}
             os: ubuntu-latest
             msrv: true
           # Stable (primary)

@@ -68,7 +68,7 @@
 //!
 //! | Attribute | Default | Description |
 //! |-----------|---------|-------------|
-//! | `schema` | `"public"` | Database schema |
+//! | `schema` | — | Database schema (omitted = no prefix in SQL) |
 //! | `sql` | `Full` | SQL generation level |
 //! | `dialect` | `Postgres` | Database dialect |
 //! | `uuid` | `V7` | UUID version for IDs |
@@ -96,7 +96,7 @@
 //! let entity = EntityDef::from_derive_input(&input)?;
 //!
 //! // Access entity metadata
-//! let table = entity.full_table_name();  // "public.users"
+//! let table = entity.full_table_name();  // "users" (no schema) or "core.users" (with schema)
 //! let id = entity.id_field();            // FieldDef for #[id] field
 //!
 //! // Access field categories for DTO generation

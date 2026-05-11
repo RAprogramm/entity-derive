@@ -8,7 +8,7 @@
 //!
 //! # Features
 //!
-//! - Full type mapping (Rust → PostgreSQL)
+//! - Full type mapping (Rust → `PostgreSQL`)
 //! - Column constraints (UNIQUE, CHECK, DEFAULT)
 //! - Indexes (btree, hash, gin, gist, brin)
 //! - Foreign keys with ON DELETE actions

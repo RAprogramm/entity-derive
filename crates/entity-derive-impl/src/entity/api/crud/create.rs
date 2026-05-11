@@ -109,7 +109,7 @@ use crate::entity::parse::EntityDef;
 ///
 /// A `TokenStream` containing the complete handler function with:
 /// - Doc comments describing the endpoint
-/// - `#[utoipa::path]` attribute for OpenAPI documentation
+/// - `#[utoipa::path]` attribute for `OpenAPI` documentation
 /// - The async handler function implementation
 ///
 /// # Generated Components
@@ -165,8 +165,8 @@ pub fn generate_create_handler(entity: &EntityDef) -> TokenStream {
     let security_attr = build_security_attr(entity);
     let deprecated_attr = build_deprecated_attr(entity);
 
-    let request_body_desc = format!("Data for creating a new {}", entity_name);
-    let success_desc = format!("{} created successfully", entity_name);
+    let request_body_desc = format!("Data for creating a new {entity_name}");
+    let success_desc = format!("{entity_name} created successfully");
 
     let utoipa_attr = if has_security {
         quote! {

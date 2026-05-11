@@ -5,7 +5,7 @@
 //!
 //! This module defines the data structures that hold parsed API configuration
 //! from `#[entity(api(...))]` attributes. These types drive code generation
-//! for HTTP handlers, OpenAPI documentation, and router setup.
+//! for HTTP handlers, `OpenAPI` documentation, and router setup.
 //!
 //! # Type Hierarchy
 //!
@@ -130,7 +130,7 @@ pub struct HandlerConfig {
 
 impl HandlerConfig {
     /// Create config with all handlers enabled.
-    pub fn all() -> Self {
+    pub const fn all() -> Self {
         Self {
             create: true,
             get:    true,
@@ -141,7 +141,7 @@ impl HandlerConfig {
     }
 
     /// Check if any handler is enabled.
-    pub fn any(&self) -> bool {
+    pub const fn any(&self) -> bool {
         self.create || self.get || self.update || self.delete || self.list
     }
 }
@@ -149,7 +149,7 @@ impl HandlerConfig {
 /// Complete API configuration parsed from `#[entity(api(...))]`.
 ///
 /// This struct holds all configuration options that control HTTP handler
-/// generation and OpenAPI documentation. It is populated by
+/// generation and `OpenAPI` documentation. It is populated by
 /// [`parse_api_config`] and consumed by code generation modules.
 ///
 /// # Configuration Categories
@@ -158,7 +158,7 @@ impl HandlerConfig {
 ///
 /// | Field | Purpose | Example |
 /// |-------|---------|---------|
-/// | `tag` | OpenAPI grouping | `"Users"` |
+/// | `tag` | `OpenAPI` grouping | `"Users"` |
 /// | `path_prefix` | URL base path | `"/api"` |
 /// | `version` | API version segment | `"v1"` |
 ///
@@ -169,9 +169,9 @@ impl HandlerConfig {
 /// | `security` | Default auth scheme | `"bearer"` |
 /// | `public_commands` | No-auth commands | `[Login, Register]` |
 ///
-/// ## OpenAPI Info
+/// ## `OpenAPI` Info
 ///
-/// | Field | OpenAPI Location |
+/// | Field | `OpenAPI` Location |
 /// |-------|------------------|
 /// | `title` | `info.title` |
 /// | `description` | `info.description` |
@@ -198,13 +198,13 @@ impl HandlerConfig {
 /// Use `is_enabled()` to check if API generation should proceed.
 #[derive(Debug, Clone, Default)]
 pub struct ApiConfig {
-    /// OpenAPI tag name for grouping endpoints.
+    /// `OpenAPI` tag name for grouping endpoints.
     ///
     /// Required when API generation is enabled.
     /// Example: `"Users"`, `"Products"`, `"Orders"`
     pub tag: Option<String>,
 
-    /// Description for the OpenAPI tag.
+    /// Description for the `OpenAPI` tag.
     ///
     /// Provides additional context in API documentation.
     pub tag_description: Option<String>,
@@ -235,7 +235,7 @@ pub struct ApiConfig {
 
     /// Version in which this API is deprecated.
     ///
-    /// Marks all endpoints with `deprecated = true` in OpenAPI.
+    /// Marks all endpoints with `deprecated = true` in `OpenAPI`.
     pub deprecated_in: Option<String>,
 
     /// CRUD handlers configuration.
@@ -245,46 +245,46 @@ pub struct ApiConfig {
     /// - `handlers(create, get, list)` - specific handlers only
     pub handlers: HandlerConfig,
 
-    /// OpenAPI info: API title.
+    /// `OpenAPI` info: API title.
     ///
-    /// Overrides the default title in OpenAPI spec.
+    /// Overrides the default title in `OpenAPI` spec.
     /// Example: `"User Service API"`
     pub title: Option<String>,
 
-    /// OpenAPI info: API description.
+    /// `OpenAPI` info: API description.
     ///
     /// Full description for the API, supports Markdown.
     /// Example: `"RESTful API for user management"`
     pub description: Option<String>,
 
-    /// OpenAPI info: API version.
+    /// `OpenAPI` info: API version.
     ///
     /// Semantic version string for the API.
     /// Example: `"1.0.0"`
     pub api_version: Option<String>,
 
-    /// OpenAPI info: License name.
+    /// `OpenAPI` info: License name.
     ///
     /// License under which the API is published.
     /// Example: `"MIT"`, `"Apache-2.0"`
     pub license: Option<String>,
 
-    /// OpenAPI info: License URL.
+    /// `OpenAPI` info: License URL.
     ///
     /// URL to the license text.
     pub license_url: Option<String>,
 
-    /// OpenAPI info: Contact name.
+    /// `OpenAPI` info: Contact name.
     ///
     /// Name of the API maintainer or team.
     pub contact_name: Option<String>,
 
-    /// OpenAPI info: Contact email.
+    /// `OpenAPI` info: Contact email.
     ///
     /// Email for API support inquiries.
     pub contact_email: Option<String>,
 
-    /// OpenAPI info: Contact URL.
+    /// `OpenAPI` info: Contact URL.
     ///
     /// URL to API support or documentation.
     pub contact_url: Option<String>
@@ -294,7 +294,7 @@ impl ApiConfig {
     /// Check if API generation is enabled.
     ///
     /// Returns `true` if the `api(...)` attribute is present.
-    pub fn is_enabled(&self) -> bool {
+    pub const fn is_enabled(&self) -> bool {
         self.tag.is_some()
     }
 
@@ -316,7 +316,7 @@ impl ApiConfig {
                 format!("{}/{}", prefix.trim_end_matches('/'), version)
             }
             (Some(prefix), None) => prefix.clone(),
-            (None, Some(version)) => format!("/{}", version),
+            (None, Some(version)) => format!("/{version}"),
             (None, None) => String::new()
         }
     }
@@ -331,17 +331,17 @@ impl ApiConfig {
     }
 
     /// Check if API is marked as deprecated.
-    pub fn is_deprecated(&self) -> bool {
+    pub const fn is_deprecated(&self) -> bool {
         self.deprecated_in.is_some()
     }
 
     /// Check if any CRUD handler should be generated.
-    pub fn has_handlers(&self) -> bool {
+    pub const fn has_handlers(&self) -> bool {
         self.handlers.any()
     }
 
     /// Get handler configuration.
-    pub fn handlers(&self) -> &HandlerConfig {
+    pub const fn handlers(&self) -> &HandlerConfig {
         &self.handlers
     }
 

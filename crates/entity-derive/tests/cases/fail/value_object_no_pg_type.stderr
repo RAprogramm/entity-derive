@@ -1,0 +1,7 @@
+error: missing #[value_object(pg_type = "...")] attribute
+ --> tests/cases/fail/value_object_no_pg_type.rs:6:10
+  |
+6 | #[derive(ValueObject)]
+  |          ^^^^^^^^^^^
+  |
+  = note: this error originates in the derive macro `ValueObject` (in Nightly builds, run with -Z macro-backtrace for more info)

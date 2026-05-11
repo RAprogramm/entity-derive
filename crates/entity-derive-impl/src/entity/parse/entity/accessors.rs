@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! Accessor methods for EntityDef.
+//! Accessor methods for `EntityDef`.
 //!
 //! This module provides getter methods for accessing `EntityDef` fields and
 //! computed values. Methods are organized by purpose: field access, naming
@@ -18,15 +18,15 @@
 //! │  ├── id_field()          ├── name()            ├── is_soft_delete() │
 //! │  ├── create_fields()     ├── name_str()        ├── has_events()     │
 //! │  ├── update_fields()     ├── full_table_name() ├── has_hooks()      │
-//! │  ├── response_fields()   └── ident_with()      ├── has_commands()   │
-//! │  ├── all_fields()                              ├── has_policy()     │
+//! │  ├── response_fields()   ├── table_name()      ├── has_commands()   │
+//! │  ├── all_fields()        └── ident_with()      ├── has_policy()     │
 //! │  ├── relation_fields()                         ├── has_streams()    │
 //! │  └── filter_fields()                           ├── has_transactions()│
 //! │                                                ├── has_api()        │
 //! │  Configuration                                 └── has_filters()    │
 //! │  ├── error_type()                                                   │
 //! │  ├── api_config()                                                   │
-//! │  ├── command_defs()                                                 │
+//! │  └── command_defs()                                                 │
 //! │  └── doc()                                                          │
 //! │                                                                     │
 //! └─────────────────────────────────────────────────────────────────────┘
@@ -52,7 +52,8 @@
 //! |--------|---------|--------|
 //! | `name()` | `User` | `Ident("User")` |
 //! | `name_str()` | `User` | `"User"` |
-//! | `full_table_name()` | `public.users` | `"public.users"` |
+//! | `table_name()` | `users` | `"users"` |
+//! | `full_table_name()` | (no schema) → `"users"`, (schema="core") → `"core.users"` |
 //! | `ident_with("Create", "Request")` | `User` | `Ident("CreateUserRequest")` |
 
 use proc_macro2::Span;
@@ -135,7 +136,9 @@ impl EntityDef {
 
     /// Check if this entity has any filterable fields.
     pub fn has_filters(&self) -> bool {
-        self.fields.iter().any(|f| f.has_filter())
+        self.fields
+            .iter()
+            .any(super::super::field::FieldDef::has_filter)
     }
 
     /// Get has-many relations defined via `#[has_many(Entity)]`.
@@ -147,7 +150,7 @@ impl EntityDef {
     }
 
     /// Get the entity name as an identifier.
-    pub fn name(&self) -> &Ident {
+    pub const fn name(&self) -> &Ident {
         &self.ident
     }
 
@@ -156,9 +159,75 @@ impl EntityDef {
         self.ident.to_string()
     }
 
-    /// Get the fully qualified table name with schema.
+    /// Get the fully qualified table name with schema prefix.
+    ///
+    /// When `schema` is not specified (empty string), returns just the
+    /// table name. When `schema` is specified (any non-empty value),
+    /// returns `"schema.table"` format.
+    ///
+    /// # Examples
+    ///
+    /// ```text
+    /// // No schema specified
+    /// #[entity(table = "users")]
+    /// // → "users"
+    ///
+    /// // Schema explicitly set to "public"
+    /// #[entity(table = "users", schema = "public")]
+    /// // → "public.users"
+    ///
+    /// // Custom schema
+    /// #[entity(table = "users", schema = "core")]
+    /// // → "core.users"
+    /// ```
     pub fn full_table_name(&self) -> String {
-        format!("{}.{}", self.schema, self.table)
+        match self.schema.as_str() {
+            "" => self.table.clone(),
+            other => format!("{other}.{}", self.table)
+        }
+    }
+
+    /// Get just the table name without schema prefix.
+    ///
+    /// This is useful when you need the raw table name regardless of
+    /// schema configuration.
+    ///
+    /// # Examples
+    ///
+    /// ```text
+    /// // For entity with table = "users" and schema = "core"
+    /// entity.table_name()  // → "users"
+    /// entity.full_table_name()  // → "core.users"
+    /// ```
+    #[allow(dead_code)]
+    pub fn table_name(&self) -> &str {
+        &self.table
+    }
+
+    /// Build a fully qualified table name for an arbitrary table identifier.
+    ///
+    /// Applies the entity's schema configuration to the given table name.
+    /// When schema is empty, returns just the table name. When schema is
+    /// set, returns `"schema.table"` format.
+    ///
+    /// # Arguments
+    ///
+    /// * `table` - The table name to qualify with schema prefix
+    ///
+    /// # Examples
+    ///
+    /// ```text
+    /// // No schema: entity.schema = ""
+    /// entity.full_table_name_for("users")  // → "users"
+    ///
+    /// // Schema set: entity.schema = "core"
+    /// entity.full_table_name_for("users")  // → "core.users"
+    /// ```
+    pub fn full_table_name_for(&self, table: &str) -> String {
+        match self.schema.as_str() {
+            "" => table.to_string(),
+            other => format!("{other}.{table}")
+        }
     }
 
     /// Create a new identifier with prefix and/or suffix.
@@ -184,27 +253,27 @@ impl EntityDef {
     }
 
     /// Get the error type for repository implementation.
-    pub fn error_type(&self) -> &syn::Path {
+    pub const fn error_type(&self) -> &syn::Path {
         &self.error
     }
 
     /// Check if soft delete is enabled for this entity.
-    pub fn is_soft_delete(&self) -> bool {
+    pub const fn is_soft_delete(&self) -> bool {
         self.soft_delete
     }
 
     /// Check if lifecycle events should be generated.
-    pub fn has_events(&self) -> bool {
+    pub const fn has_events(&self) -> bool {
         self.events
     }
 
     /// Check if lifecycle hooks trait should be generated.
-    pub fn has_hooks(&self) -> bool {
+    pub const fn has_hooks(&self) -> bool {
         self.hooks
     }
 
     /// Check if CQRS-style commands should be generated.
-    pub fn has_commands(&self) -> bool {
+    pub const fn has_commands(&self) -> bool {
         self.commands
     }
 
@@ -214,30 +283,64 @@ impl EntityDef {
     }
 
     /// Check if authorization policy should be generated.
-    pub fn has_policy(&self) -> bool {
+    pub const fn has_policy(&self) -> bool {
         self.policy
     }
 
     /// Check if real-time streaming should be enabled.
-    pub fn has_streams(&self) -> bool {
+    pub const fn has_streams(&self) -> bool {
         self.streams
     }
 
     /// Check if transaction support should be generated.
-    pub fn has_transactions(&self) -> bool {
+    pub const fn has_transactions(&self) -> bool {
         self.transactions
     }
 
     /// Check if API generation is enabled.
     #[allow(dead_code)]
-    pub fn has_api(&self) -> bool {
+    pub const fn has_api(&self) -> bool {
         self.api_config.is_enabled()
     }
 
     /// Get API configuration.
     #[allow(dead_code)]
-    pub fn api_config(&self) -> &ApiConfig {
+    pub const fn api_config(&self) -> &ApiConfig {
         &self.api_config
+    }
+
+    /// Check if aggregate root pattern is enabled.
+    #[must_use]
+    pub const fn is_aggregate_root(&self) -> bool {
+        self.aggregate_root
+    }
+
+    /// Get fields with `#[column(unique)]` or `#[column(index)]`.
+    ///
+    /// These fields are used to generate lookup methods
+    /// (`find_by_{field}`, `exists_by_{field}`) in the repository.
+    ///
+    /// # Returns
+    ///
+    /// A vector of field references where the column configuration
+    /// has `unique` set to `true` or `index` is `Some(_)`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// // For entity with:
+    /// //   #[column(unique)] pub email: String
+    /// //   #[column(index)] pub status: String
+    /// //   pub name: String
+    /// //
+    /// // lookup_fields() returns [email_field, status_field]
+    /// let fields = entity.lookup_fields();
+    /// ```
+    pub fn lookup_fields(&self) -> Vec<&FieldDef> {
+        self.fields
+            .iter()
+            .filter(|f| f.column.unique || f.column.index.is_some())
+            .collect()
     }
 
     /// Get the documentation comment if present.
@@ -245,5 +348,87 @@ impl EntityDef {
     #[allow(dead_code)]
     pub fn doc(&self) -> Option<&str> {
         self.doc.as_deref()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parse_entity(tokens: proc_macro2::TokenStream) -> EntityDef {
+        let input: syn::DeriveInput = syn::parse_quote!(#tokens);
+        EntityDef::from_derive_input(&input).unwrap()
+    }
+
+    #[test]
+    fn full_table_name_empty_schema() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "users")]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        });
+        assert_eq!(entity.full_table_name(), "users");
+    }
+
+    #[test]
+    fn full_table_name_public_schema() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "users", schema = "public")]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        });
+        assert_eq!(entity.full_table_name(), "public.users");
+    }
+
+    #[test]
+    fn full_table_name_custom_schema() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "users", schema = "core")]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        });
+        assert_eq!(entity.full_table_name(), "core.users");
+    }
+
+    #[test]
+    fn full_table_name_tenants_schema() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "orders", schema = "tenants")]
+            pub struct Order {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        });
+        assert_eq!(entity.full_table_name(), "tenants.orders");
+    }
+
+    #[test]
+    fn table_name_returns_raw_table() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "users", schema = "core")]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        });
+        assert_eq!(entity.table_name(), "users");
+    }
+
+    #[test]
+    fn table_name_without_schema() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "products")]
+            pub struct Product {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        });
+        assert_eq!(entity.table_name(), "products");
     }
 }

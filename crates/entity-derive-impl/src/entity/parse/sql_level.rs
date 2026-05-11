@@ -16,7 +16,7 @@ use darling::FromMeta;
 ///
 /// # Variants
 ///
-/// | Level | Repository Trait | PgPool Impl | Row/Insertable |
+/// | Level | Repository Trait | `PgPool` Impl | Row/Insertable |
 /// |-------|-----------------|-------------|----------------|
 /// | `Full` | Yes | Yes | Yes |
 /// | `Trait` | Yes | No | Yes |
@@ -76,9 +76,9 @@ impl FromMeta for SqlLevel {
     /// Returns `darling::Error::unknown_value` for unrecognized values.
     fn from_string(value: &str) -> darling::Result<Self> {
         match value.to_lowercase().as_str() {
-            "full" => Ok(SqlLevel::Full),
-            "trait" => Ok(SqlLevel::Trait),
-            "none" => Ok(SqlLevel::None),
+            "full" => Ok(Self::Full),
+            "trait" => Ok(Self::Trait),
+            "none" => Ok(Self::None),
             _ => Err(darling::Error::unknown_value(value))
         }
     }

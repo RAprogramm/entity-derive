@@ -87,6 +87,7 @@ impl<'p, DB> Transaction<'p, DB> {
     }
 
     /// Get reference to the underlying pool.
+    #[must_use]
     pub const fn pool(&self) -> &'p DB {
         self.pool
     }
@@ -126,7 +127,8 @@ impl TransactionContext {
     ///
     /// * `tx` — Active database transaction
     #[doc(hidden)]
-    pub fn new(tx: sqlx::Transaction<'static, sqlx::Postgres>) -> Self {
+    #[must_use]
+    pub const fn new(tx: sqlx::Transaction<'static, sqlx::Postgres>) -> Self {
         Self {
             tx
         }
@@ -136,13 +138,17 @@ impl TransactionContext {
     ///
     /// Use this for custom queries within the transaction or
     /// for repository adapters to execute queries.
-    pub fn transaction(&mut self) -> &mut sqlx::Transaction<'static, sqlx::Postgres> {
+    pub const fn transaction(&mut self) -> &mut sqlx::Transaction<'static, sqlx::Postgres> {
         &mut self.tx
     }
 
     /// Commit the transaction.
     ///
     /// Consumes self and commits all changes.
+    ///
+    /// # Errors
+    ///
+    /// Propagates any `sqlx::Error` from the database transaction.
     pub async fn commit(self) -> Result<(), sqlx::Error> {
         self.tx.commit().await
     }
@@ -150,6 +156,10 @@ impl TransactionContext {
     /// Rollback the transaction.
     ///
     /// Consumes self and rolls back all changes.
+    ///
+    /// # Errors
+    ///
+    /// Propagates any `sqlx::Error` from the database transaction.
     pub async fn rollback(self) -> Result<(), sqlx::Error> {
         self.tx.rollback().await
     }
@@ -222,16 +232,16 @@ impl<E> TransactionError<E> {
 }
 
 #[cfg(feature = "postgres")]
-impl From<TransactionError<sqlx::Error>> for sqlx::Error {
-    fn from(err: TransactionError<sqlx::Error>) -> Self {
+impl From<TransactionError<Self>> for sqlx::Error {
+    fn from(err: TransactionError<Self>) -> Self {
         err.into_inner()
     }
 }
 
 // PostgreSQL implementation
 #[cfg(feature = "postgres")]
-impl<'p> Transaction<'p, sqlx::PgPool> {
-    /// Execute a closure within a PostgreSQL transaction.
+impl Transaction<'_, sqlx::PgPool> {
+    /// Execute a closure within a `PostgreSQL` transaction.
     ///
     /// Automatically commits on `Ok`, rolls back on `Err` or drop.
     ///
@@ -240,7 +250,7 @@ impl<'p> Transaction<'p, sqlx::PgPool> {
     /// - `F` — Closure type
     /// - `Fut` — Future returned by closure
     /// - `T` — Success type
-    /// - `E` — Error type (must be convertible from sqlx::Error)
+    /// - `E` — Error type (must be convertible from `sqlx::Error`)
     ///
     /// # Example
     ///
@@ -253,6 +263,10 @@ impl<'p> Transaction<'p, sqlx::PgPool> {
     ///     })
     ///     .await?;
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// Propagates any error from the closure or database transaction.
     pub async fn run<F, Fut, T, E>(self, f: F) -> Result<T, E>
     where
         F: FnOnce(TransactionContext) -> Fut + Send,
@@ -284,6 +298,10 @@ impl<'p> Transaction<'p, sqlx::PgPool> {
     ///     })
     ///     .await?;
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// Propagates any error from the closure or database transaction.
     pub async fn run_with_commit<F, Fut, T, E>(self, f: F) -> Result<T, E>
     where
         F: FnOnce(TransactionContext) -> Fut + Send,
@@ -297,6 +315,7 @@ impl<'p> Transaction<'p, sqlx::PgPool> {
 }
 
 #[cfg(test)]
+#[allow(clippy::uninlined_format_args)]
 mod tests {
     use std::error::Error;
 
@@ -437,5 +456,95 @@ mod tests {
         let debug_str = format!("{:?}", err);
         assert!(debug_str.contains("Begin"));
         assert!(debug_str.contains("test"));
+    }
+
+    #[test]
+    fn transaction_error_into_inner_all_variants() {
+        let begin: TransactionError<String> = TransactionError::Begin("begin".to_string());
+        let commit: TransactionError<String> = TransactionError::Commit("commit".to_string());
+        let rollback: TransactionError<String> =
+            TransactionError::Rollback("rollback".to_string());
+        let operation: TransactionError<String> = TransactionError::Operation("op".to_string());
+
+        assert_eq!(begin.into_inner(), "begin");
+        assert_eq!(commit.into_inner(), "commit");
+        assert_eq!(rollback.into_inner(), "rollback");
+        assert_eq!(operation.into_inner(), "op");
+    }
+
+    #[test]
+    fn transaction_error_source_all_variants() {
+        let begin: TransactionError<std::io::Error> =
+            TransactionError::Begin(std::io::Error::other("src"));
+        let commit: TransactionError<std::io::Error> =
+            TransactionError::Commit(std::io::Error::other("src"));
+        let rollback: TransactionError<std::io::Error> =
+            TransactionError::Rollback(std::io::Error::other("src"));
+        let operation: TransactionError<std::io::Error> =
+            TransactionError::Operation(std::io::Error::other("src"));
+
+        assert!(begin.source().is_some());
+        assert!(commit.source().is_some());
+        assert!(rollback.source().is_some());
+        assert!(operation.source().is_some());
+    }
+
+    #[test]
+    fn transaction_error_display_all_variants() {
+        let begin: TransactionError<std::io::Error> =
+            TransactionError::Begin(std::io::Error::other("msg"));
+        let commit: TransactionError<std::io::Error> =
+            TransactionError::Commit(std::io::Error::other("msg"));
+        let rollback: TransactionError<std::io::Error> =
+            TransactionError::Rollback(std::io::Error::other("msg"));
+        let operation: TransactionError<std::io::Error> =
+            TransactionError::Operation(std::io::Error::other("msg"));
+
+        let begin_str = begin.to_string();
+        let commit_str = commit.to_string();
+        let rollback_str = rollback.to_string();
+        let operation_str = operation.to_string();
+
+        assert!(begin_str.contains("begin"));
+        assert!(commit_str.contains("commit"));
+        assert!(rollback_str.contains("rollback"));
+        assert!(operation_str.contains("operation"));
+    }
+
+    #[test]
+    fn transaction_error_is_all_variants() {
+        let begin: TransactionError<&str> = TransactionError::Begin("e");
+        let commit: TransactionError<&str> = TransactionError::Commit("e");
+        let rollback: TransactionError<&str> = TransactionError::Rollback("e");
+        let operation: TransactionError<&str> = TransactionError::Operation("e");
+
+        assert!(begin.is_begin());
+        assert!(commit.is_commit());
+        assert!(rollback.is_rollback());
+        assert!(operation.is_operation());
+
+        assert!(!begin.is_commit());
+        assert!(!begin.is_rollback());
+        assert!(!begin.is_operation());
+
+        assert!(!commit.is_begin());
+        assert!(!commit.is_rollback());
+        assert!(!commit.is_operation());
+
+        assert!(!rollback.is_begin());
+        assert!(!rollback.is_commit());
+        assert!(!rollback.is_operation());
+
+        assert!(!operation.is_begin());
+        assert!(!operation.is_commit());
+        assert!(!operation.is_rollback());
+    }
+
+    #[test]
+    fn transaction_builder_new_const() {
+        struct MockPool;
+        let pool = MockPool;
+        let tx = Transaction::new(&pool);
+        let _ = tx;
     }
 }

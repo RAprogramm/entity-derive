@@ -87,9 +87,9 @@ impl FromMeta for ReturningMode {
     /// ```
     fn from_string(value: &str) -> darling::Result<Self> {
         match value.to_lowercase().as_str() {
-            "full" => Ok(ReturningMode::Full),
-            "id" => Ok(ReturningMode::Id),
-            "none" => Ok(ReturningMode::None),
+            "full" => Ok(Self::Full),
+            "id" => Ok(Self::Id),
+            "none" => Ok(Self::None),
             _ => {
                 // Parse as comma-separated column list
                 let columns: Vec<String> = value
@@ -101,7 +101,7 @@ impl FromMeta for ReturningMode {
                 if columns.is_empty() {
                     Err(darling::Error::unknown_value(value))
                 } else {
-                    Ok(ReturningMode::Custom(columns))
+                    Ok(Self::Custom(columns))
                 }
             }
         }

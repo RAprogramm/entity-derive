@@ -223,28 +223,28 @@ impl CommandDef {
     ///
     /// # Returns
     ///
-    /// Full command name (e.g., "RegisterUser")
+    /// Full command name (e.g., "`RegisterUser`")
     pub fn struct_name(&self, entity_name: &str) -> Ident {
         Ident::new(&format!("{}{}", self.name, entity_name), Span::call_site())
     }
 
     /// Get the handler method name.
     ///
-    /// Converts command name to snake_case handler method.
+    /// Converts command name to `snake_case` handler method.
     ///
     /// # Returns
     ///
-    /// Handler method name (e.g., "handle_register")
+    /// Handler method name (e.g., "`handle_register`")
     pub fn handler_method_name(&self) -> Ident {
         use convert_case::{Case, Casing};
         let snake = self.name.to_string().to_case(Case::Snake);
-        Ident::new(&format!("handle_{}", snake), Span::call_site())
+        Ident::new(&format!("handle_{snake}"), Span::call_site())
     }
 
     /// Check if this command has explicit security override.
     #[must_use]
     #[allow(dead_code)]
-    pub fn has_security_override(&self) -> bool {
+    pub const fn has_security_override(&self) -> bool {
         self.security.is_some()
     }
 

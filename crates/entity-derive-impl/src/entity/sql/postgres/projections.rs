@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! Projection method generators for PostgreSQL.
+//! Projection method generators for `PostgreSQL`.
 //!
 //! Generates optimized SELECT methods for entity projections defined with
 //! `#[projection(Name: field1, field2, ...)]`.
@@ -63,7 +63,7 @@ impl Context<'_> {
         let columns_str: String = proj
             .fields
             .iter()
-            .map(|f| f.to_string())
+            .map(std::string::ToString::to_string)
             .collect::<Vec<_>>()
             .join(", ");
 

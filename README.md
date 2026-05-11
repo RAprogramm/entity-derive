@@ -90,9 +90,10 @@ entity-derive = { version = "0.4", features = ["postgres", "api"] }
 | **Zero Runtime Cost** | All code generation at compile time |
 | **Type Safe** | Change a field once, everything updates |
 | **Auto HTTP Handlers** | `api(handlers)` generates CRUD endpoints + router |
-| **OpenAPI Docs** | Auto-generated Swagger/OpenAPI documentation |
+| **`OpenAPI` Docs** | Auto-generated Swagger/OpenAPI documentation |
 | **Query Filtering** | Type-safe `#[filter]`, `#[filter(like)]`, `#[filter(range)]` |
 | **Relations** | `#[belongs_to]` and `#[has_many]` |
+| **Aggregate Roots** | `#[entity(aggregate_root)]` with `New{T}` DTOs and transactional `save` |
 | **Transactions** | Multi-entity atomic operations |
 | **Lifecycle Events** | `Created`, `Updated`, `Deleted` events |
 | **Real-Time Streams** | Postgres LISTEN/NOTIFY integration |
@@ -130,8 +131,9 @@ entity-derive = { version = "0.4", features = ["postgres", "api"] }
 ```rust,ignore
 #[entity(
     table = "users",           // Required: table name
-    schema = "public",         // Optional: schema (default: public)
+    schema = "public",         // Optional: schema (default: omitted)
     dialect = "postgres",      // Optional: database dialect
+    aggregate_root,            // Optional: New{T} DTOs + transactional save
     soft_delete,               // Optional: use deleted_at instead of DELETE
     events,                    // Optional: generate lifecycle events
     streams,                   // Optional: real-time Postgres NOTIFY

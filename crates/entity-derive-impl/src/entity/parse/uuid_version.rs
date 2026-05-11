@@ -59,8 +59,8 @@ impl FromMeta for UuidVersion {
     /// Returns `darling::Error::unknown_value` for unrecognized values.
     fn from_string(value: &str) -> darling::Result<Self> {
         match value.to_lowercase().as_str() {
-            "v7" | "7" => Ok(UuidVersion::V7),
-            "v4" | "4" => Ok(UuidVersion::V4),
+            "v7" | "7" => Ok(Self::V7),
+            "v4" | "4" => Ok(Self::V4),
             _ => Err(darling::Error::unknown_value(value))
         }
     }

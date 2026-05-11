@@ -7,7 +7,7 @@
 //!
 //! # Generated Code
 //!
-//! For `User` entity with Register, UpdateEmail, Deactivate commands:
+//! For `User` entity with Register, `UpdateEmail`, Deactivate commands:
 //!
 //! ```rust,ignore
 //! #[async_trait]
@@ -59,12 +59,11 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     let dispatch_arms = generate_dispatch_arms(entity, commands);
 
     let doc = format!(
-        "Command handler trait for [`{}`] entity.\n\n\
+        "Command handler trait for [`{entity_name}`] entity.\n\n\
          Implement this trait to handle business commands.\n\n\
          # Default Implementation\n\n\
          The `handle` method dispatches to individual handlers.\n\
-         Override individual `handle_*` methods for your business logic.",
-        entity_name
+         Override individual `handle_*` methods for your business logic."
     );
 
     quote! {
@@ -140,7 +139,7 @@ fn generate_handler_method(entity: &EntityDef, cmd: &CommandDef) -> TokenStream 
     }
 }
 
-/// Generate dispatch match arms for handle() method.
+/// Generate dispatch match arms for `handle()` method.
 fn generate_dispatch_arms(entity: &EntityDef, commands: &[CommandDef]) -> TokenStream {
     let entity_name = entity.name();
     let command_enum = format_ident!("{}Command", entity_name);

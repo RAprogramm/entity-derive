@@ -86,7 +86,7 @@ fn generate_row_to_entity(entity: &EntityDef) -> TokenStream {
 
     let entity_name = entity.name();
     let row_name = entity.ident_with("", "Row");
-    let assigns = fields::assigns(entity.all_fields(), "row");
+    let assigns = fields::row_assigns(entity.all_fields(), "row");
     let marker = marker::generated();
 
     quote! {

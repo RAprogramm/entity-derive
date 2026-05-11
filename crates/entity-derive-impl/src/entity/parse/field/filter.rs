@@ -62,13 +62,12 @@ impl FilterConfig {
                 Ok(ident.to_string())
             })
             .ok()
-            .map(|s| match s.as_str() {
+            .map_or(FilterType::Eq, |s| match s.as_str() {
                 "eq" => FilterType::Eq,
                 "like" => FilterType::Like,
                 "range" => FilterType::Range,
                 _ => FilterType::Eq
-            })
-            .unwrap_or(FilterType::Eq);
+            });
 
         Self {
             filter_type

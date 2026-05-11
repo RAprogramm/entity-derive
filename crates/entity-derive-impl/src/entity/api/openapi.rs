@@ -1,12 +1,12 @@
 // SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! OpenAPI struct generation for utoipa 5.x.
+//! `OpenAPI` struct generation for utoipa 5.x.
 //!
-//! This module generates complete OpenAPI documentation structs that implement
-//! `utoipa::OpenApi` for seamless Swagger UI integration. It leverages the
-//! `Modify` trait pattern to dynamically add security schemes, paths, and
-//! additional components at runtime.
+//! This module generates complete `OpenAPI` documentation structs that
+//! implement `utoipa::OpenApi` for seamless Swagger UI integration. It
+//! leverages the `Modify` trait pattern to dynamically add security schemes,
+//! paths, and additional components at runtime.
 //!
 //! # Architecture Overview
 //!
@@ -100,8 +100,8 @@
 //! |--------|---------|
 //! | [`info`] | API metadata (title, version, contact, license) |
 //! | [`paths`] | CRUD operation paths with parameters and responses |
-//! | [`schemas`] | DTO schemas and common types (ErrorResponse) |
-//! | [`security`] | Authentication schemes (bearer, cookie, api_key) |
+//! | [`schemas`] | DTO schemas and common types (`ErrorResponse`) |
+//! | [`security`] | Authentication schemes (bearer, cookie, `api_key`) |
 //!
 //! # Swagger UI Integration
 //!
@@ -118,7 +118,7 @@
 //!
 //! # Conditional Generation
 //!
-//! OpenAPI struct is only generated when either:
+//! `OpenAPI` struct is only generated when either:
 //! - CRUD handlers are enabled via `api(handlers)` or `api(handlers(...))`
 //! - Custom commands are defined via `#[command(...)]`
 //!
@@ -142,9 +142,9 @@ pub use self::{
 };
 use crate::entity::parse::EntityDef;
 
-/// Generates the complete OpenAPI documentation struct with modifier.
+/// Generates the complete `OpenAPI` documentation struct with modifier.
 ///
-/// This is the main entry point for OpenAPI generation. It produces:
+/// This is the main entry point for `OpenAPI` generation. It produces:
 ///
 /// 1. A modifier struct implementing `utoipa::Modify`
 /// 2. An API struct deriving `utoipa::OpenApi`
@@ -184,8 +184,8 @@ use crate::entity::parse::EntityDef;
 ///
 /// | Component | Naming | Purpose |
 /// |-----------|--------|---------|
-/// | Modifier | `{Entity}ApiModifier` | Runtime OpenAPI customization |
-/// | API struct | `{Entity}Api` | Main OpenAPI entry point |
+/// | Modifier | `{Entity}ApiModifier` | Runtime `OpenAPI` customization |
+/// | API struct | `{Entity}Api` | Main `OpenAPI` entry point |
 /// | Tag | Configured or entity name | API grouping in Swagger UI |
 ///
 /// # Example Output
@@ -224,19 +224,18 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
         .tag_description
         .clone()
         .or_else(|| entity.doc().map(String::from))
-        .unwrap_or_else(|| format!("{} management", entity_name));
+        .unwrap_or_else(|| format!("{entity_name} management"));
 
     let schema_types = generate_all_schema_types(entity);
     let modifier_impl = generate_modifier(entity, &modifier_struct);
 
     let doc = format!(
-        "OpenAPI documentation for {} entity endpoints.\n\n\
+        "OpenAPI documentation for {entity_name} entity endpoints.\n\n\
          # Usage\n\n\
          ```rust,ignore\n\
          use utoipa::OpenApi;\n\
-         let openapi = {}::openapi();\n\
-         ```",
-        entity_name, api_struct
+         let openapi = {api_struct}::openapi();\n\
+         ```"
     );
 
     quote! {
@@ -255,7 +254,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
 
 /// Generates the modifier struct with `utoipa::Modify` implementation.
 ///
-/// The modifier pattern allows runtime customization of the OpenAPI spec
+/// The modifier pattern allows runtime customization of the `OpenAPI` spec
 /// that cannot be expressed through derive macros alone. This includes:
 ///
 /// - Dynamic security scheme configuration
@@ -339,7 +338,7 @@ fn generate_modifier(entity: &EntityDef, modifier_name: &syn::Ident) -> TokenStr
         TokenStream::new()
     };
 
-    let doc = format!("OpenAPI modifier for {} entity.", entity_name);
+    let doc = format!("OpenAPI modifier for {entity_name} entity.");
 
     quote! {
         #[doc = #doc]

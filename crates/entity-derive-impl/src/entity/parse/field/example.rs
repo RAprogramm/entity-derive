@@ -1,14 +1,14 @@
 // SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! Example attribute parsing for OpenAPI schemas.
+//! Example attribute parsing for `OpenAPI` schemas.
 //!
 //! Extracts `#[example = ...]` attributes from fields for use in
-//! OpenAPI schema documentation.
+//! `OpenAPI` schema documentation.
 //!
 //! # Supported Types
 //!
-//! | Type | Syntax | OpenAPI |
+//! | Type | Syntax | `OpenAPI` |
 //! |------|--------|---------|
 //! | String | `#[example = "text"]` | `example: "text"` |
 //! | Integer | `#[example = 42]` | `example: 42` |
@@ -31,7 +31,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::Attribute;
 
-/// Example value for OpenAPI schema.
+/// Example value for `OpenAPI` schema.
 #[derive(Debug, Clone)]
 #[allow(dead_code)] // Will be used for OpenAPI schema examples (#80)
 pub enum ExampleValue {
@@ -50,7 +50,7 @@ pub enum ExampleValue {
 
 #[allow(dead_code)] // Will be used for OpenAPI schema examples (#80)
 impl ExampleValue {
-    /// Convert to TokenStream for code generation.
+    /// Convert to `TokenStream` for code generation.
     #[must_use]
     pub fn to_tokens(&self) -> TokenStream {
         match self {
@@ -115,7 +115,7 @@ fn parse_example_expr(expr: &syn::Expr) -> Option<ExampleValue> {
     }
 }
 
-/// Parse a literal value into an ExampleValue.
+/// Parse a literal value into an `ExampleValue`.
 fn parse_example_lit(lit: &syn::Lit) -> Option<ExampleValue> {
     match lit {
         syn::Lit::Str(s) => Some(ExampleValue::String(s.value())),
@@ -243,5 +243,62 @@ mod tests {
         let tokens = example.to_schema_attr().to_string();
         assert!(tokens.contains("example"));
         assert!(tokens.contains("42"));
+    }
+
+    #[test]
+    fn to_schema_attr_float() {
+        let example = ExampleValue::Float(3.14);
+        let tokens = example.to_schema_attr().to_string();
+        assert!(tokens.contains("example"));
+    }
+
+    #[test]
+    fn to_schema_attr_bool() {
+        let example = ExampleValue::Bool(true);
+        let tokens = example.to_schema_attr().to_string();
+        assert!(tokens.contains("example"));
+        assert!(tokens.contains("true"));
+    }
+
+    #[test]
+    fn to_tokens_string() {
+        let example = ExampleValue::String("test".to_string());
+        let tokens = example.to_tokens().to_string();
+        assert!(tokens.contains("test"));
+    }
+
+    #[test]
+    fn to_tokens_int() {
+        let example = ExampleValue::Int(42);
+        let tokens = example.to_tokens().to_string();
+        assert!(tokens.contains("42"));
+    }
+
+    #[test]
+    fn to_tokens_float() {
+        let example = ExampleValue::Float(2.71);
+        let tokens = example.to_tokens().to_string();
+        assert!(!tokens.is_empty());
+    }
+
+    #[test]
+    fn to_tokens_bool() {
+        let example = ExampleValue::Bool(false);
+        let tokens = example.to_tokens().to_string();
+        assert!(tokens.contains("false"));
+    }
+
+    #[test]
+    fn parse_example_expr_float() {
+        let attrs = parse_attrs(
+            r#"
+            struct Foo {
+                #[example = -0.5]
+                temp: f64,
+            }
+        "#
+        );
+        let example = parse_example_attr(&attrs);
+        assert!(matches!(example, Some(ExampleValue::Float(f)) if (f - (-0.5)).abs() < 0.001));
     }
 }

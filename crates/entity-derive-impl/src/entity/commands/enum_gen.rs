@@ -7,7 +7,7 @@
 //!
 //! # Generated Code
 //!
-//! For `User` entity with Register, UpdateEmail, Deactivate commands:
+//! For `User` entity with Register, `UpdateEmail`, Deactivate commands:
 //!
 //! ```rust,ignore
 //! #[derive(Debug, Clone)]
@@ -49,9 +49,8 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     let name_arms = generate_name_arms(commands);
 
     let doc = format!(
-        "Command enum for [`{}`] entity.\n\n\
-         Wraps all business commands for type-safe dispatch.",
-        entity_name
+        "Command enum for [`{entity_name}`] entity.\n\n\
+         Wraps all business commands for type-safe dispatch."
     );
 
     quote! {
@@ -92,7 +91,7 @@ fn generate_variants(entity: &EntityDef, commands: &[CommandDef]) -> TokenStream
                 quote! { #struct_name }
             };
 
-            let doc = format!("{} command variant.", variant_name);
+            let doc = format!("{variant_name} command variant.");
 
             quote! {
                 #[doc = #doc]
@@ -104,7 +103,7 @@ fn generate_variants(entity: &EntityDef, commands: &[CommandDef]) -> TokenStream
     quote! { #(#variants)* }
 }
 
-/// Generate match arms for kind() method.
+/// Generate match arms for `kind()` method.
 fn generate_kind_arms(commands: &[CommandDef]) -> TokenStream {
     let arms: Vec<TokenStream> = commands
         .iter()
@@ -126,7 +125,7 @@ fn generate_kind_arms(commands: &[CommandDef]) -> TokenStream {
     quote! { #(#arms)* }
 }
 
-/// Generate match arms for name() method.
+/// Generate match arms for `name()` method.
 fn generate_name_arms(commands: &[CommandDef]) -> TokenStream {
     let arms: Vec<TokenStream> = commands
         .iter()

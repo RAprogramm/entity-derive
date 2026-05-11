@@ -143,7 +143,7 @@ use crate::entity::parse::EntityDef;
 /// A `TokenStream` containing:
 /// - `PaginationQuery` struct with serde derives
 /// - `default_limit()` helper function
-/// - The async handler function with OpenAPI annotations
+/// - The async handler function with `OpenAPI` annotations
 ///
 /// # Generated Components
 ///
@@ -156,7 +156,7 @@ use crate::entity::parse::EntityDef;
 /// | Response body | `Vec<{Entity}Response>` |
 /// | Status codes | 200, 401 (if auth), 500 |
 ///
-/// # PaginationQuery Struct
+/// # `PaginationQuery` Struct
 ///
 /// A helper struct is generated alongside the handler:
 ///
@@ -170,7 +170,7 @@ use crate::entity::parse::EntityDef;
 /// }
 /// ```
 ///
-/// This struct implements `utoipa::IntoParams` for OpenAPI documentation.
+/// This struct implements `utoipa::IntoParams` for `OpenAPI` documentation.
 ///
 /// # Default Limit
 ///
@@ -194,7 +194,7 @@ pub fn generate_list_handler(entity: &EntityDef) -> TokenStream {
     let security_attr = build_security_attr(entity);
     let deprecated_attr = build_deprecated_attr(entity);
 
-    let success_desc = format!("List of {} entities", entity_name);
+    let success_desc = format!("List of {entity_name} entities");
 
     let utoipa_attr = if has_security {
         quote! {

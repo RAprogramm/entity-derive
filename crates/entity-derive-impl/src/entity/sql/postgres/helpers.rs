@@ -27,7 +27,7 @@ use crate::entity::parse::{FieldDef, FilterType};
 pub fn join_columns(fields: &[FieldDef]) -> String {
     fields
         .iter()
-        .map(|f| f.name_str())
+        .map(crate::entity::parse::FieldDef::name_str)
         .collect::<Vec<_>>()
         .join(", ")
 }

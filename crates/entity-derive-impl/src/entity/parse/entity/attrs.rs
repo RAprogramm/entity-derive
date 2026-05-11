@@ -12,7 +12,7 @@
 //! | Attribute | Required | Default | Description |
 //! |-----------|----------|---------|-------------|
 //! | `table` | Yes | — | Database table name |
-//! | `schema` | No | `"public"` | Database schema |
+//! | `schema` | No | — | Database schema (omitted = no prefix in SQL) |
 //! | `sql` | No | `Full` | SQL generation level |
 //! | `dialect` | No | `Postgres` | Database dialect |
 //! | `uuid` | No | `V7` | UUID version for IDs |
@@ -29,13 +29,6 @@ use darling::FromDeriveInput;
 use syn::{Ident, Visibility};
 
 use crate::entity::parse::{DatabaseDialect, ReturningMode, SqlLevel, UuidVersion};
-
-/// Returns the default schema name.
-///
-/// Used by darling for the `schema` attribute default.
-pub fn default_schema() -> String {
-    "public".to_string()
-}
 
 /// Default error type path for SQL implementations.
 ///
@@ -81,8 +74,10 @@ pub struct EntityAttrs {
 
     /// Database schema name.
     ///
-    /// Defaults to `"public"` if not specified.
-    #[darling(default = "default_schema")]
+    /// When omitted, SQL queries use just the table name without schema prefix.
+    /// When specified (any non-empty value), SQL queries use `"schema.table"`
+    /// format.
+    #[darling(default)]
     pub schema: String,
 
     /// SQL generation level.
@@ -265,9 +260,16 @@ pub struct EntityAttrs {
     /// }
     ///
     /// // Generated:
-    /// // User::MIGRATION_UP → CREATE TABLE core.users (...)
-    /// // User::MIGRATION_DOWN → DROP TABLE core.users CASCADE
+    /// // User::MIGRATION_UP → CREATE TABLE users (...)
+    /// // User::MIGRATION_DOWN → DROP TABLE users CASCADE
     /// ```
     #[darling(default)]
-    pub migrations: bool
+    pub migrations: bool,
+
+    /// Enable aggregate root pattern.
+    ///
+    /// When enabled, the entity is treated as an aggregate root in DDD.
+    /// Generates `New{Name}` structs and a transactional `save` method.
+    #[darling(default)]
+    pub aggregate_root: bool
 }

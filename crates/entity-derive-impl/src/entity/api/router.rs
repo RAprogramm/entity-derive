@@ -10,7 +10,7 @@
 //! | Configuration | Generated Function | Type Parameter |
 //! |---------------|-------------------|----------------|
 //! | `handlers` | `{entity}_router<R>` | Repository trait |
-//! | `commands` | `{entity}_commands_router<H>` | CommandHandler trait |
+//! | `commands` | `{entity}_commands_router<H>` | `CommandHandler` trait |
 //!
 //! # Example
 //!
@@ -72,15 +72,14 @@ fn generate_crud_router(entity: &EntityDef) -> TokenStream {
     let crud_routes = generate_crud_routes(entity);
 
     let doc = format!(
-        "Create axum router for {} CRUD endpoints.\n\n\
+        "Create axum router for {entity_name} CRUD endpoints.\n\n\
          # Usage\n\n\
          ```rust,ignore\n\
          let pool = Arc::new(PgPool::connect(url).await?);\n\
          let app = Router::new()\n\
-             .merge({}::<PgPool>())\n\
+             .merge({router_fn}::<PgPool>())\n\
              .with_state(pool);\n\
-         ```",
-        entity_name, router_fn
+         ```"
     );
 
     quote! {
@@ -127,24 +126,24 @@ fn generate_crud_routes(entity: &EntityDef) -> TokenStream {
         item_methods.push(quote! { delete(#delete_handler::<R>) });
     }
 
-    let collection_route = if !collection_methods.is_empty() {
+    let collection_route = if collection_methods.is_empty() {
+        TokenStream::new()
+    } else {
         let first = &collection_methods[0];
         let rest: Vec<_> = collection_methods.iter().skip(1).collect();
         quote! {
             .route(#collection_path, axum::routing::#first #(.#rest)*)
         }
-    } else {
-        TokenStream::new()
     };
 
-    let item_route = if !item_methods.is_empty() {
+    let item_route = if item_methods.is_empty() {
+        TokenStream::new()
+    } else {
         let first = &item_methods[0];
         let rest: Vec<_> = item_methods.iter().skip(1).collect();
         quote! {
             .route(#item_path, axum::routing::#first #(.#rest)*)
         }
-    } else {
-        TokenStream::new()
     };
 
     quote! {
@@ -159,14 +158,14 @@ fn build_crud_collection_path(entity: &EntityDef) -> String {
     let prefix = api_config.full_path_prefix();
     let entity_path = entity.name_str().to_case(Case::Kebab);
 
-    let path = format!("{}/{}s", prefix, entity_path);
+    let path = format!("{prefix}/{entity_path}s");
     path.replace("//", "/")
 }
 
 /// Build CRUD item path (e.g., `/api/v1/users/{id}`).
 fn build_crud_item_path(entity: &EntityDef) -> String {
     let collection = build_crud_collection_path(entity);
-    format!("{}/{{id}}", collection)
+    format!("{collection}/{{id}}")
 }
 
 /// Generate commands router for command handler.
@@ -187,15 +186,14 @@ fn generate_commands_router(entity: &EntityDef) -> TokenStream {
     let routes = generate_command_routes(entity, commands);
 
     let doc = format!(
-        "Create axum router for {} command endpoints.\n\n\
+        "Create axum router for {entity_name} command endpoints.\n\n\
          # Usage\n\n\
          ```rust,ignore\n\
          let handler = Arc::new(MyHandler::new());\n\
          let app = Router::new()\n\
-             .merge({}::<MyHandler>())\n\
+             .merge({router_fn}::<MyHandler>())\n\
              .layer(Extension(handler));\n\
-         ```",
-        entity_name, router_fn
+         ```"
     );
 
     quote! {
@@ -240,9 +238,9 @@ fn build_command_path(entity: &EntityDef, cmd: &CommandDef) -> String {
     let cmd_path = cmd.name.to_string().to_case(Case::Kebab);
 
     let path = if cmd.requires_id {
-        format!("{}/{}s/{{id}}/{}", prefix, entity_path, cmd_path)
+        format!("{prefix}/{entity_path}s/{{id}}/{cmd_path}")
     } else {
-        format!("{}/{}s/{}", prefix, entity_path, cmd_path)
+        format!("{prefix}/{entity_path}s/{cmd_path}")
     };
 
     path.replace("//", "/")

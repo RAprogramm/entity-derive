@@ -14,6 +14,23 @@
     rust_2018_idioms
 )]
 #![deny(unsafe_code)]
+#![allow(clippy::option_if_let_else)]
+#![allow(clippy::match_same_arms)]
+#![allow(clippy::trivially_copy_pass_by_ref)]
+#![allow(clippy::struct_excessive_bools)]
+#![allow(clippy::too_many_lines)]
+#![allow(clippy::format_push_string)]
+#![allow(clippy::unused_self)]
+#![allow(clippy::needless_continue)]
+#![allow(clippy::needless_pass_by_value)]
+#![allow(clippy::uninlined_format_args)]
+#![allow(clippy::needless_raw_string_hashes)]
+#![allow(clippy::doc_markdown)]
+#![allow(clippy::missing_const_for_fn)]
+#![allow(clippy::used_underscore_binding)]
+#![allow(clippy::useless_format)]
+#![allow(clippy::approx_constant)]
+#![allow(clippy::needless_collect)]
 
 //! # Quick Navigation
 //!
@@ -30,7 +47,7 @@
 //! #[derive(Entity)]
 //! #[entity(
 //!     table = "users",      // Required: database table name
-//!     schema = "public",    // Optional: database schema (default: "public")
+//!     schema = "public",    // Optional: database schema (omit to exclude from SQL)
 //!     sql = "full",         // Optional: "full" | "trait" | "none" (default: "full")
 //!     dialect = "postgres", // Optional: "postgres" | "clickhouse" | "mongodb" (default: "postgres")
 //!     uuid = "v7"           // Optional: "v7" | "v4" (default: "v7")
@@ -89,7 +106,7 @@
 //! | `InsertableUser` | Struct for `INSERT` statements |
 //! | `UserQuery` | Query struct for type-safe filtering (if `#[filter]` used) |
 //! | `UserRepository` | Async trait with CRUD methods |
-//! | `impl UserRepository for PgPool` | PostgreSQL implementation |
+//! | `impl UserRepository for PgPool` | `PostgreSQL` implementation |
 //! | `User{Projection}` | Projection structs (e.g., `UserPublic`, `UserAdmin`) |
 //! | `From<...>` impls | Type conversions between all structs |
 //!
@@ -159,7 +176,7 @@
 //! // Generated: UserPublic, UserAdmin structs
 //! // Generated: find_by_id_public, find_by_id_admin methods
 //!
-//! // SQL: SELECT id, name, avatar FROM public.users WHERE id = $1
+//! // SQL: SELECT id, name, avatar FROM users WHERE id = $1
 //! let public = repo.find_by_id_public(user_id).await?;
 //! ```
 //!
@@ -217,6 +234,7 @@
 mod entity;
 mod error;
 mod utils;
+mod value_object;
 
 use proc_macro::TokenStream;
 
@@ -242,7 +260,7 @@ use proc_macro::TokenStream;
 /// - **`UserRow`** — Database row struct (implements `sqlx::FromRow`)
 /// - **`InsertableUser`** — Struct for INSERT operations
 /// - **`UserRepository`** — Async trait with CRUD methods
-/// - **`impl UserRepository for PgPool`** — PostgreSQL implementation (when
+/// - **`impl UserRepository for PgPool`** — `PostgreSQL` implementation (when
 ///   `sql = "full"`)
 ///
 /// # Entity Attributes
@@ -252,7 +270,7 @@ use proc_macro::TokenStream;
 /// | Attribute | Required | Default | Description |
 /// |-----------|----------|---------|-------------|
 /// | `table` | **Yes** | — | Database table name |
-/// | `schema` | No | `"public"` | Database schema name |
+/// | `schema` | No | — | Database schema name (omitted = no prefix in SQL) |
 /// | `sql` | No | `"full"` | SQL generation: `"full"`, `"trait"`, or `"none"` |
 /// | `dialect` | No | `"postgres"` | Database dialect: `"postgres"`, `"clickhouse"`, `"mongodb"` |
 /// | `uuid` | No | `"v7"` | UUID version for ID: `"v7"` (time-ordered) or `"v4"` (random) |
@@ -423,37 +441,37 @@ use proc_macro::TokenStream;
 ///
 /// ```sql
 /// -- CREATE
-/// INSERT INTO schema.table (id, field1, field2, ...)
+/// INSERT INTO users (id, field1, field2, ...)
 /// VALUES ($1, $2, $3, ...)
 ///
 /// -- READ
-/// SELECT * FROM schema.table WHERE id = $1
+/// SELECT * FROM users WHERE id = $1
 ///
 /// -- UPDATE (dynamic based on provided fields)
-/// UPDATE schema.table SET field1 = $1, field2 = $2 WHERE id = $3
+/// UPDATE users SET field1 = $1, field2 = $2 WHERE id = $3
 ///
 /// -- DELETE
-/// DELETE FROM schema.table WHERE id = $1 RETURNING id
+/// DELETE FROM users WHERE id = $1 RETURNING id
 ///
 /// -- LIST
-/// SELECT * FROM schema.table ORDER BY created_at DESC LIMIT $1 OFFSET $2
+/// SELECT * FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2
 /// ```
 #[proc_macro_derive(
     Entity,
     attributes(
         entity, field, id, auto, validate, belongs_to, has_many, projection, filter, command,
-        example, column
+        example, column, map
     )
 )]
 pub fn derive_entity(input: TokenStream) -> TokenStream {
     entity::derive(input)
 }
 
-/// Derive macro for generating OpenAPI error response documentation.
+/// Derive macro for generating `OpenAPI` error response documentation.
 ///
 /// # Overview
 ///
-/// The `EntityError` derive macro generates OpenAPI response documentation
+/// The `EntityError` derive macro generates `OpenAPI` response documentation
 /// from error enum variants, using `#[status(code)]` attributes and doc
 /// comments.
 ///
@@ -489,7 +507,7 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
 /// - `UserErrorResponses` struct with helper methods
 /// - `status_codes()` - returns all error status codes
 /// - `descriptions()` - returns all error descriptions
-/// - `utoipa_responses()` - returns tuples for OpenAPI responses
+/// - `utoipa_responses()` - returns tuples for `OpenAPI` responses
 ///
 /// # Attributes
 ///
@@ -500,4 +518,55 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(EntityError, attributes(status))]
 pub fn derive_entity_error(input: TokenStream) -> TokenStream {
     error::derive(input)
+}
+
+/// Derive macro for generating `PostgreSQL` enum boilerplate.
+///
+/// # Overview
+///
+/// The `ValueObject` derive macro generates all boilerplate code needed for
+/// a `PostgreSQL` enum type: `Display`, `FromStr`, `AsRef<str>`, and
+/// `TryFrom<&str>` implementations, plus `sqlx` and `serde` attributes.
+///
+/// # Generated Code
+///
+/// For an enum named `OrderStatus` with `pg_type = "order_status"`,
+/// the macro generates:
+///
+/// - **`Debug, Clone, PartialEq, Eq, PartialOrd`** derives
+/// - **`sqlx(type_name = "order_status", rename_all = "lowercase")`** attribute
+/// - **`serde(rename_all = "lowercase")`** attribute
+/// - **`impl Display`** — lowercase variant names
+/// - **`impl FromStr`** — case-insensitive parsing
+/// - **`impl AsRef<str>`** — lowercase string representation
+/// - **`impl TryFrom<&str>`** — delegates to `FromStr`
+///
+/// # Attributes
+///
+/// | Attribute | Required | Description |
+/// |-----------|----------|-------------|
+/// | `pg_type` | **Yes** | `PostgreSQL` enum type name (e.g., `"order_status"`) |
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use entity_derive::ValueObject;
+///
+/// #[derive(ValueObject)]
+/// #[value_object(pg_type = "order_status")]
+/// pub enum OrderStatus {
+///     Pending,
+///     Confirmed,
+///     Cancelled,
+/// }
+///
+/// // Generated:
+/// // impl Display for OrderStatus
+/// // impl FromStr for OrderStatus (case-insensitive)
+/// // impl AsRef<str> for OrderStatus
+/// // impl TryFrom<&str> for OrderStatus
+/// ```
+#[proc_macro_derive(ValueObject, attributes(value_object))]
+pub fn derive_value_object(input: TokenStream) -> TokenStream {
+    value_object::derive(input)
 }

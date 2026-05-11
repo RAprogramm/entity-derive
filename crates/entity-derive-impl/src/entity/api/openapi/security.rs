@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! OpenAPI security scheme generation.
+//! `OpenAPI` security scheme generation.
 //!
-//! This module generates security scheme definitions for the OpenAPI
+//! This module generates security scheme definitions for the `OpenAPI`
 //! specification. Security schemes define how API endpoints are protected
 //! and how clients should authenticate.
 //!
@@ -133,7 +133,7 @@ use quote::quote;
 /// Generates security scheme code for the `Modify` implementation.
 ///
 /// This function produces code that registers a security scheme in the
-/// OpenAPI components section. The scheme defines how the API authenticates
+/// `OpenAPI` components section. The scheme defines how the API authenticates
 /// requests and is displayed in Swagger UI's "Authorize" dialog.
 ///
 /// # Arguments
@@ -221,10 +221,10 @@ pub fn generate_security_code(security: Option<&str>) -> TokenStream {
     }
 }
 
-/// Returns the OpenAPI security scheme name for a given security type.
+/// Returns the `OpenAPI` security scheme name for a given security type.
 ///
 /// This function maps user-facing security type names to their corresponding
-/// OpenAPI security scheme identifiers. The scheme name is used both when
+/// `OpenAPI` security scheme identifiers. The scheme name is used both when
 /// defining the security scheme and when applying it to operations.
 ///
 /// # Arguments
@@ -233,7 +233,7 @@ pub fn generate_security_code(security: Option<&str>) -> TokenStream {
 ///
 /// # Returns
 ///
-/// The canonical OpenAPI scheme name used throughout the specification.
+/// The canonical `OpenAPI` scheme name used throughout the specification.
 ///
 /// # Mapping
 ///

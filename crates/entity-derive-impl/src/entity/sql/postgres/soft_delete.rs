@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! Soft delete method generators for PostgreSQL.
+//! Soft delete method generators for `PostgreSQL`.
 //!
 //! When an entity has `#[entity(soft_delete)]`, these additional methods
 //! are generated to handle soft-deleted records:

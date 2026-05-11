@@ -238,9 +238,8 @@ fn parse_single_command(attr: &Attribute) -> syn::Result<CommandDef> {
                     return Err(syn::Error::new(
                         option_name.span(),
                         format!(
-                            "unknown command option '{}', expected: requires_id, source, \
-                             payload, result, kind, security",
-                            option_str
+                            "unknown command option '{option_str}', expected: requires_id, source, \
+                             payload, result, kind, security"
                         )
                     ));
                 }

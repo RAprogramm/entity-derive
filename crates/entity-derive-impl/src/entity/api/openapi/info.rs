@@ -1,15 +1,15 @@
 // SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
 // SPDX-License-Identifier: MIT
 
-//! OpenAPI Info section generation.
+//! `OpenAPI` Info section generation.
 //!
-//! This module generates code to configure the OpenAPI specification's info
+//! This module generates code to configure the `OpenAPI` specification's info
 //! object, which provides metadata about the API. The info section is required
-//! by OpenAPI 3.0+ and appears at the top level of the specification.
+//! by `OpenAPI` 3.0+ and appears at the top level of the specification.
 //!
-//! # OpenAPI Info Object
+//! # `OpenAPI` Info Object
 //!
-//! According to the OpenAPI 3.0 specification, the info object contains:
+//! According to the `OpenAPI` 3.0 specification, the info object contains:
 //!
 //! ```text
 //! ┌─────────────────────────────────────────────────────────────────┐
@@ -120,7 +120,7 @@ use quote::quote;
 
 use crate::entity::parse::EntityDef;
 
-/// Generates code to configure the OpenAPI info section.
+/// Generates code to configure the `OpenAPI` info section.
 ///
 /// This function produces a `TokenStream` that sets various properties on
 /// `openapi.info` within the `Modify::modify()` implementation. Only configured
@@ -247,7 +247,7 @@ pub fn generate_info_code(entity: &EntityDef) -> TokenStream {
 
     let deprecated_code = if api_config.is_deprecated() {
         let version = api_config.deprecated_in.as_deref().unwrap_or("unknown");
-        let msg = format!("Deprecated since {}", version);
+        let msg = format!("Deprecated since {version}");
         quote! {
             if let Some(ref desc) = openapi.info.description {
                 openapi.info.description = Some(format!("**DEPRECATED**: {}\n\n{}", #msg, desc));
