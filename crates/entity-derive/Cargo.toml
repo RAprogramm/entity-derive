@@ -3,7 +3,7 @@
 
 [package]
 name = "entity-derive"
-version = "0.6.0"
+version = "0.7.0"
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
@@ -25,8 +25,8 @@ api = []
 validate = []
 
 [dependencies]
-entity-core = { path = "../entity-core", version = "0.4" }
-entity-derive-impl = { path = "../entity-derive-impl", version = "0.4" }
+entity-core = { path = "../entity-core", version = "0.5" }
+entity-derive-impl = { path = "../entity-derive-impl", version = "0.5" }
 
 [dev-dependencies]
 trybuild = "1"

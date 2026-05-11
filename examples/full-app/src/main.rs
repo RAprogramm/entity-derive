@@ -257,7 +257,7 @@ async fn place_order(
         .with_orders()
         .with_order_items()
         .with_products()
-        .run(|mut ctx| async move {
+        .run(async |ctx| {
             // Create order
             let order = ctx
                 .orders()

@@ -20,7 +20,7 @@
 //! Transaction::new(&pool)
 //!     .with_users()
 //!     .with_orders()
-//!     .run(|mut ctx| async move {
+//!     .run(async |ctx| {
 //!         let user = ctx.users().find_by_id(id).await?;
 //!         ctx.orders().create(order).await?;
 //!         Ok(())

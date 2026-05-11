@@ -234,7 +234,7 @@ pub struct EntityAttrs {
     /// // Usage:
     /// Transaction::new(&pool)
     ///     .with_accounts()
-    ///     .run(|mut ctx| async move {
+    ///     .run(async |ctx| {
     ///         ctx.accounts().create(dto).await
     ///     })
     ///     .await?;
