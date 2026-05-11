@@ -62,22 +62,29 @@
 //! | `impl UserRepository for PgPool` | PostgreSQL implementation |
 
 mod api;
+#[cfg(feature = "commands")]
 mod commands;
 mod dto;
+#[cfg(feature = "events")]
 mod events;
+#[cfg(feature = "hooks")]
 mod hooks;
 mod insertable;
 mod mappers;
+#[cfg(feature = "migrations")]
 mod migrations;
+#[cfg(feature = "aggregate_root")]
 pub mod new_entity;
 pub mod parse;
 mod policy;
+#[cfg(feature = "projections")]
 mod projection;
 mod query;
 mod repository;
 mod row;
 mod sql;
 mod streams;
+#[cfg(feature = "transactions")]
 mod transaction;
 
 use proc_macro::TokenStream;
@@ -98,22 +105,60 @@ pub fn derive(input: TokenStream) -> TokenStream {
 
 fn generate(entity: EntityDef) -> TokenStream {
     let dto = dto::generate(&entity);
-    let projections = projection::generate(&entity);
     let query_struct = query::generate(&entity);
-    let events = events::generate(&entity);
-    let hooks = hooks::generate(&entity);
-    let commands = commands::generate(&entity);
     let policy = policy::generate(&entity);
     let streams = streams::generate(&entity);
-    let transaction = transaction::generate(&entity);
     let api = api::generate(&entity);
     let repository = repository::generate(&entity);
     let row = row::generate(&entity);
     let insertable = insertable::generate(&entity);
     let mappers = mappers::generate(&entity);
-    let new_entity = new_entity::generate(&entity);
     let sql = sql::generate(&entity);
+
+    // Opt-out generators. Each entity-attribute group is gated behind a
+    // Cargo feature so users can shrink their build by switching them
+    // off via `default-features = false`. The macro itself still parses
+    // every attribute; only the codegen body is skipped when the
+    // feature is off. `guard_disabled_attribute` emits a friendly
+    // compile_error if a user enables an attribute whose feature is
+    // disabled — much clearer than a missing-method error at the call site.
+
+    #[cfg(feature = "events")]
+    let events = events::generate(&entity);
+    #[cfg(not(feature = "events"))]
+    let events = guard_disabled_attribute(&entity, "events", entity.has_events());
+
+    #[cfg(feature = "hooks")]
+    let hooks = hooks::generate(&entity);
+    #[cfg(not(feature = "hooks"))]
+    let hooks = guard_disabled_attribute(&entity, "hooks", entity.has_hooks());
+
+    #[cfg(feature = "commands")]
+    let commands = commands::generate(&entity);
+    #[cfg(not(feature = "commands"))]
+    let commands = guard_disabled_attribute(&entity, "commands", entity.has_commands());
+
+    #[cfg(feature = "transactions")]
+    let transaction = transaction::generate(&entity);
+    #[cfg(not(feature = "transactions"))]
+    let transaction = guard_disabled_attribute(&entity, "transactions", entity.has_transactions());
+
+    #[cfg(feature = "aggregate_root")]
+    let new_entity = new_entity::generate(&entity);
+    #[cfg(not(feature = "aggregate_root"))]
+    let new_entity =
+        guard_disabled_attribute(&entity, "aggregate_root", entity.is_aggregate_root());
+
+    #[cfg(feature = "migrations")]
     let migrations = migrations::generate(&entity);
+    #[cfg(not(feature = "migrations"))]
+    let migrations = guard_disabled_attribute(&entity, "migrations", entity.migrations);
+
+    #[cfg(feature = "projections")]
+    let projections = projection::generate(&entity);
+    #[cfg(not(feature = "projections"))]
+    let projections =
+        guard_disabled_attribute(&entity, "projections", !entity.projections.is_empty());
 
     let expanded = quote! {
         #dto
@@ -136,4 +181,30 @@ fn generate(entity: EntityDef) -> TokenStream {
     };
 
     expanded.into()
+}
+
+/// Emit a `compile_error!` if the user opted into an entity-attribute
+/// group whose Cargo feature is currently disabled.
+///
+/// `feature_name` is the public feature flag name (e.g. `"commands"`).
+/// `is_requested` is the boolean from the entity attribute parser
+/// (e.g. `entity.has_commands()`). If the attribute is not used, this
+/// returns an empty `TokenStream` and nothing is emitted.
+#[allow(dead_code)]
+fn guard_disabled_attribute(
+    entity: &EntityDef,
+    feature_name: &str,
+    is_requested: bool
+) -> proc_macro2::TokenStream {
+    if !is_requested {
+        return proc_macro2::TokenStream::new();
+    }
+    let entity_name = entity.name();
+    let msg = format!(
+        "entity `{entity_name}` uses an attribute that requires the `{feature_name}` feature of \
+         `entity-derive`, but it is currently disabled. Enable it by adding \
+         `features = [\"{feature_name}\"]` to your `entity-derive` dependency, or remove the \
+         corresponding `#[entity(...)]` / `#[command(...)]` / `#[projection(...)]` attribute."
+    );
+    quote! { ::core::compile_error!(#msg); }
 }

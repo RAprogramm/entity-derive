@@ -3,7 +3,7 @@
 
 [package]
 name = "entity-derive"
-version = "0.8.3"
+version = "0.8.4"
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
@@ -16,13 +16,57 @@ keywords = ["derive", "macro", "entity", "dto", "repository"]
 categories = ["development-tools::procedural-macro-helpers", "database"]
 
 [features]
-default = ["postgres"]
+# Default: bring up every entity-attribute generator so existing users
+# see no behavior change. For lean builds use
+# `default-features = false, features = ["postgres", "<the ones you need>"]`.
+default = [
+  "postgres",
+  "events",
+  "commands",
+  "hooks",
+  "transactions",
+  "aggregate_root",
+  "migrations",
+  "projections"
+]
+
+# Database dialects
 postgres = ["entity-core/postgres"]
 clickhouse = ["entity-core/clickhouse"]
 mongodb = ["entity-core/mongodb"]
-streams = ["entity-core/streams"]
+
+# Real-time streams via Postgres LISTEN/NOTIFY. Pulls in `events`
+# because the NOTIFY payload is an event variant.
+streams = ["entity-core/streams", "events"]
+
+# HTTP handlers + OpenAPI generation.
 api = []
+
+# `validator::Validate` integration on DTOs.
 validate = []
+
+# Lifecycle event types (`{Entity}Event::Created` / `Updated` / etc.).
+events = ["entity-derive-impl/events"]
+
+# CQRS command pattern: command structs + dispatcher.
+commands = ["entity-derive-impl/commands"]
+
+# `{Entity}Hooks` trait. Manual wiring today; auto-invocation tracked in #127.
+hooks = ["entity-derive-impl/hooks"]
+
+# `{Entity}TransactionRepo` adapter and the `with_*` builder methods
+# (deprecated, slated for removal in 0.8.0 line; see #110).
+transactions = ["entity-derive-impl/transactions"]
+
+# Aggregate-root scaffolding: `New{Entity}` type + transactional `save()`.
+aggregate_root = ["entity-derive-impl/aggregate_root"]
+
+# Compile-time SQL migration constants (`MIGRATION_UP` / `MIGRATION_DOWN`).
+migrations = ["entity-derive-impl/migrations"]
+
+# Partial-view projections and `find_by_id_<projection>` methods.
+projections = ["entity-derive-impl/projections"]
+
 # Opt-in: emit `#[tracing::instrument]` on every generated async method.
 # Users who enable this must also depend on `tracing` directly so the
 # generated `::tracing::instrument` resolves.
@@ -30,7 +74,7 @@ tracing = ["entity-core/tracing"]
 
 [dependencies]
 entity-core = { path = "../entity-core", version = "0.6" }
-entity-derive-impl = { path = "../entity-derive-impl", version = "0.6" }
+entity-derive-impl = { path = "../entity-derive-impl", version = "0.6", default-features = false }
 
 [dev-dependencies]
 trybuild = "1"

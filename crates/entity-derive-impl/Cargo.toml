@@ -3,7 +3,7 @@
 
 [package]
 name = "entity-derive-impl"
-version = "0.6.2"
+version = "0.6.3"
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
@@ -19,7 +19,42 @@ categories = ["development-tools::procedural-macro-helpers"]
 proc-macro = true
 
 [features]
-default = []
+# Default: every entity-attribute generator is on so existing users see no
+# regression. Disable selectively via the `entity-derive` facade for
+# minimal builds (`default-features = false, features = ["postgres"]`).
+default = [
+  "events",
+  "commands",
+  "hooks",
+  "transactions",
+  "aggregate_root",
+  "migrations",
+  "projections"
+]
+
+# Generates `{Entity}Event` enum and lifecycle event helpers. Required
+# transitively by `streams` because the NOTIFY payload uses the event type.
+events = []
+
+# Generates command structs, the handler trait, and the dispatcher.
+commands = []
+
+# Generates `{Entity}Hooks` trait (currently manual-wiring; see #127 for
+# auto-invocation plans).
+hooks = []
+
+# Generates `{Entity}TransactionRepo` adapter, the (deprecated) `with_*`
+# builder methods, and the `ContextExt` accessor trait.
+transactions = []
+
+# Generates `New{Entity}` type and the transactional `save()` method.
+aggregate_root = []
+
+# Generates `MIGRATION_UP` / `MIGRATION_DOWN` SQL constants.
+migrations = []
+
+# Generates projection structs and `find_by_id_<projection>` methods.
+projections = []
 
 [dependencies]
 syn = { version = "2", features = ["full", "extra-traits", "parsing"] }

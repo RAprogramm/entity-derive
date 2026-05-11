@@ -7,6 +7,16 @@
     html_favicon_url = "https://raw.githubusercontent.com/RAprogramm/entity-derive/main/assets/favicon.ico"
 )]
 #![cfg_attr(docsrs, feature(doc_cfg))]
+// Several parsing helpers (column DDL, composite indexes, projection
+// metadata) are only consumed by the `migrations` and `projections`
+// generators. When users opt out of those features, the helpers become
+// unused — silence the dead-code lint in those configurations so minimal
+// builds stay warning-clean. Default builds (every feature on) keep the
+// warning active.
+#![cfg_attr(
+    any(not(feature = "migrations"), not(feature = "projections")),
+    allow(dead_code, unused_imports)
+)]
 #![warn(
     missing_docs,
     rustdoc::missing_crate_level_docs,

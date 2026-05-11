@@ -83,15 +83,32 @@ entity-derive = { version = "0.8", features = ["postgres", "api"] }
 
 ### Feature flags
 
-| Feature | What it does |
-|---------|--------------|
-| `postgres` *(default)* | Generate `sqlx::PgPool`-backed repository implementations |
-| `clickhouse` | Generate ClickHouse-backed repositories *(planned)* |
-| `mongodb` | Generate MongoDB-backed repositories *(planned)* |
-| `streams` | Generate `{Entity}Subscriber` using Postgres `LISTEN`/`NOTIFY` |
-| `api` | Generate HTTP handlers (`axum`) and `utoipa` OpenAPI schemas |
-| `validate` | Wire up `validator::Validate` on generated DTOs |
-| `tracing` | Wrap every generated async method in `#[tracing::instrument]` carrying `entity` + `op` span fields |
+| Feature | Default | What it does |
+|---------|:-------:|--------------|
+| `postgres` | ✓ | Generate `sqlx::PgPool`-backed repository implementations |
+| `events` | ✓ | Generate `{Entity}Event` enum (`Created` / `Updated` / `Deleted` variants) |
+| `commands` | ✓ | CQRS command pattern: command structs + dispatcher (`#[entity(commands)]`, `#[command(...)]`) |
+| `hooks` | ✓ | `{Entity}Hooks` trait with before/after lifecycle methods |
+| `transactions` | ✓ | `{Entity}TransactionRepo` adapter + transaction builder helpers (`#[entity(transactions)]`) |
+| `aggregate_root` | ✓ | `New{Entity}` constructor type and transactional `save()` (`#[entity(aggregate_root)]`) |
+| `migrations` | ✓ | Compile-time `MIGRATION_UP` / `MIGRATION_DOWN` SQL constants (`#[entity(migrations)]`) |
+| `projections` | ✓ | Projection structs and `find_by_id_<projection>` lookups (`#[projection(...)]`) |
+| `clickhouse` |   | Generate ClickHouse-backed repositories *(planned)* |
+| `mongodb` |   | Generate MongoDB-backed repositories *(planned)* |
+| `streams` |   | `{Entity}Subscriber` using Postgres `LISTEN`/`NOTIFY` (pulls in `events`) |
+| `api` |   | Generate HTTP handlers (`axum`) and `utoipa` OpenAPI schemas |
+| `validate` |   | Wire up `validator::Validate` on generated DTOs |
+| `tracing` |   | Wrap every generated async method in `#[tracing::instrument]` carrying `entity` + `op` span fields |
+
+Default features cover the full entity-attribute surface so existing projects work without changes. For lean builds, opt out of what you don't need:
+
+```toml
+[dependencies]
+# Just repositories — no events, hooks, commands, etc.
+entity-derive = { version = "0.8", default-features = false, features = ["postgres"] }
+```
+
+If you use an entity attribute whose feature is disabled (e.g. `#[entity(commands)]` without `features = ["commands"]`), the macro emits a `compile_error!` at the attribute pointing to the missing feature.
 
 Enable extras alongside the defaults:
 
