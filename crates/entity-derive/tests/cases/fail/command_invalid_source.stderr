@@ -1,0 +1,5 @@
+error: source must be "create", "update", or "none"
+  --> tests/cases/fail/command_invalid_source.rs:11:26
+   |
+11 | #[command(Test, source = "invalid")]
+   |                          ^^^^^^^^^
