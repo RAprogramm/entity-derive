@@ -25,7 +25,7 @@ tracing = ["dep:tracing"]
 
 [dependencies]
 async-trait = "0.1"
-sqlx = { version = "0.8", optional = true, default-features = false, features = [
+sqlx = { version = "0.9", optional = true, default-features = false, features = [
   "postgres",
 ] }
 serde = { version = "1", features = ["derive"], optional = true }
