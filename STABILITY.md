@@ -148,7 +148,7 @@ These features are planned but not yet implemented:
 
 ## Minimum Supported Rust Version (MSRV)
 
-- Current MSRV: **1.92.0**
+- Current MSRV: **1.96.0**
 - MSRV bumps are considered breaking changes pre-1.0
 - Post-1.0, MSRV bumps require at least a minor version bump
 
