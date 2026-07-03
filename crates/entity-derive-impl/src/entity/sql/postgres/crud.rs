@@ -161,7 +161,7 @@ impl Context<'_> {
                         #tx_open
                         let entity = #entity_name::from(dto);
                         let insertable = #insertable_name::from(&entity);
-                        sqlx::query(&format!("INSERT INTO {} ({}) VALUES ({}) RETURNING {}", #table, #columns_str, #placeholders_str, #returning_cols))
+                        sqlx::query(::sqlx::AssertSqlSafe(format!("INSERT INTO {} ({}) VALUES ({}) RETURNING {}", #table, #columns_str, #placeholders_str, #returning_cols)))
                             #(#bindings)*
                             .execute(#executor).await?;
                         #notify
@@ -207,7 +207,7 @@ impl Context<'_> {
             #span
             async fn find_by_id(&self, id: #id_type) -> Result<Option<#entity_name>, Self::Error> {
                 let row: Option<#row_name> = sqlx::query_as(
-                    &format!("SELECT {} FROM {} WHERE {} = {}{}", #columns_str, #table, stringify!(#id_name), #placeholder, #deleted_filter)
+                    ::sqlx::AssertSqlSafe(format!("SELECT {} FROM {} WHERE {} = {}{}", #columns_str, #table, stringify!(#id_name), #placeholder, #deleted_filter))
                 ).bind(&id).fetch_optional(self).await?;
                 Ok(row.map(#entity_name::from))
             }
@@ -270,7 +270,7 @@ impl Context<'_> {
                     let mut tx = self.begin().await?;
                     #fetch_old
                     let row: #row_name = sqlx::query_as(
-                        &format!("UPDATE {} SET {} WHERE {} = {} RETURNING *", #table, #set_clause, stringify!(#id_name), #where_placeholder)
+                        ::sqlx::AssertSqlSafe(format!("UPDATE {} SET {} WHERE {} = {} RETURNING *", #table, #set_clause, stringify!(#id_name), #where_placeholder))
                     )
                         #(#bindings)*
                         .bind(&id)
@@ -292,7 +292,7 @@ impl Context<'_> {
                     #span
                     async fn update(&self, id: #id_type, dto: #update_dto) -> Result<#entity_name, Self::Error> {
                         let row: #row_name = sqlx::query_as(
-                            &format!("UPDATE {} SET {} WHERE {} = {} RETURNING *", #table, #set_clause, stringify!(#id_name), #where_placeholder)
+                            ::sqlx::AssertSqlSafe(format!("UPDATE {} SET {} WHERE {} = {} RETURNING *", #table, #set_clause, stringify!(#id_name), #where_placeholder))
                         )
                             #(#bindings)*
                             .bind(&id)
@@ -305,7 +305,7 @@ impl Context<'_> {
                 quote! {
                     #span
                     async fn update(&self, id: #id_type, dto: #update_dto) -> Result<#entity_name, Self::Error> {
-                        sqlx::query(&format!("UPDATE {} SET {} WHERE {} = {}", #table, #set_clause, stringify!(#id_name), #where_placeholder))
+                        sqlx::query(::sqlx::AssertSqlSafe(format!("UPDATE {} SET {} WHERE {} = {}", #table, #set_clause, stringify!(#id_name), #where_placeholder)))
                             #(#bindings)*
                             .bind(&id)
                             .execute(self).await?;
@@ -318,7 +318,7 @@ impl Context<'_> {
                 quote! {
                     #span
                     async fn update(&self, id: #id_type, dto: #update_dto) -> Result<#entity_name, Self::Error> {
-                        sqlx::query(&format!("UPDATE {} SET {} WHERE {} = {} RETURNING {}", #table, #set_clause, stringify!(#id_name), #where_placeholder, #returning_cols))
+                        sqlx::query(::sqlx::AssertSqlSafe(format!("UPDATE {} SET {} WHERE {} = {} RETURNING {}", #table, #set_clause, stringify!(#id_name), #where_placeholder, #returning_cols)))
                             #(#bindings)*
                             .bind(&id)
                             .execute(self).await?;
@@ -367,10 +367,10 @@ impl Context<'_> {
                 #span
                 async fn delete(&self, id: #id_type) -> Result<bool, Self::Error> {
                     #tx_open
-                    let result = sqlx::query(&format!(
+                    let result = sqlx::query(::sqlx::AssertSqlSafe(format!(
                         "UPDATE {} SET deleted_at = NOW() WHERE {} = {} AND deleted_at IS NULL",
                         #table, stringify!(#id_name), #placeholder
-                    )).bind(&id).execute(#executor).await?;
+                    ))).bind(&id).execute(#executor).await?;
                     let deleted = result.rows_affected() > 0;
                     if deleted {
                         #notify
@@ -386,7 +386,7 @@ impl Context<'_> {
                 #span
                 async fn delete(&self, id: #id_type) -> Result<bool, Self::Error> {
                     #tx_open
-                    let result = sqlx::query(&format!("DELETE FROM {} WHERE {} = {}", #table, stringify!(#id_name), #placeholder))
+                    let result = sqlx::query(::sqlx::AssertSqlSafe(format!("DELETE FROM {} WHERE {} = {}", #table, stringify!(#id_name), #placeholder)))
                         .bind(&id).execute(#executor).await?;
                     let deleted = result.rows_affected() > 0;
                     if deleted {
@@ -434,8 +434,8 @@ impl Context<'_> {
             #span
             async fn list(&self, limit: i64, offset: i64) -> Result<Vec<#entity_name>, Self::Error> {
                 let rows: Vec<#row_name> = sqlx::query_as(
-                    &format!("SELECT {} FROM {} {}ORDER BY {} DESC LIMIT {} OFFSET {}",
-                        #columns_str, #table, #where_clause, stringify!(#id_name), #limit_placeholder, #offset_placeholder)
+                    ::sqlx::AssertSqlSafe(format!("SELECT {} FROM {} {}ORDER BY {} DESC LIMIT {} OFFSET {}",
+                        #columns_str, #table, #where_clause, stringify!(#id_name), #limit_placeholder, #offset_placeholder))
                 ).bind(limit).bind(offset).fetch_all(self).await?;
                 Ok(rows.into_iter().map(#entity_name::from).collect())
             }

@@ -112,7 +112,7 @@ impl Context<'_> {
                     #columns_str, #table, where_clause, stringify!(#id_name), limit_idx, offset_idx
                 );
 
-                let mut q = sqlx::query_as::<_, #row_name>(&sql);
+                let mut q = sqlx::query_as::<_, #row_name>(::sqlx::AssertSqlSafe(sql));
                 #bindings
                 q = q.bind(query.limit.unwrap_or(100)).bind(query.offset.unwrap_or(0));
 
@@ -179,7 +179,7 @@ impl Context<'_> {
                     #columns_str, #table, where_clause, stringify!(#id_name), limit_idx, offset_idx
                 );
 
-                let mut q = sqlx::query_as::<_, #row_name>(&sql);
+                let mut q = sqlx::query_as::<_, #row_name>(::sqlx::AssertSqlSafe(sql));
                 #bindings
                 q = q.bind(query.limit.unwrap_or(10000)).bind(query.offset.unwrap_or(0));
 

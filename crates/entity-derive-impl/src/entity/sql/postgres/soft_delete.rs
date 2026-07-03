@@ -72,10 +72,10 @@ impl Context<'_> {
 
         quote! {
             async fn hard_delete(&self, id: #id_type) -> Result<bool, Self::Error> {
-                let result = sqlx::query(&format!(
+                let result = sqlx::query(::sqlx::AssertSqlSafe(format!(
                     "DELETE FROM {} WHERE {} = {}",
                     #table, stringify!(#id_name), #placeholder
-                )).bind(&id).execute(self).await?;
+                ))).bind(&id).execute(self).await?;
                 Ok(result.rows_affected() > 0)
             }
         }
@@ -103,10 +103,10 @@ impl Context<'_> {
 
         quote! {
             async fn restore(&self, id: #id_type) -> Result<bool, Self::Error> {
-                let result = sqlx::query(&format!(
+                let result = sqlx::query(::sqlx::AssertSqlSafe(format!(
                     "UPDATE {} SET deleted_at = NULL WHERE {} = {} AND deleted_at IS NOT NULL",
                     #table, stringify!(#id_name), #placeholder
-                )).bind(&id).execute(self).await?;
+                ))).bind(&id).execute(self).await?;
                 Ok(result.rows_affected() > 0)
             }
         }
@@ -139,7 +139,7 @@ impl Context<'_> {
         quote! {
             async fn find_by_id_with_deleted(&self, id: #id_type) -> Result<Option<#entity_name>, Self::Error> {
                 let row: Option<#row_name> = sqlx::query_as(
-                    &format!("SELECT {} FROM {} WHERE {} = {}", #columns_str, #table, stringify!(#id_name), #placeholder)
+                    ::sqlx::AssertSqlSafe(format!("SELECT {} FROM {} WHERE {} = {}", #columns_str, #table, stringify!(#id_name), #placeholder))
                 ).bind(&id).fetch_optional(self).await?;
                 Ok(row.map(#entity_name::from))
             }
@@ -175,8 +175,8 @@ impl Context<'_> {
         quote! {
             async fn list_with_deleted(&self, limit: i64, offset: i64) -> Result<Vec<#entity_name>, Self::Error> {
                 let rows: Vec<#row_name> = sqlx::query_as(
-                    &format!("SELECT {} FROM {} ORDER BY {} DESC LIMIT {} OFFSET {}",
-                        #columns_str, #table, stringify!(#id_name), #limit_placeholder, #offset_placeholder)
+                    ::sqlx::AssertSqlSafe(format!("SELECT {} FROM {} ORDER BY {} DESC LIMIT {} OFFSET {}",
+                        #columns_str, #table, stringify!(#id_name), #limit_placeholder, #offset_placeholder))
                 ).bind(limit).bind(offset).fetch_all(self).await?;
                 Ok(rows.into_iter().map(#entity_name::from).collect())
             }

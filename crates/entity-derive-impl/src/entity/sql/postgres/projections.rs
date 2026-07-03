@@ -74,7 +74,7 @@ impl Context<'_> {
             #span
             async fn #method_name(&self, id: #id_type) -> Result<Option<#proj_type>, Self::Error> {
                 let row = sqlx::query_as::<_, #proj_type>(
-                    &format!("SELECT {} FROM {} WHERE {} = {}", #columns_str, #table, stringify!(#id_name), #placeholder)
+                    ::sqlx::AssertSqlSafe(format!("SELECT {} FROM {} WHERE {} = {}", #columns_str, #table, stringify!(#id_name), #placeholder))
                 ).bind(&id).fetch_optional(self).await?;
                 Ok(row)
             }
