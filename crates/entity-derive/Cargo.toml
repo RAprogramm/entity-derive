@@ -27,7 +27,7 @@ default = [
   "transactions",
   "aggregate_root",
   "migrations",
-  "projections"
+  "projections",
 ]
 
 # Database dialects

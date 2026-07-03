@@ -84,7 +84,7 @@ impl Context<'_> {
                 match entity {
                     Some(e) => {
                         let row: Option<#related_row> = sqlx::query_as(
-                            &format!("SELECT * FROM {} WHERE id = {}", #related_table, #placeholder)
+                            ::sqlx::AssertSqlSafe(format!("SELECT * FROM {} WHERE id = {}", #related_table, #placeholder))
                         ).bind(&e.#fk_name).fetch_optional(self).await?;
                         Ok(row.map(#related_entity::from))
                     }
@@ -116,7 +116,7 @@ impl Context<'_> {
         quote! {
             async fn #method_name(&self, #fk_field: #id_type) -> Result<Vec<#related>, Self::Error> {
                 let rows: Vec<#related_row> = sqlx::query_as(
-                    &format!("SELECT * FROM {} WHERE {}_id = {}", #related_table, #entity_snake, #placeholder)
+                    ::sqlx::AssertSqlSafe(format!("SELECT * FROM {} WHERE {}_id = {}", #related_table, #entity_snake, #placeholder))
                 ).bind(&#fk_field).fetch_all(self).await?;
                 Ok(rows.into_iter().map(#related::from).collect())
             }

@@ -124,8 +124,8 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
                 dto: #update_dto
             ) -> Result<#entity_name, sqlx::Error> {
                 let row: #row_name = sqlx::query_as(
-                    &format!("UPDATE {} SET {} WHERE {} = {} RETURNING *",
-                        #table, #set_clause, stringify!(#id_name), #where_placeholder)
+                    ::sqlx::AssertSqlSafe(format!("UPDATE {} SET {} WHERE {} = {} RETURNING *",
+                        #table, #set_clause, stringify!(#id_name), #where_placeholder))
                 )
                     #(#update_bindings)*
                     .bind(&id)
@@ -137,18 +137,18 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
 
     let delete_sql = if soft_delete {
         quote! {
-            let result = sqlx::query(&format!(
+            let result = sqlx::query(::sqlx::AssertSqlSafe(format!(
                 "UPDATE {} SET deleted_at = NOW() WHERE {} = $1 AND deleted_at IS NULL",
                 #table, stringify!(#id_name)
-            )).bind(&id).execute(&mut **self.tx).await?;
+            ))).bind(&id).execute(&mut **self.tx).await?;
             Ok(result.rows_affected() > 0)
         }
     } else {
         quote! {
-            let result = sqlx::query(&format!(
+            let result = sqlx::query(::sqlx::AssertSqlSafe(format!(
                 "DELETE FROM {} WHERE {} = $1",
                 #table, stringify!(#id_name)
-            )).bind(&id).execute(&mut **self.tx).await?;
+            ))).bind(&id).execute(&mut **self.tx).await?;
             Ok(result.rows_affected() > 0)
         }
     };
@@ -188,8 +188,8 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
                 id: #id_type
             ) -> Result<Option<#entity_name>, sqlx::Error> {
                 let row: Option<#row_name> = sqlx::query_as(
-                    &format!("SELECT {} FROM {} WHERE {} = $1{}",
-                        #columns_str, #table, stringify!(#id_name), #deleted_filter)
+                    ::sqlx::AssertSqlSafe(format!("SELECT {} FROM {} WHERE {} = $1{}",
+                        #columns_str, #table, stringify!(#id_name), #deleted_filter))
                 ).bind(&id).fetch_optional(&mut **self.tx).await?;
                 Ok(row.map(#entity_name::from))
             }
@@ -214,8 +214,8 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
             ) -> Result<Vec<#entity_name>, sqlx::Error> {
                 let where_clause = if #soft_delete { "WHERE deleted_at IS NULL " } else { "" };
                 let rows: Vec<#row_name> = sqlx::query_as(
-                    &format!("SELECT {} FROM {} {}ORDER BY {} DESC LIMIT $1 OFFSET $2",
-                        #columns_str, #table, where_clause, stringify!(#id_name))
+                    ::sqlx::AssertSqlSafe(format!("SELECT {} FROM {} {}ORDER BY {} DESC LIMIT $1 OFFSET $2",
+                        #columns_str, #table, where_clause, stringify!(#id_name)))
                 ).bind(limit).bind(offset).fetch_all(&mut **self.tx).await?;
                 Ok(rows.into_iter().map(#entity_name::from).collect())
             }

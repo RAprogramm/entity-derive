@@ -33,14 +33,14 @@
 //! ```rust,ignore
 //! async fn find_by_email(&self, email: String) -> Result<Option<User>, Self::Error> {
 //!     let row: Option<UserRow> = sqlx::query_as(
-//!         &format!("SELECT * FROM users WHERE email = $1")
+//!         ::sqlx::AssertSqlSafe(format!("SELECT * FROM users WHERE email = $1"))
 //!     ).bind(&email).fetch_optional(self).await?;
 //!     Ok(row.map(User::from))
 //! }
 //!
 //! async fn exists_by_email(&self, email: String) -> Result<bool, Self::Error> {
 //!     let exists: bool = sqlx::query_scalar(
-//!         &format!("SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)")
+//!         ::sqlx::AssertSqlSafe(format!("SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)"))
 //!     ).bind(&email).fetch_one(self).await?;
 //!     Ok(exists)
 //! }
@@ -126,7 +126,7 @@ impl Context<'_> {
             #span
             async fn #method_name(&self, #field_name: #field_type) -> Result<Option<#entity_name>, Self::Error> {
                 let row: Option<#row_name> = sqlx::query_as(
-                    &format!("SELECT * FROM {} WHERE {} = {}", #table, stringify!(#field_name), #placeholder)
+                    ::sqlx::AssertSqlSafe(format!("SELECT * FROM {} WHERE {} = {}", #table, stringify!(#field_name), #placeholder))
                 ).bind(&#field_name).fetch_optional(self).await?;
                 Ok(row.map(#entity_name::from))
             }
@@ -160,7 +160,7 @@ impl Context<'_> {
             #span
             async fn #method_name(&self, #field_name: #field_type) -> Result<bool, Self::Error> {
                 let exists: bool = sqlx::query_scalar(
-                    &format!("SELECT EXISTS(SELECT 1 FROM {} WHERE {} = {})", #table, stringify!(#field_name), #placeholder)
+                    ::sqlx::AssertSqlSafe(format!("SELECT EXISTS(SELECT 1 FROM {} WHERE {} = {})", #table, stringify!(#field_name), #placeholder))
                 ).bind(&#field_name).fetch_one(self).await?;
                 Ok(exists)
             }
