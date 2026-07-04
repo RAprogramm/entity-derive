@@ -92,12 +92,22 @@ fn generate_projection(entity: &EntityDef, proj: &super::parse::ProjectionDef) -
         .collect();
 
     let marker = marker::generated();
+    let api_derive = if cfg!(feature = "api") {
+        quote! { #[derive(utoipa::ToSchema)] }
+    } else {
+        TokenStream::new()
+    };
+    let from_row_derive = if cfg!(feature = "postgres") {
+        quote! { #[derive(sqlx::FromRow)] }
+    } else {
+        TokenStream::new()
+    };
 
     quote! {
         #marker
         #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-        #[cfg_attr(feature = "api", derive(utoipa::ToSchema))]
-        #[cfg_attr(feature = "postgres", derive(sqlx::FromRow))]
+        #api_derive
+        #from_row_derive
         #vis struct #proj_name {
             #(#field_defs),*
         }

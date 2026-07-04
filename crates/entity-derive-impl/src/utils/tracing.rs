@@ -37,7 +37,8 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 
-/// Generate a `#[cfg_attr(feature = "tracing", …instrument…)]` attribute.
+/// Generate a `#[tracing::instrument(...)]` attribute when the
+/// `tracing` feature is enabled at expansion time (nothing otherwise).
 ///
 /// # Arguments
 ///
@@ -48,38 +49,35 @@ use quote::quote;
 ///
 /// # Returns
 ///
-/// A `TokenStream` ready to splice in front of an `async fn`. If the
-/// consumer crate does not enable the `tracing` feature, the attribute
-/// expands to nothing.
+/// A `TokenStream` ready to splice in front of an `async fn`; empty
+/// when the facade's `tracing` feature is off, so consumer crates never
+/// see a cfg for a feature they do not declare.
 #[must_use]
 pub fn instrument(entity_name: &str, op: &str) -> TokenStream {
+    if !cfg!(feature = "tracing") {
+        return TokenStream::new();
+    }
     quote! {
-        #[cfg_attr(
-            feature = "tracing",
-            ::tracing::instrument(
-                skip_all,
-                fields(entity = #entity_name, op = #op),
-                err(Debug)
-            )
+        #[::tracing::instrument(
+            skip_all,
+            fields(entity = #entity_name, op = #op),
+            err(Debug)
         )]
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "tracing"))]
 mod tests {
     use super::*;
 
     #[test]
-    fn emits_cfg_attr_gate() {
+    fn emits_plain_instrument_attribute() {
         let tokens = instrument("User", "create").to_string();
         assert!(
-            tokens.contains("cfg_attr"),
-            "must be feature-gated: {tokens}"
+            !tokens.contains("cfg_attr"),
+            "expansion-time gating must not leak cfgs: {tokens}"
         );
-        assert!(
-            tokens.contains("feature = \"tracing\""),
-            "wrong gate: {tokens}"
-        );
+        assert!(tokens.contains("instrument"));
     }
 
     #[test]

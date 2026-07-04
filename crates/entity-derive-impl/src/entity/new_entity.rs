@@ -86,11 +86,16 @@ fn generate_new_struct(entity: &EntityDef) -> TokenStream {
     });
 
     let marker = crate::utils::marker::generated();
+    let api_derive = if cfg!(feature = "api") {
+        quote! { #[derive(utoipa::ToSchema)] }
+    } else {
+        TokenStream::new()
+    };
 
     quote! {
         #marker
         #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-        #[cfg_attr(feature = "api", derive(utoipa::ToSchema))]
+        #api_derive
         #vis struct #new_name {
             #(#field_defs),*
         }

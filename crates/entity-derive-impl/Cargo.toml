@@ -32,6 +32,16 @@ default = [
   "projections"
 ]
 
+# Facade-mirrored gates: when off, generated code omits the matching
+# `cfg`/`cfg_attr` entirely so consumer crates never see cfgs for
+# features they do not declare (unexpected_cfgs) and never silently
+# lose the repository impl.
+postgres = []
+api = []
+validate = []
+garde = []
+tracing = []
+
 # Generates `{Entity}Event` enum and lifecycle event helpers. Required
 # transitively by `streams` because the NOTIFY payload uses the event type.
 events = []

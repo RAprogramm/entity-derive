@@ -74,11 +74,16 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
         });
 
     let marker = marker::generated();
+    let from_row_derive = if cfg!(feature = "postgres") {
+        quote! { #[derive(sqlx::FromRow)] }
+    } else {
+        TokenStream::new()
+    };
 
     quote! {
         #marker
         #[derive(Debug, Clone)]
-        #[cfg_attr(feature = "postgres", derive(sqlx::FromRow))]
+        #from_row_derive
         #vis struct #row_name { #(#field_defs),* }
     }
 }
