@@ -408,7 +408,6 @@ mod tests {
     fn const_str_eq_in_const_context() {
         const OK: bool = const_str_eq("user_role", "user_role");
         const MISMATCH: bool = const_str_eq("user_role", "user_rank");
-        assert!(OK);
-        assert!(!MISMATCH);
+        assert_eq!((OK, MISMATCH), (true, false));
     }
 }
