@@ -385,4 +385,30 @@ mod tests {
         assert!(CommandKind::Delete.is_mutation());
         assert!(!CommandKind::Custom.is_mutation());
     }
+
+    #[test]
+    fn const_str_eq_equal_strings() {
+        assert!(const_str_eq("order_status", "order_status"));
+        assert!(const_str_eq("", ""));
+    }
+
+    #[test]
+    fn const_str_eq_different_lengths() {
+        assert!(!const_str_eq("order", "order_status"));
+        assert!(!const_str_eq("order_status", ""));
+    }
+
+    #[test]
+    fn const_str_eq_same_length_different_content() {
+        assert!(!const_str_eq("order_status", "order_states"));
+        assert!(!const_str_eq("abc", "abd"));
+    }
+
+    #[test]
+    fn const_str_eq_in_const_context() {
+        const OK: bool = const_str_eq("user_role", "user_role");
+        const MISMATCH: bool = const_str_eq("user_role", "user_rank");
+        assert!(OK);
+        assert!(!MISMATCH);
+    }
 }

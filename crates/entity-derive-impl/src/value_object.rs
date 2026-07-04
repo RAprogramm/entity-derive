@@ -676,3 +676,45 @@ mod pg_type_tests {
         assert!(code.contains("'in_review', 'done_deal'"));
     }
 }
+
+#[cfg(test)]
+mod sqlx_flag_tests {
+    use super::*;
+
+    #[test]
+    fn flag_absent_returns_false() {
+        let input: DeriveInput = syn::parse_quote! {
+            #[value_object(pg_type = "kind")]
+            enum Kind { A }
+        };
+        assert!(!extract_sqlx_flag(&input.attrs));
+    }
+
+    #[test]
+    fn flag_present_returns_true() {
+        let input: DeriveInput = syn::parse_quote! {
+            #[value_object(pg_type = "kind", sqlx)]
+            enum Kind { A }
+        };
+        assert!(extract_sqlx_flag(&input.attrs));
+    }
+
+    #[test]
+    fn unrelated_attribute_ignored() {
+        let input: DeriveInput = syn::parse_quote! {
+            #[derive(Debug)]
+            #[allow(dead_code)]
+            enum Kind { A }
+        };
+        assert!(!extract_sqlx_flag(&input.attrs));
+    }
+
+    #[test]
+    fn flag_before_pg_type_returns_true() {
+        let input: DeriveInput = syn::parse_quote! {
+            #[value_object(sqlx, pg_type = "kind")]
+            enum Kind { A }
+        };
+        assert!(extract_sqlx_flag(&input.attrs));
+    }
+}
