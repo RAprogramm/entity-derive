@@ -72,20 +72,6 @@ impl DatabaseDialect {
             .join(", ")
     }
 
-    /// Generate SET clause for UPDATE statement.
-    #[must_use]
-    pub fn set_clause(&self, fields: &[&str]) -> String {
-        match self {
-            Self::Postgres | Self::ClickHouse => fields
-                .iter()
-                .enumerate()
-                .map(|(i, f)| format!("{} = ${}", f, i + 1))
-                .collect::<Vec<_>>()
-                .join(", "),
-            Self::MongoDB => fields.join(", ") // MongoDB uses $set operator
-        }
-    }
-
     /// Get the feature flag name for this dialect.
     #[must_use]
     pub const fn feature_flag(&self) -> &'static str {
@@ -133,27 +119,6 @@ mod tests {
         let d = DatabaseDialect::MongoDB;
         assert_eq!(d.placeholder(1), "$1");
         assert_eq!(d.placeholders(3), "$1, $2, $3");
-    }
-
-    #[test]
-    fn set_clause_postgres() {
-        let d = DatabaseDialect::Postgres;
-        let fields = ["name", "email"];
-        assert_eq!(d.set_clause(&fields), "name = $1, email = $2");
-    }
-
-    #[test]
-    fn set_clause_clickhouse() {
-        let d = DatabaseDialect::ClickHouse;
-        let fields = ["name", "email"];
-        assert_eq!(d.set_clause(&fields), "name = $1, email = $2");
-    }
-
-    #[test]
-    fn set_clause_mongodb() {
-        let d = DatabaseDialect::MongoDB;
-        let fields = ["name", "email"];
-        assert_eq!(d.set_clause(&fields), "name, email");
     }
 
     #[test]

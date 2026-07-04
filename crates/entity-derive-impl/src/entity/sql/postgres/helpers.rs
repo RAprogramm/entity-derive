@@ -8,7 +8,7 @@
 //!
 //! - [`join_columns`] — builds column list for SELECT/INSERT
 //! - [`insert_bindings`] — builds `.bind()` chain for INSERT
-//! - [`update_bindings`] — builds `.bind()` chain for UPDATE
+//! - [`dynamic_set_stmts`] / [`dynamic_set_binds`] — dynamic UPDATE SET builder
 //! - [`generate_where_conditions`] — builds WHERE clause for query method
 //! - [`generate_query_bindings`] — builds parameter bindings for query method
 
@@ -47,24 +47,6 @@ pub fn insert_bindings(fields: &[FieldDef]) -> Vec<TokenStream> {
         .map(|f| {
             let name = f.name();
             quote! { .bind(insertable.#name) }
-        })
-        .collect()
-}
-
-/// Build `.bind(dto.field)` chain for UPDATE.
-///
-/// # Generated Code
-///
-/// ```rust,ignore
-/// .bind(dto.name)
-/// .bind(dto.email)
-/// ```
-pub fn update_bindings(fields: &[&FieldDef]) -> Vec<TokenStream> {
-    fields
-        .iter()
-        .map(|f| {
-            let name = f.name();
-            quote! { .bind(dto.#name) }
         })
         .collect()
 }
@@ -210,6 +192,75 @@ pub fn generate_query_bindings(fields: &[&FieldDef]) -> TokenStream {
     quote! { #(#bindings)* }
 }
 
+/// Generate runtime statements building a dynamic UPDATE SET clause.
+///
+/// Emits `__sets: Vec<String>` and `__idx: usize` bindings. Fields
+/// absent from the DTO are skipped entirely; nullable fields use
+/// double-`Option` semantics where `Some(None)` renders `col = NULL`.
+pub fn dynamic_set_stmts(fields: &[&FieldDef]) -> TokenStream {
+    let per_field: Vec<TokenStream> = fields
+        .iter()
+        .map(|f| {
+            let name = f.name();
+            let column = f.name_str();
+            let assignment = format!("{column} = ${{}}");
+            let null_assignment = format!("{column} = NULL");
+            if f.is_option() {
+                quote! {
+                    match &dto.#name {
+                        None => {}
+                        Some(None) => __sets.push(#null_assignment.to_string()),
+                        Some(Some(_)) => {
+                            __sets.push(format!(#assignment, __idx));
+                            __idx += 1;
+                        }
+                    }
+                }
+            } else {
+                quote! {
+                    if dto.#name.is_some() {
+                        __sets.push(format!(#assignment, __idx));
+                        __idx += 1;
+                    }
+                }
+            }
+        })
+        .collect();
+
+    quote! {
+        let mut __sets: Vec<String> = Vec::new();
+        let mut __idx: usize = 1;
+        #(#per_field)*
+    }
+}
+
+/// Generate conditional `.bind()` statements matching [`dynamic_set_stmts`].
+///
+/// The query variable is expected to be named `q`.
+pub fn dynamic_set_binds(fields: &[&FieldDef]) -> TokenStream {
+    let per_field: Vec<TokenStream> = fields
+        .iter()
+        .map(|f| {
+            let name = f.name();
+            if f.is_option() {
+                quote! {
+                    if let Some(Some(__v)) = dto.#name {
+                        q = q.bind(__v);
+                    }
+                }
+            } else {
+                quote! {
+                    if let Some(__v) = dto.#name {
+                        q = q.bind(__v);
+                    }
+                }
+            }
+        })
+        .collect();
+
+    quote! { #(#per_field)* }
+}
+
 #[cfg(test)]
 mod tests {
     use syn::{Field, parse_quote};
@@ -277,28 +328,6 @@ mod tests {
     #[test]
     fn insert_bindings_empty() {
         let bindings = insert_bindings(&[]);
-        assert!(bindings.is_empty());
-    }
-
-    #[test]
-    fn update_bindings_generates_bind_calls() {
-        let fields = [
-            parse_field(quote! { pub name: String }),
-            parse_field(quote! { pub email: String })
-        ];
-        let refs: Vec<&FieldDef> = fields.iter().collect();
-        let bindings = update_bindings(&refs);
-        assert_eq!(bindings.len(), 2);
-
-        let first = bindings[0].to_string();
-        assert!(first.contains("bind"), "Expected 'bind' in: {}", first);
-        assert!(first.contains("dto"), "Expected 'dto' in: {}", first);
-        assert!(first.contains("name"), "Expected 'name' in: {}", first);
-    }
-
-    #[test]
-    fn update_bindings_empty() {
-        let bindings = update_bindings(&[]);
         assert!(bindings.is_empty());
     }
 

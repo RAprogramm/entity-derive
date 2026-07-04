@@ -109,27 +109,31 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
         TokenStream::new()
     } else {
         let update_fields = entity.update_fields();
-        let field_names: Vec<String> = update_fields.iter().map(|f| f.name_str()).collect();
-        let field_refs: Vec<&str> = field_names.iter().map(String::as_str).collect();
-        let set_clause = ctx.dialect.set_clause(&field_refs);
-        let where_placeholder = ctx.dialect.placeholder(update_fields.len() + 1);
-        let update_bindings = super::sql::postgres::helpers::update_bindings(&update_fields);
+        let set_stmts = super::sql::postgres::helpers::dynamic_set_stmts(&update_fields);
+        let set_binds = super::sql::postgres::helpers::dynamic_set_binds(&update_fields);
 
         quote! {
             /// Update an entity within the transaction.
+            ///
+            /// Fields absent from the DTO stay unchanged; nullable fields
+            /// use double-`Option` semantics (`Some(None)` sets NULL).
             #update_span
             pub async fn update(
                 &mut self,
                 id: #id_type,
                 dto: #update_dto
             ) -> Result<#entity_name, sqlx::Error> {
-                let row: #row_name = sqlx::query_as(
-                    ::sqlx::AssertSqlSafe(format!("UPDATE {} SET {} WHERE {} = {} RETURNING *",
-                        #table, #set_clause, stringify!(#id_name), #where_placeholder))
-                )
-                    #(#update_bindings)*
-                    .bind(&id)
-                    .fetch_one(&mut **self.tx).await?;
+                #set_stmts
+                if __sets.is_empty() {
+                    return self.find_by_id(id).await?.ok_or(sqlx::Error::RowNotFound);
+                }
+                let mut q = sqlx::query_as::<_, #row_name>(
+                    ::sqlx::AssertSqlSafe(format!("UPDATE {} SET {} WHERE {} = ${} RETURNING *",
+                        #table, __sets.join(", "), stringify!(#id_name), __idx))
+                );
+                #set_binds
+                q = q.bind(&id);
+                let row: #row_name = q.fetch_one(&mut **self.tx).await?;
                 Ok(#entity_name::from(row))
             }
         }
