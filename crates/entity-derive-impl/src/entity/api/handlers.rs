@@ -699,3 +699,56 @@ mod tests {
         assert!(output_str.contains("update_email_user"));
     }
 }
+
+#[cfg(test)]
+mod guard_tests {
+    use syn::DeriveInput;
+
+    use super::*;
+
+    fn guarded_entity(api_attr: &str) -> EntityDef {
+        let source = format!(
+            r#"
+            #[entity(table = "users", commands, {api_attr})]
+            #[command(Register)]
+            #[command(Promote, requires_id)]
+            pub struct User {{
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                pub name: String,
+            }}
+            "#
+        );
+        let input: DeriveInput = syn::parse_str(&source).expect("test entity must parse");
+        EntityDef::from_derive_input(&input).expect("test entity must be valid")
+    }
+
+    #[test]
+    fn command_handlers_receive_guard() {
+        let entity = guarded_entity(r#"api(tag = "Users", guard = "RequireAuth")"#);
+        let code = generate(&entity).to_string();
+        assert!(code.contains("_guard : RequireAuth"));
+    }
+
+    #[test]
+    fn public_commands_skip_guard() {
+        let entity =
+            guarded_entity(r#"api(tag = "Users", guard = "RequireAuth", public = [Register])"#);
+        let code = generate(&entity).to_string();
+        let register_pos = code.find("register_user").expect("register handler");
+        let promote_pos = code.find("promote_user").expect("promote handler");
+        let guard_pos = code.find("_guard : RequireAuth").expect("guard present");
+        assert!(guard_pos > register_pos.min(promote_pos));
+        assert_eq!(code.matches("_guard : RequireAuth").count(), 1);
+    }
+
+    #[test]
+    fn commands_override_none_disables_guard() {
+        let entity = guarded_entity(
+            r#"api(tag = "Users", guard = "RequireAuth", guard(commands = "none"))"#
+        );
+        let code = generate(&entity).to_string();
+        assert!(!code.contains("_guard"));
+    }
+}

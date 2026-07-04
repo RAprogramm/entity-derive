@@ -249,3 +249,23 @@ fn guard_for_without_guard_returns_none() {
     let config = parse_test_config(r#"api(tag = "Users")"#);
     assert!(config.guard_for("create").is_none());
 }
+
+#[test]
+fn parse_guard_override_invalid_path_rejected() {
+    let meta: syn::Meta = syn::parse_str(r#"api(guard(create = "not a path"))"#).unwrap();
+    assert!(parse_api_config(&meta).is_err());
+}
+
+#[test]
+fn parse_guard_override_trailing_comma() {
+    let config = parse_test_config(r#"api(guard(create = "Admin", delete = "Admin",))"#);
+    assert!(config.guard_for("create").is_some());
+    assert!(config.guard_for("delete").is_some());
+    assert!(config.guard_for("get").is_none());
+}
+
+#[test]
+fn parse_guard_override_none_literal_accepted() {
+    let config = parse_test_config(r#"api(guard(commands = "none"))"#);
+    assert!(config.guard_for("commands").is_none());
+}
