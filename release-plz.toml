@@ -1,0 +1,52 @@
+# SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
+# SPDX-License-Identifier: MIT
+
+# release-plz drives the release cadence for the entity-derive workspace:
+#   1. on every push to `main`, it computes the next versions from
+#      conventional commits since the latest tags and opens (or updates)
+#      a release PR bumping Cargo.toml files and prepending CHANGELOG
+#      sections;
+#   2. when that release PR is squash-merged, it publishes the crates to
+#      crates.io in dependency order (entity-core → entity-derive-impl →
+#      entity-derive), tags, and creates the GitHub release.
+#
+# Reference: https://release-plz.dev
+
+[workspace]
+allow_dirty = false
+changelog_update = true
+git_release_enable = false
+git_tag_enable = false
+publish = true
+release = true
+
+[[package]]
+name = "entity-derive"
+# The facade crate carries the repository-facing release: single
+# CHANGELOG, `vX.Y.Z` tag and GitHub release matching the historical
+# scheme.
+changelog_path = "CHANGELOG.md"
+git_release_enable = true
+git_tag_enable = true
+git_release_name = "v{{ version }}"
+git_tag_name = "v{{ version }}"
+
+[changelog]
+# Mirror the heading style cliff.toml used so the merged CHANGELOG stays
+# consistent.
+commit_preprocessors = [
+    { pattern = '\(#(\d+)\)', replace = "([#${1}](https://github.com/RAprogramm/entity-derive/issues/${1}))" },
+    { pattern = '^#\d+\s+(feat|fix|perf|refactor|style|test|docs|doc|ci|chore|deps|revert)(!)?:?\s+', replace = "${1}${2}: " },
+]
+commit_parsers = [
+    { message = "^feat", group = "✨ Features" },
+    { message = "^fix", group = "🐛 Bug Fixes" },
+    { message = "^doc", group = "📚 Documentation" },
+    { message = "^perf", group = "⚡ Performance" },
+    { message = "^refactor", group = "♻️ Refactor" },
+    { message = "^style", group = "🎨 Styling" },
+    { message = "^test", group = "🧪 Testing" },
+    { message = "^ci", group = "⚙️ CI" },
+    { message = "^chore", skip = true },
+]
+sort_commits = "newest"
