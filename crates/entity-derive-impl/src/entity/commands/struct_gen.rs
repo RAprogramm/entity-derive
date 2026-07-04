@@ -23,7 +23,7 @@ use syn::Ident;
 
 use crate::{
     entity::parse::{CommandDef, CommandSource, EntityDef, FieldDef},
-    utils::marker,
+    utils::marker
 };
 
 /// Generate all command payload structs.
@@ -154,6 +154,6 @@ pub const fn uses_custom_payload(cmd: &CommandDef) -> bool {
 pub const fn custom_payload_type(cmd: &CommandDef) -> Option<&syn::Type> {
     match &cmd.source {
         CommandSource::Custom(ty) => Some(ty),
-        _ => None,
+        _ => None
     }
 }

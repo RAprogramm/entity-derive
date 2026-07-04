@@ -34,7 +34,7 @@ pub enum FilterType {
     /// Generates two optional fields:
     /// - `field_from`: `WHERE field >= $n`
     /// - `field_to`: `WHERE field <= $n`
-    Range,
+    Range
 }
 
 /// Filter configuration for a field.
@@ -43,7 +43,7 @@ pub enum FilterType {
 #[derive(Debug, Clone, Default)]
 pub struct FilterConfig {
     /// The type of filter to apply.
-    pub filter_type: FilterType,
+    pub filter_type: FilterType
 }
 
 impl FilterConfig {
@@ -66,10 +66,12 @@ impl FilterConfig {
                 "eq" => FilterType::Eq,
                 "like" => FilterType::Like,
                 "range" => FilterType::Range,
-                _ => FilterType::Eq,
+                _ => FilterType::Eq
             });
 
-        Self { filter_type }
+        Self {
+            filter_type
+        }
     }
 
     /// Check if this field has any filter.
@@ -92,22 +94,22 @@ mod tests {
     #[test]
     fn has_filter_checks() {
         let eq = FilterConfig {
-            filter_type: FilterType::Eq,
+            filter_type: FilterType::Eq
         };
         assert!(eq.has_filter());
 
         let like = FilterConfig {
-            filter_type: FilterType::Like,
+            filter_type: FilterType::Like
         };
         assert!(like.has_filter());
 
         let range = FilterConfig {
-            filter_type: FilterType::Range,
+            filter_type: FilterType::Range
         };
         assert!(range.has_filter());
 
         let none = FilterConfig {
-            filter_type: FilterType::None,
+            filter_type: FilterType::None
         };
         assert!(!none.has_filter());
     }

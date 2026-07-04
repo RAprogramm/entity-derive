@@ -61,7 +61,7 @@ use std::{error::Error as StdError, fmt};
 ///     .await?;
 /// ```
 pub struct Transaction<'p, DB> {
-    pool: &'p DB,
+    pool: &'p DB
 }
 
 impl<'p, DB> Transaction<'p, DB> {
@@ -77,7 +77,9 @@ impl<'p, DB> Transaction<'p, DB> {
     /// let tx = Transaction::new(&pool);
     /// ```
     pub const fn new(pool: &'p DB) -> Self {
-        Self { pool }
+        Self {
+            pool
+        }
     }
 
     /// Get reference to the underlying pool.
@@ -110,7 +112,7 @@ impl<'p, DB> Transaction<'p, DB> {
 /// ```
 #[cfg(feature = "postgres")]
 pub struct TransactionContext {
-    tx: sqlx::Transaction<'static, sqlx::Postgres>,
+    tx: sqlx::Transaction<'static, sqlx::Postgres>
 }
 
 #[cfg(feature = "postgres")]
@@ -123,7 +125,9 @@ impl TransactionContext {
     #[doc(hidden)]
     #[must_use]
     pub const fn new(tx: sqlx::Transaction<'static, sqlx::Postgres>) -> Self {
-        Self { tx }
+        Self {
+            tx
+        }
     }
 
     /// Get mutable reference to the underlying transaction.
@@ -172,7 +176,7 @@ pub enum TransactionError<E> {
     Rollback(E),
 
     /// Operation within transaction failed.
-    Operation(E),
+    Operation(E)
 }
 
 impl<E: fmt::Display> fmt::Display for TransactionError<E> {
@@ -181,7 +185,7 @@ impl<E: fmt::Display> fmt::Display for TransactionError<E> {
             Self::Begin(e) => write!(f, "failed to begin transaction: {e}"),
             Self::Commit(e) => write!(f, "failed to commit transaction: {e}"),
             Self::Rollback(e) => write!(f, "failed to rollback transaction: {e}"),
-            Self::Operation(e) => write!(f, "transaction operation failed: {e}"),
+            Self::Operation(e) => write!(f, "transaction operation failed: {e}")
         }
     }
 }
@@ -189,7 +193,7 @@ impl<E: fmt::Display> fmt::Display for TransactionError<E> {
 impl<E: StdError + 'static> StdError for TransactionError<E> {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match self {
-            Self::Begin(e) | Self::Commit(e) | Self::Rollback(e) | Self::Operation(e) => Some(e),
+            Self::Begin(e) | Self::Commit(e) | Self::Rollback(e) | Self::Operation(e) => Some(e)
         }
     }
 }
@@ -218,7 +222,7 @@ impl<E> TransactionError<E> {
     /// Get the inner error.
     pub fn into_inner(self) -> E {
         match self {
-            Self::Begin(e) | Self::Commit(e) | Self::Rollback(e) | Self::Operation(e) => e,
+            Self::Begin(e) | Self::Commit(e) | Self::Rollback(e) | Self::Operation(e) => e
         }
     }
 }
@@ -248,19 +252,19 @@ impl From<TransactionError<Self>> for sqlx::Error {
 async fn finalize_with_commit<C, T, E, CommitErr, Cf, Fut>(
     ctx: C,
     result: Result<T, E>,
-    commit_fn: Cf,
+    commit_fn: Cf
 ) -> Result<T, E>
 where
     Cf: FnOnce(C) -> Fut,
     Fut: core::future::Future<Output = Result<(), CommitErr>>,
-    E: From<CommitErr>,
+    E: From<CommitErr>
 {
     match result {
         Ok(value) => {
             commit_fn(ctx).await.map_err(E::from)?;
             Ok(value)
         }
-        Err(e) => Err(e),
+        Err(e) => Err(e)
     }
 }
 
@@ -303,7 +307,7 @@ impl Transaction<'_, sqlx::PgPool> {
     pub async fn run<F, T, E>(self, f: F) -> Result<T, E>
     where
         F: AsyncFnOnce(&mut TransactionContext) -> Result<T, E>,
-        E: From<sqlx::Error> + core::fmt::Debug,
+        E: From<sqlx::Error> + core::fmt::Debug
     {
         let tx = self.pool.begin().await.map_err(E::from)?;
         let mut ctx = TransactionContext::new(tx);
@@ -385,7 +389,7 @@ impl Transaction<'_, sqlx::PgPool> {
     where
         F: FnOnce(TransactionContext) -> Fut + Send,
         Fut: Future<Output = Result<T, E>> + Send,
-        E: From<sqlx::Error> + core::fmt::Debug,
+        E: From<sqlx::Error> + core::fmt::Debug
     {
         let tx = self.pool.begin().await.map_err(E::from)?;
         let ctx = TransactionContext::new(tx);
@@ -520,9 +524,11 @@ mod tests {
     #[test]
     fn transaction_builder_pool_accessor() {
         struct MockPool {
-            id: u32,
+            id: u32
         }
-        let pool = MockPool { id: 42 };
+        let pool = MockPool {
+            id: 42
+        };
         let tx = Transaction::new(&pool);
         assert_eq!(tx.pool().id, 42);
     }
@@ -643,7 +649,7 @@ mod tests {
     #[derive(Debug, PartialEq, Eq)]
     enum AppErr {
         Closure(&'static str),
-        Commit(&'static str),
+        Commit(&'static str)
     }
 
     impl From<CommitErr> for AppErr {
@@ -666,7 +672,7 @@ mod tests {
                     flag.store(true, std::sync::atomic::Ordering::SeqCst);
                     Ok::<(), CommitErr>(())
                 }
-            },
+            }
         )
         .await;
 
@@ -691,7 +697,7 @@ mod tests {
                     flag.store(true, std::sync::atomic::Ordering::SeqCst);
                     Ok::<(), CommitErr>(())
                 }
-            },
+            }
         )
         .await;
 
@@ -707,7 +713,7 @@ mod tests {
         let result: Result<i32, AppErr> = finalize_with_commit::<_, _, _, CommitErr, _, _>(
             MockCtx,
             Ok::<i32, AppErr>(42),
-            |_ctx| async { Err::<(), CommitErr>(CommitErr("commit failed")) },
+            |_ctx| async { Err::<(), CommitErr>(CommitErr("commit failed")) }
         )
         .await;
 
@@ -721,7 +727,7 @@ mod tests {
         let result: Result<String, AppErr> = finalize_with_commit::<_, _, _, CommitErr, _, _>(
             MockCtx,
             Ok::<String, AppErr>("payload".to_string()),
-            |_ctx| async { Ok::<(), CommitErr>(()) },
+            |_ctx| async { Ok::<(), CommitErr>(()) }
         )
         .await;
 
@@ -735,7 +741,7 @@ mod tests {
         let result: Result<(), AppErr> = finalize_with_commit::<_, _, _, CommitErr, _, _>(
             MockCtx,
             Err::<(), AppErr>(AppErr::Closure("original")),
-            |_ctx| async { Err::<(), CommitErr>(CommitErr("never reached")) },
+            |_ctx| async { Err::<(), CommitErr>(CommitErr("never reached")) }
         )
         .await;
 

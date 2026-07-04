@@ -50,7 +50,7 @@ pub enum DatabaseDialect {
     /// - Document-based (BSON)
     /// - Client: `mongodb::Client`
     /// - Features: E2E encryption, sharding, LDAP
-    MongoDB,
+    MongoDB
 }
 
 impl DatabaseDialect {
@@ -59,7 +59,7 @@ impl DatabaseDialect {
     pub fn placeholder(&self, index: usize) -> String {
         match self {
             Self::Postgres | Self::ClickHouse => format!("${index}"),
-            Self::MongoDB => format!("${index}"), // For aggregation pipelines
+            Self::MongoDB => format!("${index}") // For aggregation pipelines
         }
     }
 
@@ -82,7 +82,7 @@ impl DatabaseDialect {
                 .map(|(i, f)| format!("{} = ${}", f, i + 1))
                 .collect::<Vec<_>>()
                 .join(", "),
-            Self::MongoDB => fields.join(", "), // MongoDB uses $set operator
+            Self::MongoDB => fields.join(", ") // MongoDB uses $set operator
         }
     }
 
@@ -92,7 +92,7 @@ impl DatabaseDialect {
         match self {
             Self::Postgres => "postgres",
             Self::ClickHouse => "clickhouse",
-            Self::MongoDB => "mongodb",
+            Self::MongoDB => "mongodb"
         }
     }
 }
@@ -103,7 +103,7 @@ impl FromMeta for DatabaseDialect {
             "postgres" | "postgresql" | "pg" => Ok(Self::Postgres),
             "clickhouse" | "ch" => Ok(Self::ClickHouse),
             "mongodb" | "mongo" => Ok(Self::MongoDB),
-            _ => Err(darling::Error::unknown_value(value)),
+            _ => Err(darling::Error::unknown_value(value))
         }
     }
 }

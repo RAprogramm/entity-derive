@@ -35,7 +35,7 @@ use quote::quote;
 use super::{context::Context, crud::tx_wrapping, helpers::insert_bindings};
 use crate::{
     entity::parse::{FieldDef, UpsertAction},
-    utils::tracing::instrument,
+    utils::tracing::instrument
 };
 
 impl Context<'_> {
@@ -138,7 +138,7 @@ impl Context<'_> {
                     .collect();
                 format!("DO UPDATE SET {}", assignments.join(", "))
             }
-            UpsertAction::Nothing => "DO NOTHING".to_string(),
+            UpsertAction::Nothing => "DO NOTHING".to_string()
         };
 
         format!(

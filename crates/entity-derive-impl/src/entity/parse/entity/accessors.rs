@@ -61,7 +61,7 @@ use syn::Ident;
 
 use super::{
     super::{api::ApiConfig, command::CommandDef, field::FieldDef},
-    EntityDef,
+    EntityDef
 };
 
 impl EntityDef {
@@ -183,7 +183,7 @@ impl EntityDef {
     pub fn full_table_name(&self) -> String {
         match self.schema.as_str() {
             "" => self.table.clone(),
-            other => format!("{other}.{}", self.table),
+            other => format!("{other}.{}", self.table)
         }
     }
 
@@ -226,7 +226,7 @@ impl EntityDef {
     pub fn full_table_name_for(&self, table: &str) -> String {
         match self.schema.as_str() {
             "" => table.to_string(),
-            other => format!("{other}.{table}"),
+            other => format!("{other}.{table}")
         }
     }
 
@@ -248,7 +248,7 @@ impl EntityDef {
     pub fn ident_with(&self, prefix: &str, suffix: &str) -> Ident {
         Ident::new(
             &format!("{}{}{}", prefix, self.name_str(), suffix),
-            Span::call_site(),
+            Span::call_site()
         )
     }
 

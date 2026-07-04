@@ -112,7 +112,7 @@ pub enum MapConfig {
     /// Stores the [`syn::Error`] surfaced while interpreting `#[map(...)]`.
     /// [`MapConfig::generate`] turns this into a `compile_error!` so the
     /// user sees a diagnostic instead of silently degraded codegen.
-    Invalid(syn::Error),
+    Invalid(syn::Error)
 }
 
 impl MapConfig {
@@ -173,7 +173,7 @@ impl MapConfig {
                 }
                 Some(Self::None)
             }
-            syn::Meta::Path(_) => Some(Self::None),
+            syn::Meta::Path(_) => Some(Self::None)
         }
     }
 
@@ -191,7 +191,7 @@ impl MapConfig {
             "empty_to_none" => Self::EmptyToNone,
             "unwrap_default" => Self::UnwrapDefault,
             "now" => Self::Now,
-            _ => Self::None,
+            _ => Self::None
         }
     }
 
@@ -236,7 +236,7 @@ impl MapConfig {
                     quote! { compile_error!(#msg) }
                 }
             },
-            Self::Invalid(err) => err.to_compile_error(),
+            Self::Invalid(err) => err.to_compile_error()
         }
     }
 }

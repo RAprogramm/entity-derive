@@ -25,7 +25,7 @@ use quote::quote;
 
 use super::{
     context::Context,
-    helpers::{generate_query_bindings, generate_where_conditions},
+    helpers::{generate_query_bindings, generate_where_conditions}
 };
 
 impl Context<'_> {

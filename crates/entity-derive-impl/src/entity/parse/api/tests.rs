@@ -57,7 +57,7 @@ fn parse_full_config() {
             tag_description = "User management",
             path_prefix = "/api/v1",
             security = "bearer"
-        )"#,
+        )"#
     );
     assert_eq!(config.tag, Some("Users".to_string()));
     assert_eq!(config.tag_description, Some("User management".to_string()));

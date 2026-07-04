@@ -62,7 +62,7 @@ pub enum ReturningMode {
     /// Uses `RETURNING col1, col2, ...` to fetch only specified fields.
     /// The entity is constructed from DTO first, then updated with
     /// returned values from the database.
-    Custom(Vec<String>),
+    Custom(Vec<String>)
 }
 
 impl FromMeta for ReturningMode {

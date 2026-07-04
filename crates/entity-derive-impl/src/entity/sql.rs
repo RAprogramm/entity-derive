@@ -49,6 +49,6 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     match entity.dialect {
         DatabaseDialect::Postgres => postgres::generate(entity),
         DatabaseDialect::ClickHouse => clickhouse::generate(entity),
-        DatabaseDialect::MongoDB => mongodb::generate(entity),
+        DatabaseDialect::MongoDB => mongodb::generate(entity)
     }
 }

@@ -138,7 +138,7 @@ pub struct FieldDef {
     ///
     /// Parsed from `#[map(...)]` attributes for transforming fields
     /// in the `From<Row> for Entity` implementation.
-    pub map: MapConfig,
+    pub map: MapConfig
 }
 
 impl FieldDef {
@@ -197,7 +197,7 @@ impl FieldDef {
             doc,
             validation,
             example,
-            map,
+            map
         })
     }
 

@@ -52,7 +52,7 @@ use quote::{format_ident, quote};
 use super::context::Context;
 use crate::{
     entity::parse::{FieldDef, SqlLevel},
-    utils::tracing::instrument,
+    utils::tracing::instrument
 };
 
 impl Context<'_> {

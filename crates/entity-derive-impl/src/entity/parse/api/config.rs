@@ -119,13 +119,13 @@ pub struct HandlerConfig {
     /// Generate create handler (POST /collection).
     pub create: bool,
     /// Generate get handler (GET /collection/{id}).
-    pub get: bool,
+    pub get:    bool,
     /// Generate update handler (PATCH /collection/{id}).
     pub update: bool,
     /// Generate delete handler (DELETE /collection/{id}).
     pub delete: bool,
     /// Generate list handler (GET /collection).
-    pub list: bool,
+    pub list:   bool
 }
 
 impl HandlerConfig {
@@ -133,10 +133,10 @@ impl HandlerConfig {
     pub const fn all() -> Self {
         Self {
             create: true,
-            get: true,
+            get:    true,
             update: true,
             delete: true,
-            list: true,
+            list:   true
         }
     }
 
@@ -287,7 +287,7 @@ pub struct ApiConfig {
     /// `OpenAPI` info: Contact URL.
     ///
     /// URL to API support or documentation.
-    pub contact_url: Option<String>,
+    pub contact_url: Option<String>
 }
 
 impl ApiConfig {
@@ -317,7 +317,7 @@ impl ApiConfig {
             }
             (Some(prefix), None) => prefix.clone(),
             (None, Some(version)) => format!("/{version}"),
-            (None, None) => String::new(),
+            (None, None) => String::new()
         }
     }
 

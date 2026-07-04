@@ -119,7 +119,7 @@ mod tests {
             r#"
             /// User entity.
             struct Foo;
-        "#,
+        "#
         );
         let docs = extract_doc_comments(&attrs);
         assert_eq!(docs, Some("User entity.".to_string()));
@@ -132,7 +132,7 @@ mod tests {
             /// First line.
             /// Second line.
             struct Foo;
-        "#,
+        "#
         );
         let docs = extract_doc_comments(&attrs);
         assert_eq!(docs, Some("First line.\nSecond line.".to_string()));
@@ -146,7 +146,7 @@ mod tests {
             ///
             /// Details here.
             struct Foo;
-        "#,
+        "#
         );
         let docs = extract_doc_comments(&attrs);
         assert_eq!(docs, Some("Summary.\n\nDetails here.".to_string()));
@@ -158,7 +158,7 @@ mod tests {
             r#"
             #[derive(Debug)]
             struct Foo;
-        "#,
+        "#
         );
         let docs = extract_doc_comments(&attrs);
         assert_eq!(docs, None);
@@ -171,7 +171,7 @@ mod tests {
             /// First line summary.
             /// More details.
             struct Foo;
-        "#,
+        "#
         );
         let summary = extract_doc_summary(&attrs);
         assert_eq!(summary, Some("First line summary.".to_string()));
@@ -184,7 +184,7 @@ mod tests {
             ///
             /// Actual summary.
             struct Foo;
-        "#,
+        "#
         );
         let summary = extract_doc_summary(&attrs);
         assert_eq!(summary, Some("Actual summary.".to_string()));

@@ -105,7 +105,7 @@ pub fn assigns_clone_from_refs(fields: &[&FieldDef], source: &str) -> Vec<TokenS
 pub fn create_assigns(
     all_fields: &[FieldDef],
     create_fields: &[&FieldDef],
-    uuid_version: UuidVersion,
+    uuid_version: UuidVersion
 ) -> Vec<TokenStream> {
     all_fields
         .iter()
@@ -118,7 +118,7 @@ pub fn create_assigns(
             } else if f.is_id() {
                 match uuid_version {
                     UuidVersion::V7 => quote! { #name: uuid::Uuid::now_v7() },
-                    UuidVersion::V4 => quote! { #name: uuid::Uuid::new_v4() },
+                    UuidVersion::V4 => quote! { #name: uuid::Uuid::new_v4() }
                 }
             } else {
                 quote! { #name: Default::default() }

@@ -184,7 +184,7 @@ pub fn generate_security_code(security: Option<&str>) -> TokenStream {
                         )
                     )
                 )
-            },
+            }
         ),
         "bearer" => (
             "bearerAuth",
@@ -196,7 +196,7 @@ pub fn generate_security_code(security: Option<&str>) -> TokenStream {
                         .description(Some("JWT token in Authorization header"))
                         .build()
                 )
-            },
+            }
         ),
         "api_key" => (
             "apiKey",
@@ -209,9 +209,9 @@ pub fn generate_security_code(security: Option<&str>) -> TokenStream {
                         )
                     )
                 )
-            },
+            }
         ),
-        _ => return TokenStream::new(),
+        _ => return TokenStream::new()
     };
 
     quote! {
@@ -263,7 +263,7 @@ pub fn security_scheme_name(security: &str) -> &'static str {
         "cookie" => "cookieAuth",
         "bearer" => "bearerAuth",
         "api_key" => "apiKey",
-        _ => "cookieAuth",
+        _ => "cookieAuth"
     }
 }
 

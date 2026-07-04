@@ -58,15 +58,15 @@ use crate::utils::marker;
 /// Lookup method definition with all generated code.
 struct LookupMethodDef {
     /// Method name (e.g., `find_by_email`).
-    name: syn::Ident,
+    name:        syn::Ident,
     /// Parameter name (e.g., `email`).
-    param_name: syn::Ident,
+    param_name:  syn::Ident,
     /// Parameter type (e.g., `String`).
-    param_type: syn::Type,
+    param_type:  syn::Type,
     /// Return type (e.g., `Option<User>` or `bool`).
     return_type: syn::Type,
     /// Whether this method should be generated.
-    generated: bool,
+    generated:   bool
 }
 
 /// Generates the repository trait definition.
@@ -202,7 +202,7 @@ fn generate_belongs_to_method(field: &FieldDef, id_type: &syn::Type) -> Option<T
 fn generate_has_many_method(
     entity: &EntityDef,
     related: &syn::Ident,
-    id_type: &syn::Type,
+    id_type: &syn::Type
 ) -> TokenStream {
     let related_snake = related.to_string().to_case(Case::Snake);
     let method_name = format_ident!("find_{}s", related_snake);
@@ -372,7 +372,7 @@ pub fn generate_lookup_methods(entity: &EntityDef, id_type: &syn::Type) -> Token
 fn generate_lookup_method_defs(
     field: &FieldDef,
     entity_name: &syn::Ident,
-    _id_type: &syn::Type,
+    _id_type: &syn::Type
 ) -> Vec<LookupMethodDef> {
     let field_name = field.name();
     let field_name_str = field.name_str();
@@ -386,24 +386,24 @@ fn generate_lookup_method_defs(
 
     // find_by is always generated for unique or index fields
     methods.push(LookupMethodDef {
-        name: find_name,
-        param_name: field_name.clone(),
-        param_type: field_type.clone(),
+        name:        find_name,
+        param_name:  field_name.clone(),
+        param_type:  field_type.clone(),
         return_type: option_return_type,
-        generated: true,
+        generated:   true
     });
 
     // exists_by is only for unique fields
     if field.column.unique {
         methods.push(LookupMethodDef {
-            name: exists_name,
-            param_name: field_name.clone(),
-            param_type: field_type.clone(),
+            name:        exists_name,
+            param_name:  field_name.clone(),
+            param_type:  field_type.clone(),
             return_type: syn::Type::Path(syn::TypePath {
                 qself: None,
-                path: syn::Path::from(format_ident!("bool")),
+                path:  syn::Path::from(format_ident!("bool"))
             }),
-            generated: true,
+            generated:   true
         });
     }
 
@@ -470,7 +470,7 @@ fn generate_upsert_method(entity: &EntityDef) -> TokenStream {
             /// when a conflicting row already existed and nothing was
             /// inserted.
             async fn upsert(&self, dto: #create_dto) -> Result<Option<#entity_name>, Self::Error>;
-        },
+        }
     }
 }
 

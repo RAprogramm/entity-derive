@@ -41,7 +41,7 @@ pub enum IndexType {
     Gist,
 
     /// BRIN (Block Range Index). For large sequential data.
-    Brin,
+    Brin
 }
 
 impl IndexType {
@@ -56,7 +56,7 @@ impl IndexType {
             "gin" => Some(Self::Gin),
             "gist" => Some(Self::Gist),
             "brin" => Some(Self::Brin),
-            _ => None,
+            _ => None
         }
     }
 
@@ -70,7 +70,7 @@ impl IndexType {
             Self::Hash => " USING hash",
             Self::Gin => " USING gin",
             Self::Gist => " USING gist",
-            Self::Brin => " USING brin",
+            Self::Brin => " USING brin"
         }
     }
 }
@@ -91,7 +91,7 @@ pub enum ReferentialAction {
     Restrict,
 
     /// Prevent deletion/update if children exist (immediate check).
-    NoAction,
+    NoAction
 }
 
 impl ReferentialAction {
@@ -106,7 +106,7 @@ impl ReferentialAction {
             "setdefault" => Some(Self::SetDefault),
             "restrict" => Some(Self::Restrict),
             "noaction" => Some(Self::NoAction),
-            _ => None,
+            _ => None
         }
     }
 
@@ -118,7 +118,7 @@ impl ReferentialAction {
             Self::SetNull => "SET NULL",
             Self::SetDefault => "SET DEFAULT",
             Self::Restrict => "RESTRICT",
-            Self::NoAction => "NO ACTION",
+            Self::NoAction => "NO ACTION"
         }
     }
 }
@@ -169,7 +169,7 @@ pub struct ColumnConfig {
     pub nullable: bool,
 
     /// Custom column name. Defaults to field name.
-    pub name: Option<String>,
+    pub name: Option<String>
 }
 
 impl ColumnConfig {

@@ -79,7 +79,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
                     ]
                 }
                 // Skip: filter_fields() should only return fields with filters
-                FilterType::None => vec![],
+                FilterType::None => vec![]
             }
         })
         .collect();

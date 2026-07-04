@@ -286,5 +286,5 @@ pub struct EntityAttrs {
     /// #[entity(table = "members", unique_index(tenant_id, email), upsert(conflict = "tenant_id, email", action = "nothing"))]
     /// ```
     #[darling(default)]
-    pub upsert: Option<UpsertDef>,
+    pub upsert: Option<UpsertDef>
 }

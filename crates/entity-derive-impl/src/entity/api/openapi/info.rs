@@ -208,7 +208,7 @@ pub fn generate_info_code(entity: &EntityDef) -> TokenStream {
                 );
             }
         }
-        _ => TokenStream::new(),
+        _ => TokenStream::new()
     };
 
     let has_contact = api_config.contact_name.is_some()

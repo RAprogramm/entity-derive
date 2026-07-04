@@ -110,7 +110,7 @@ pub struct Pagination {
     pub limit: i64,
 
     /// Number of results to skip.
-    pub offset: i64,
+    pub offset: i64
 }
 
 impl Pagination {
@@ -122,7 +122,10 @@ impl Pagination {
     /// * `offset` — Number of results to skip
     #[must_use]
     pub const fn new(limit: i64, offset: i64) -> Self {
-        Self { limit, offset }
+        Self {
+            limit,
+            offset
+        }
     }
 
     /// Create pagination for a specific page.
@@ -143,8 +146,8 @@ impl Pagination {
     #[must_use]
     pub const fn page(page: i64, per_page: i64) -> Self {
         Self {
-            limit: per_page,
-            offset: page * per_page,
+            limit:  per_page,
+            offset: page * per_page
         }
     }
 }
@@ -152,8 +155,8 @@ impl Pagination {
 impl Default for Pagination {
     fn default() -> Self {
         Self {
-            limit: 100,
-            offset: 0,
+            limit:  100,
+            offset: 0
         }
     }
 }
@@ -166,7 +169,7 @@ pub enum SortDirection {
     Asc,
 
     /// Descending order (Z-A, 9-0, newest first).
-    Desc,
+    Desc
 }
 
 impl SortDirection {
@@ -175,7 +178,7 @@ impl SortDirection {
     pub const fn as_sql(&self) -> &'static str {
         match self {
             Self::Asc => "ASC",
-            Self::Desc => "DESC",
+            Self::Desc => "DESC"
         }
     }
 }
@@ -198,7 +201,7 @@ pub enum EventKind {
     HardDeleted,
 
     /// Entity was restored from soft-delete.
-    Restored,
+    Restored
 }
 
 impl EventKind {
@@ -254,7 +257,7 @@ pub enum CommandKind {
     Delete,
 
     /// Custom business operation that doesn't fit CRUD.
-    Custom,
+    Custom
 }
 
 impl CommandKind {

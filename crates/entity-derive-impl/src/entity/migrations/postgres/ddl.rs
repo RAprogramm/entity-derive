@@ -9,7 +9,7 @@ use convert_case::{Case, Casing};
 
 use crate::entity::{
     migrations::types::{PostgresTypeMapper, TypeMapper},
-    parse::{CompositeIndexDef, EntityDef, FieldDef},
+    parse::{CompositeIndexDef, EntityDef, FieldDef}
 };
 
 /// Generate the complete UP migration SQL.
@@ -69,7 +69,7 @@ fn generate_create_table(entity: &EntityDef) -> String {
 fn generate_column_def(
     field: &FieldDef,
     mapper: &PostgresTypeMapper,
-    entity: &EntityDef,
+    entity: &EntityDef
 ) -> String {
     let column_name = field.column_name();
     let sql_type = mapper.map_type(field.ty(), field.column());
@@ -396,11 +396,11 @@ mod tests {
     #[test]
     fn generate_composite_index_basic() {
         let idx = CompositeIndexDef {
-            name: None,
-            columns: vec!["name".to_string(), "email".to_string()],
-            index_type: crate::entity::parse::IndexType::BTree,
-            unique: false,
-            where_clause: None,
+            name:         None,
+            columns:      vec!["name".to_string(), "email".to_string()],
+            index_type:   crate::entity::parse::IndexType::BTree,
+            unique:       false,
+            where_clause: None
         };
         let entity = parse_entity(quote::quote! {
             #[entity(table = "users", migrations)]
@@ -421,11 +421,11 @@ mod tests {
     #[test]
     fn generate_composite_index_unique() {
         let idx = CompositeIndexDef {
-            name: None,
-            columns: vec!["tenant_id".to_string(), "email".to_string()],
-            index_type: crate::entity::parse::IndexType::BTree,
-            unique: true,
-            where_clause: None,
+            name:         None,
+            columns:      vec!["tenant_id".to_string(), "email".to_string()],
+            index_type:   crate::entity::parse::IndexType::BTree,
+            unique:       true,
+            where_clause: None
         };
         let entity = parse_entity(quote::quote! {
             #[entity(table = "users", migrations)]
@@ -442,11 +442,11 @@ mod tests {
     #[test]
     fn generate_composite_index_with_where() {
         let idx = CompositeIndexDef {
-            name: Some("idx_active_users".to_string()),
-            columns: vec!["email".to_string()],
-            index_type: crate::entity::parse::IndexType::BTree,
-            unique: false,
-            where_clause: Some("active = true".to_string()),
+            name:         Some("idx_active_users".to_string()),
+            columns:      vec!["email".to_string()],
+            index_type:   crate::entity::parse::IndexType::BTree,
+            unique:       false,
+            where_clause: Some("active = true".to_string())
         };
         let entity = parse_entity(quote::quote! {
             #[entity(table = "users", migrations)]
@@ -463,11 +463,11 @@ mod tests {
     #[test]
     fn generate_composite_index_gin() {
         let idx = CompositeIndexDef {
-            name: None,
-            columns: vec!["tags".to_string()],
-            index_type: crate::entity::parse::IndexType::Gin,
-            unique: false,
-            where_clause: None,
+            name:         None,
+            columns:      vec!["tags".to_string()],
+            index_type:   crate::entity::parse::IndexType::Gin,
+            unique:       false,
+            where_clause: None
         };
         let entity = parse_entity(quote::quote! {
             #[entity(table = "posts", migrations)]
@@ -494,11 +494,11 @@ mod tests {
             }
         });
         entity.indexes.push(CompositeIndexDef {
-            name: None,
-            columns: vec!["name".to_string(), "email".to_string()],
-            index_type: crate::entity::parse::IndexType::BTree,
-            unique: false,
-            where_clause: None,
+            name:         None,
+            columns:      vec!["name".to_string(), "email".to_string()],
+            index_type:   crate::entity::parse::IndexType::BTree,
+            unique:       false,
+            where_clause: None
         });
         let sql = generate_up(&entity);
         assert!(sql.contains("CREATE INDEX IF NOT EXISTS idx_users_name_email"));

@@ -35,7 +35,7 @@ pub struct ExposeConfig {
     /// Exclude from all DTOs.
     ///
     /// Overrides all other flags. Use for sensitive data like passwords.
-    pub skip: bool,
+    pub skip: bool
 }
 
 impl ExposeConfig {
@@ -97,10 +97,10 @@ mod tests {
     #[test]
     fn skip_overrides_all() {
         let config = ExposeConfig {
-            create: true,
-            update: true,
+            create:   true,
+            update:   true,
             response: true,
-            skip: true,
+            skip:     true
         };
         assert!(!config.in_create());
         assert!(!config.in_update());

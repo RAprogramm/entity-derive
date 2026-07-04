@@ -82,7 +82,7 @@ pub struct StorageConfig {
     /// pub user_id: Uuid,
     /// // Generates: REFERENCES users(id) ON DELETE CASCADE
     /// ```
-    pub on_delete: Option<ReferentialAction>,
+    pub on_delete: Option<ReferentialAction>
 }
 
 impl StorageConfig {
@@ -111,10 +111,10 @@ mod tests {
     #[test]
     fn belongs_to_is_relation() {
         let config = StorageConfig {
-            is_id: false,
-            is_auto: false,
+            is_id:      false,
+            is_auto:    false,
             belongs_to: Some(Ident::new("User", Span::call_site())),
-            on_delete: None,
+            on_delete:  None
         };
         assert!(config.is_relation());
     }
@@ -122,10 +122,10 @@ mod tests {
     #[test]
     fn belongs_to_with_on_delete() {
         let config = StorageConfig {
-            is_id: false,
-            is_auto: false,
+            is_id:      false,
+            is_auto:    false,
             belongs_to: Some(Ident::new("User", Span::call_site())),
-            on_delete: Some(ReferentialAction::Cascade),
+            on_delete:  Some(ReferentialAction::Cascade)
         };
         assert!(config.is_relation());
         assert_eq!(config.on_delete, Some(ReferentialAction::Cascade));

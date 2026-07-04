@@ -11,7 +11,7 @@ pub enum PolicyError<R, P> {
     /// Authorization was denied by the policy.
     Policy(P),
     /// Repository operation failed.
-    Repository(R),
+    Repository(R)
 }
 
 impl<R, P> PolicyError<R, P> {
@@ -30,7 +30,7 @@ impl<R: fmt::Display, P: fmt::Display> fmt::Display for PolicyError<R, P> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Policy(e) => write!(f, "authorization denied: {e}"),
-            Self::Repository(e) => write!(f, "repository error: {e}"),
+            Self::Repository(e) => write!(f, "repository error: {e}")
         }
     }
 }
@@ -41,7 +41,7 @@ impl<R: std::error::Error + 'static, P: std::error::Error + 'static> std::error:
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Policy(e) => Some(e),
-            Self::Repository(e) => Some(e),
+            Self::Repository(e) => Some(e)
         }
     }
 }
@@ -60,7 +60,7 @@ pub enum PolicyOperation {
     /// List entities.
     List,
     /// Execute a command.
-    Command,
+    Command
 }
 
 impl PolicyOperation {

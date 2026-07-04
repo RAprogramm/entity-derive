@@ -57,7 +57,7 @@ pub enum SqlLevel {
     /// Only DTOs are generated. Use this for entities that don't
     /// need database persistence or use a completely different
     /// storage mechanism.
-    None,
+    None
 }
 
 impl FromMeta for SqlLevel {
@@ -79,7 +79,7 @@ impl FromMeta for SqlLevel {
             "full" => Ok(Self::Full),
             "trait" => Ok(Self::Trait),
             "none" => Ok(Self::None),
-            _ => Err(darling::Error::unknown_value(value)),
+            _ => Err(darling::Error::unknown_value(value))
         }
     }
 }

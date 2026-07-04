@@ -83,7 +83,7 @@ pub struct ProjectionDef {
     pub name: Ident,
 
     /// List of field names to include.
-    pub fields: Vec<Ident>,
+    pub fields: Vec<Ident>
 }
 
 /// Parse `#[projection(Name: field1, field2, ...)]` attributes.
@@ -121,7 +121,7 @@ pub fn parse_projection_attrs(attrs: &[Attribute]) -> Vec<ProjectionDef> {
                     syn::punctuated::Punctuated::<Ident, syn::Token![,]>::parse_terminated(input)?;
                 Ok(ProjectionDef {
                     name,
-                    fields: fields.into_iter().collect(),
+                    fields: fields.into_iter().collect()
                 })
             })
             .ok()
