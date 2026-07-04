@@ -133,7 +133,7 @@ impl Context<'_> {
                     .into_iter()
                     .filter(|f| {
                         let col = f.name_str();
-                        !FieldDef::is_id(f) && !conflict.contains(&col)
+                        !FieldDef::is_id(f) && !f.storage.is_auto && !conflict.contains(&col)
                     })
                     .map(|f| {
                         let col = f.name_str();
@@ -147,7 +147,7 @@ impl Context<'_> {
 
         format!(
             "INSERT INTO {} ({}) VALUES ({}) ON CONFLICT ({}) {} RETURNING *",
-            self.table, self.columns_str, self.placeholders_str, target, action_sql
+            self.table, self.insert_columns_str, self.placeholders_str, target, action_sql
         )
     }
 }

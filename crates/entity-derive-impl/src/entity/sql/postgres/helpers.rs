@@ -45,7 +45,7 @@ pub fn join_columns(fields: &[&FieldDef]) -> String {
 pub fn insert_bindings(fields: &[FieldDef]) -> Vec<TokenStream> {
     fields
         .iter()
-        .filter(|f| f.embed.is_none())
+        .filter(|f| f.embed.is_none() && !f.storage.is_auto)
         .map(|f| {
             let name = f.name();
             quote! { .bind(insertable.#name) }

@@ -144,7 +144,7 @@ impl Context<'_> {
             insertable_name,
             create_dto,
             table,
-            columns_str,
+            insert_columns_str,
             placeholders_str,
             entity,
             returning,
@@ -173,7 +173,7 @@ impl Context<'_> {
                         let entity = #entity_name::from(dto);
                         let insertable = #insertable_name::from(&entity);
                         let row: #row_name = sqlx::query_as(
-                            concat!("INSERT INTO ", #table, " (", #columns_str, ") VALUES (", #placeholders_str, ") RETURNING *")
+                            concat!("INSERT INTO ", #table, " (", #insert_columns_str, ") VALUES (", #placeholders_str, ") RETURNING *")
                         )
                             #(#bindings)*
                             .fetch_one(#executor).await #constraint_map_err?;
@@ -193,7 +193,7 @@ impl Context<'_> {
                         #tx_open
                         let entity = #entity_name::from(dto);
                         let insertable = #insertable_name::from(&entity);
-                        sqlx::query(concat!("INSERT INTO ", #table, " (", #columns_str, ") VALUES (", #placeholders_str, ") RETURNING ", stringify!(#id_name)))
+                        sqlx::query(concat!("INSERT INTO ", #table, " (", #insert_columns_str, ") VALUES (", #placeholders_str, ") RETURNING ", stringify!(#id_name)))
                             #(#bindings)*
                             .execute(#executor).await #constraint_map_err?;
                         #outbox_created
@@ -210,7 +210,7 @@ impl Context<'_> {
                         #tx_open
                         let entity = #entity_name::from(dto);
                         let insertable = #insertable_name::from(&entity);
-                        sqlx::query(concat!("INSERT INTO ", #table, " (", #columns_str, ") VALUES (", #placeholders_str, ")"))
+                        sqlx::query(concat!("INSERT INTO ", #table, " (", #insert_columns_str, ") VALUES (", #placeholders_str, ")"))
                             #(#bindings)*
                             .execute(#executor).await #constraint_map_err?;
                         #outbox_created
@@ -228,7 +228,7 @@ impl Context<'_> {
                         #tx_open
                         let entity = #entity_name::from(dto);
                         let insertable = #insertable_name::from(&entity);
-                        sqlx::query(::sqlx::AssertSqlSafe(format!("INSERT INTO {} ({}) VALUES ({}) RETURNING {}", #table, #columns_str, #placeholders_str, #returning_cols)))
+                        sqlx::query(::sqlx::AssertSqlSafe(format!("INSERT INTO {} ({}) VALUES ({}) RETURNING {}", #table, #insert_columns_str, #placeholders_str, #returning_cols)))
                             #(#bindings)*
                             .execute(#executor).await #constraint_map_err?;
                         #outbox_created
@@ -646,5 +646,49 @@ mod version_tests {
         let entity = EntityDef::from_derive_input(&input).unwrap();
         let code = Context::new(&entity).update_method().to_string();
         assert!(!code.contains("expected_version"));
+    }
+}
+
+#[cfg(test)]
+mod auto_fields_tests {
+    use quote::quote;
+    use syn::DeriveInput;
+
+    use super::super::context::Context;
+    use crate::entity::parse::EntityDef;
+
+    fn timestamped_entity() -> EntityDef {
+        let input: DeriveInput = syn::parse_quote! {
+            #[entity(table = "posts")]
+            pub struct Post {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, update, response)]
+                pub title: String,
+                #[field(response)]
+                #[auto]
+                pub created_at: chrono::DateTime<chrono::Utc>,
+            }
+        };
+        EntityDef::from_derive_input(&input).unwrap()
+    }
+
+    #[test]
+    fn insert_columns_exclude_auto_fields() {
+        let entity = timestamped_entity();
+        let ctx = Context::new(&entity);
+        assert_eq!(ctx.insert_columns_str, "id, title");
+        assert_eq!(ctx.placeholders_str, "$1, $2");
+        assert_eq!(ctx.columns_str, "id, title, created_at");
+    }
+
+    #[test]
+    fn create_inserts_without_auto_columns() {
+        let entity = timestamped_entity();
+        let ctx = Context::new(&entity);
+        let code = ctx.create_method().to_string();
+        assert!(code.contains("\"id, title\""));
+        assert!(!code.contains("created_at"));
+        let _ = quote!();
     }
 }
