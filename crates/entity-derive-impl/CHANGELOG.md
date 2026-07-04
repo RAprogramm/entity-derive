@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.3](https://github.com/RAprogramm/entity-derive/compare/entity-derive-impl-v0.20.2...entity-derive-impl-v0.20.3) - 2026-07-04
+
+### 🐛 Bug Fixes
+
+- emit feature-dependent derives at expansion time instead of consumer cfgs ([#186](https://github.com/RAprogramm/entity-derive/issues/186))
+
 ## [0.20.2](https://github.com/RAprogramm/entity-derive/compare/entity-derive-impl-v0.20.1...entity-derive-impl-v0.20.2) - 2026-07-04
 
 ### 🐛 Bug Fixes
