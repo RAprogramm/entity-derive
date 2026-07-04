@@ -56,6 +56,12 @@ pub struct StorageConfig {
     /// - Typically used for `created_at`, `updated_at` timestamps
     pub is_auto: bool,
 
+    /// Ownership column (`#[owner]`).
+    ///
+    /// Marks the field carrying the owning principal's id. Enables
+    /// generated row-level scoped repository methods.
+    pub is_owner: bool,
+
     /// Foreign key relation (`#[belongs_to(Entity)]`).
     ///
     /// Stores the related entity name. When set, generates:
@@ -113,6 +119,7 @@ mod tests {
         let config = StorageConfig {
             is_id:      false,
             is_auto:    false,
+            is_owner:   false,
             belongs_to: Some(Ident::new("User", Span::call_site())),
             on_delete:  None
         };
@@ -124,6 +131,7 @@ mod tests {
         let config = StorageConfig {
             is_id:      false,
             is_auto:    false,
+            is_owner:   false,
             belongs_to: Some(Ident::new("User", Span::call_site())),
             on_delete:  Some(ReferentialAction::Cascade)
         };

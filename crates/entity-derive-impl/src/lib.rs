@@ -469,8 +469,8 @@ use proc_macro::TokenStream;
 #[proc_macro_derive(
     Entity,
     attributes(
-        entity, field, id, auto, validate, belongs_to, has_many, projection, filter, command,
-        example, column, map
+        entity, field, id, auto, owner, validate, belongs_to, has_many, projection, filter,
+        command, example, column, map
     )
 )]
 pub fn derive_entity(input: TokenStream) -> TokenStream {

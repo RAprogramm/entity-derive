@@ -170,6 +170,8 @@ impl FieldDef {
                 storage.is_id = true;
             } else if attr.path().is_ident("auto") {
                 storage.is_auto = true;
+            } else if attr.path().is_ident("owner") {
+                storage.is_owner = true;
             } else if attr.path().is_ident("field") {
                 expose = ExposeConfig::from_attr(attr);
             } else if attr.path().is_ident("belongs_to") {
