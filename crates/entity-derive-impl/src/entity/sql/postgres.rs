@@ -69,6 +69,7 @@ mod query;
 mod relations;
 mod save;
 mod soft_delete;
+mod upsert;
 
 pub mod helpers;
 
@@ -101,6 +102,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     let error_type = entity.error_type();
 
     let create_impl = ctx.create_method();
+    let upsert_impl = ctx.upsert_method();
     let find_impl = ctx.find_by_id_method();
     let update_impl = ctx.update_method();
     let delete_impl = ctx.delete_method();
@@ -127,6 +129,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             }
 
             #create_impl
+            #upsert_impl
             #find_impl
             #update_impl
             #delete_impl

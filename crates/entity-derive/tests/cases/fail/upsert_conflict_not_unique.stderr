@@ -1,0 +1,5 @@
+error: upsert conflict target (email) has no uniqueness guarantee: mark the column with #[column(unique)] or declare unique_index(email)
+ --> tests/cases/fail/upsert_conflict_not_unique.rs:9:12
+  |
+9 | pub struct User {
+  |            ^^^^

@@ -1,0 +1,5 @@
+error: unknown upsert action `merge`; expected "update" or "nothing"
+ --> tests/cases/fail/upsert_unknown_action.rs:8:63
+  |
+8 | #[entity(table = "users", upsert(conflict = "email", action = "merge"))]
+  |                                                               ^^^^^^^

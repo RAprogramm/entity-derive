@@ -59,10 +59,11 @@ use darling::FromDeriveInput;
 use syn::DeriveInput;
 
 use super::{
-    super::{command::parse_command_attrs, field::FieldDef},
-    EntityAttrs, EntityDef,
+    super::{command::parse_command_attrs, field::FieldDef, returning::ReturningMode},
+    CompositeIndexDef, EntityAttrs, EntityDef,
     helpers::{parse_api_attr, parse_has_many_attrs, parse_index_attrs},
-    parse_projection_attrs
+    parse_projection_attrs,
+    upsert::{UpsertAction, UpsertDef}
 };
 use crate::utils::docs::extract_doc_comments;
 
@@ -141,6 +142,17 @@ impl EntityDef {
                     .with_span(&input.ident)
             })?;
 
+        if let Some(upsert) = &attrs.upsert {
+            validate_upsert(
+                upsert,
+                &fields,
+                id_field_index,
+                &indexes,
+                &attrs.returning,
+                input
+            )?;
+        }
+
         Ok(Self {
             ident: attrs.ident,
             vis: attrs.vis,
@@ -167,7 +179,109 @@ impl EntityDef {
             doc,
             migrations: attrs.migrations,
             indexes,
-            aggregate_root: attrs.aggregate_root
+            aggregate_root: attrs.aggregate_root,
+            upsert: attrs.upsert
         })
     }
+}
+
+/// Validate `#[entity(upsert(...))]` configuration at parse time.
+///
+/// # Rules
+///
+/// | Rule | Rationale |
+/// |------|-----------|
+/// | At least one conflict column | `ON CONFLICT ()` is invalid SQL |
+/// | Entity has `#[field(create)]` fields | `upsert` consumes the Create DTO |
+/// | Every conflict column maps to a field | Typos surface at compile time |
+/// | Conflict target carries a uniqueness guarantee | `ON CONFLICT` requires a unique index or constraint |
+/// | `returning = "full"` | The returned entity must reflect the persisted row, which on the update path is the pre-existing one |
+/// | `action = "update"` needs a non-conflict insert column | An empty `DO UPDATE SET` is invalid SQL |
+fn validate_upsert(
+    upsert: &UpsertDef,
+    fields: &[FieldDef],
+    id_field_index: usize,
+    indexes: &[CompositeIndexDef],
+    returning: &ReturningMode,
+    input: &DeriveInput
+) -> darling::Result<()> {
+    let span = &input.ident;
+    let conflict = upsert.conflict_columns();
+
+    if conflict.is_empty() {
+        return Err(darling::Error::custom(
+            "upsert requires at least one conflict column, e.g. upsert(conflict = \"email\")"
+        )
+        .with_span(span));
+    }
+
+    if !fields.iter().any(|f| f.expose.create) {
+        return Err(darling::Error::custom(
+            "upsert requires at least one #[field(create)] field: the generated method takes the Create DTO"
+        )
+        .with_span(span));
+    }
+
+    if *returning != ReturningMode::Full {
+        return Err(darling::Error::custom(
+            "upsert requires returning = \"full\": on the update path the persisted row differs from the pre-built entity"
+        )
+        .with_span(span));
+    }
+
+    let column_names: Vec<String> = fields.iter().map(FieldDef::name_str).collect();
+    for col in &conflict {
+        if !column_names.iter().any(|c| c == col) {
+            return Err(darling::Error::custom(format!(
+                "upsert conflict column `{col}` does not match any entity column"
+            ))
+            .with_span(span));
+        }
+    }
+
+    let guaranteed_unique = match conflict.as_slice() {
+        [single] => {
+            let id_column = fields[id_field_index].name_str();
+            *single == id_column
+                || fields
+                    .iter()
+                    .any(|f| f.name_str() == *single && f.column.unique)
+                || unique_index_matches(indexes, &conflict)
+        }
+        _ => unique_index_matches(indexes, &conflict)
+    };
+
+    if !guaranteed_unique {
+        return Err(darling::Error::custom(format!(
+            "upsert conflict target ({}) has no uniqueness guarantee: mark the column with #[column(unique)] or declare unique_index({})",
+            conflict.join(", "),
+            conflict.join(", ")
+        ))
+        .with_span(span));
+    }
+
+    if upsert.action == UpsertAction::Update {
+        let has_updatable_column = fields.iter().any(|f| {
+            let col = f.name_str();
+            !f.is_id() && !conflict.contains(&col)
+        });
+        if !has_updatable_column {
+            return Err(darling::Error::custom(
+                "upsert action = \"update\" needs at least one non-conflict column to update; use action = \"nothing\" instead"
+            )
+            .with_span(span));
+        }
+    }
+
+    Ok(())
+}
+
+/// Whether a declared `unique_index(...)` covers exactly the conflict
+/// columns (order-insensitive).
+fn unique_index_matches(indexes: &[CompositeIndexDef], conflict: &[String]) -> bool {
+    indexes.iter().any(|idx| {
+        idx.unique
+            && idx.columns.len() == conflict.len()
+            && conflict.iter().all(|c| idx.columns.contains(c))
+    })
 }

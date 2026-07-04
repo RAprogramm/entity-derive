@@ -1,0 +1,5 @@
+error: upsert requires returning = "full": on the update path the persisted row differs from the pre-built entity
+ --> tests/cases/fail/upsert_requires_returning_full.rs:9:12
+  |
+9 | pub struct User {
+  |            ^^^^

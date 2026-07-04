@@ -78,7 +78,7 @@ pub struct User {
 
 ```toml
 [dependencies]
-entity-derive = { version = "0.8", features = ["postgres", "api"] }
+entity-derive = { version = "0.9", features = ["postgres", "api"] }
 ```
 
 ### Feature flags
@@ -105,7 +105,7 @@ Default features cover the full entity-attribute surface so existing projects wo
 ```toml
 [dependencies]
 # Just repositories — no events, hooks, commands, etc.
-entity-derive = { version = "0.8", default-features = false, features = ["postgres"] }
+entity-derive = { version = "0.9", default-features = false, features = ["postgres"] }
 ```
 
 If you use an entity attribute whose feature is disabled (e.g. `#[entity(commands)]` without `features = ["commands"]`), the macro emits a `compile_error!` at the attribute pointing to the missing feature.
@@ -114,7 +114,7 @@ Enable extras alongside the defaults:
 
 ```toml
 [dependencies]
-entity-derive = { version = "0.8", features = ["postgres", "api", "tracing", "streams"] }
+entity-derive = { version = "0.9", features = ["postgres", "api", "tracing", "streams"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
 ```
@@ -131,6 +131,7 @@ tracing-subscriber = "0.3"
 | **`OpenAPI` Docs** | Auto-generated Swagger/OpenAPI documentation |
 | **Query Filtering** | Type-safe `#[filter]`, `#[filter(like)]`, `#[filter(range)]` |
 | **Relations** | `#[belongs_to]` and `#[has_many]` |
+| **Upsert** | `upsert(conflict = "…")` generates `INSERT ... ON CONFLICT DO UPDATE / DO NOTHING` |
 | **Aggregate Roots** | `#[entity(aggregate_root)]` with `New{T}` DTOs and transactional `save` |
 | **Transactions** | Multi-entity atomic operations |
 | **Lifecycle Events** | `Created`, `Updated`, `Deleted` events |
@@ -174,6 +175,10 @@ tracing-subscriber = "0.3"
     dialect = "postgres",      // Optional: database dialect
     aggregate_root,            // Optional: New{T} DTOs + transactional save
     soft_delete,               // Optional: use deleted_at instead of DELETE
+    upsert(                    // Optional: INSERT ... ON CONFLICT method
+        conflict = "email",    // #[column(unique)] field(s) or unique_index columns
+        action = "update",     // "update" (default) or "nothing"
+    ),
     events,                    // Optional: generate lifecycle events
     streams,                   // Optional: real-time Postgres NOTIFY
     hooks,                     // Optional: before/after lifecycle hooks
@@ -205,6 +210,36 @@ tracing-subscriber = "0.3"
 #[has_many(Entity)]            // One-to-many relation
 #[projection(Name: fields)]    // Partial view
 ```
+
+### Upsert
+
+Declare a conflict target with a uniqueness guarantee (`#[id]`,
+`#[column(unique)]` or `unique_index(...)`) and the repository gains an
+`upsert` method backed by `INSERT ... ON CONFLICT`:
+
+```rust,ignore
+#[derive(Entity)]
+#[entity(table = "users", upsert(conflict = "email"))]
+pub struct User {
+    #[id]
+    pub id: Uuid,
+    #[field(create, response)]
+    #[column(unique)]
+    pub email: String,
+    #[field(create, update, response)]
+    pub name: String,
+}
+
+let user = pool.upsert(CreateUserRequest { email, name }).await?;
+```
+
+`action = "update"` (default) overwrites all non-conflict columns with the
+incoming values (`DO UPDATE SET col = EXCLUDED.col`) and returns the
+persisted row. `action = "nothing"` keeps the existing row (`DO NOTHING`)
+and returns `Option<Entity>` — `None` when a conflicting row already
+existed. Requires `returning = "full"` (the default). With `streams`
+enabled, upsert publishes a `Created` notification for every row it
+returns.
 
 ### Transactions
 
@@ -238,7 +273,7 @@ projections, transaction adapters, stream subscribers) is wrapped in
 `#[tracing::instrument(skip_all, fields(entity, op), err(Debug))]`.
 
 ```toml
-entity-derive = { version = "0.8", features = ["postgres", "tracing"] }
+entity-derive = { version = "0.9", features = ["postgres", "tracing"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 ```
