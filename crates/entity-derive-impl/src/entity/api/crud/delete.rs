@@ -230,12 +230,15 @@ pub fn generate_delete_handler(entity: &EntityDef) -> TokenStream {
 
     let not_found_msg = format!("{entity_name} not found");
 
+    let guard_param = super::helpers::build_guard_param(entity, "delete");
+
     quote! {
         #[doc = #doc]
         #utoipa_attr
         #vis async fn #handler_name<R>(
             axum::extract::State(repo): axum::extract::State<std::sync::Arc<R>>,
             axum::extract::Path(id): axum::extract::Path<#id_type>,
+            #guard_param
         ) -> masterror::AppResult<axum::http::StatusCode>
         where
             R: #repo_trait + 'static,

@@ -206,3 +206,46 @@ fn parse_handlers_all_explicit() {
     assert!(config.handlers().delete);
     assert!(config.handlers().list);
 }
+
+#[test]
+fn parse_guard_container_level() {
+    let config = parse_test_config(r#"api(guard = "crate::auth::RequireAdmin")"#);
+    assert_eq!(config.guard, Some("crate::auth::RequireAdmin".to_string()));
+    assert!(config.guard_for("create").is_some());
+    assert!(config.guard_for("list").is_some());
+}
+
+#[test]
+fn parse_guard_per_operation_overrides() {
+    let config =
+        parse_test_config(r#"api(guard = "Auth", guard(list = "none", create = "Admin"))"#);
+    assert!(config.guard_for("list").is_none());
+    let create = config.guard_for("create").unwrap();
+    assert_eq!(quote::quote!(#create).to_string(), "Admin");
+    let get = config.guard_for("get").unwrap();
+    assert_eq!(quote::quote!(#get).to_string(), "Auth");
+}
+
+#[test]
+fn parse_guard_none_disables() {
+    let config = parse_test_config(r#"api(guard = "none")"#);
+    assert!(config.guard_for("create").is_none());
+}
+
+#[test]
+fn parse_guard_invalid_path_rejected() {
+    let meta: syn::Meta = syn::parse_str(r#"api(guard = "not a path")"#).unwrap();
+    assert!(parse_api_config(&meta).is_err());
+}
+
+#[test]
+fn parse_guard_unknown_operation_rejected() {
+    let meta: syn::Meta = syn::parse_str(r#"api(guard(upsert = "X"))"#).unwrap();
+    assert!(parse_api_config(&meta).is_err());
+}
+
+#[test]
+fn guard_for_without_guard_returns_none() {
+    let config = parse_test_config(r#"api(tag = "Users")"#);
+    assert!(config.guard_for("create").is_none());
+}

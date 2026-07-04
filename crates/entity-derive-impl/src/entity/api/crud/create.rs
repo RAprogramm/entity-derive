@@ -218,11 +218,14 @@ pub fn generate_create_handler(entity: &EntityDef) -> TokenStream {
         }
     );
 
+    let guard_param = super::helpers::build_guard_param(entity, "create");
+
     quote! {
         #[doc = #doc]
         #utoipa_attr
         #vis async fn #handler_name<R>(
             axum::extract::State(repo): axum::extract::State<std::sync::Arc<R>>,
+            #guard_param
             axum::extract::Json(dto): axum::extract::Json<#create_dto>,
         ) -> masterror::AppResult<(axum::http::StatusCode, axum::response::Json<#response_dto>)>
         where

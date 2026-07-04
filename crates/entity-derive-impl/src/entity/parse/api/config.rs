@@ -228,6 +228,24 @@ pub struct ApiConfig {
     /// Example: `[Register, Login]`
     pub public_commands: Vec<Ident>,
 
+    /// Guard extractor type applied to generated handlers.
+    ///
+    /// A path to a type implementing axum's `FromRequestParts`.
+    /// The extractor is injected as a leading handler argument so a
+    /// failed extraction rejects the request before any work happens.
+    ///
+    /// Example: `guard = "crate::auth::RequireAdmin"`
+    pub guard: Option<String>,
+
+    /// Per-operation guard overrides.
+    ///
+    /// Pairs of `(operation, guard path)` where operation is one of
+    /// `create`, `get`, `update`, `delete`, `list`, `commands`.
+    /// The literal `"none"` disables the guard for that operation.
+    ///
+    /// Example: `guard(create = "RequireAdmin", list = "none")`
+    pub guard_overrides: Vec<(String, String)>,
+
     /// API version string.
     ///
     /// Added to path prefix: `/api/v1` with version `"v1"`
@@ -296,6 +314,26 @@ impl ApiConfig {
     /// Returns `true` if the `api(...)` attribute is present.
     pub const fn is_enabled(&self) -> bool {
         self.tag.is_some()
+    }
+
+    /// Resolve the effective guard type for an operation.
+    ///
+    /// Per-operation overrides win over the container-level `guard`;
+    /// the literal `"none"` disables the guard for that operation.
+    /// Returns the parsed type path, or `None` when no guard applies.
+    pub fn guard_for(&self, operation: &str) -> Option<syn::Path> {
+        let effective = self
+            .guard_overrides
+            .iter()
+            .find(|(op, _)| op == operation)
+            .map(|(_, g)| g.as_str())
+            .or(self.guard.as_deref())?;
+
+        if effective == "none" {
+            return None;
+        }
+
+        syn::parse_str(effective).ok()
     }
 
     /// Get the tag name or default to entity name.
