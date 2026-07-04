@@ -71,16 +71,6 @@ impl DatabaseDialect {
             .collect::<Vec<_>>()
             .join(", ")
     }
-
-    /// Get the feature flag name for this dialect.
-    #[must_use]
-    pub const fn feature_flag(&self) -> &'static str {
-        match self {
-            Self::Postgres => "postgres",
-            Self::ClickHouse => "clickhouse",
-            Self::MongoDB => "mongodb"
-        }
-    }
 }
 
 impl FromMeta for DatabaseDialect {
@@ -119,13 +109,6 @@ mod tests {
         let d = DatabaseDialect::MongoDB;
         assert_eq!(d.placeholder(1), "$1");
         assert_eq!(d.placeholders(3), "$1, $2, $3");
-    }
-
-    #[test]
-    fn feature_flags() {
-        assert_eq!(DatabaseDialect::Postgres.feature_flag(), "postgres");
-        assert_eq!(DatabaseDialect::ClickHouse.feature_flag(), "clickhouse");
-        assert_eq!(DatabaseDialect::MongoDB.feature_flag(), "mongodb");
     }
 
     #[test]

@@ -83,7 +83,6 @@ impl Context<'_> {
 
         quote! {
             /// Resolve a driver error against this entity's constraints.
-            #[cfg(feature = "postgres")]
             fn #fn_name(err: ::sqlx::Error) -> #error_type {
                 if let Some(db_err) = err.as_database_error()
                     && let Some(constraint) = db_err.constraint()
