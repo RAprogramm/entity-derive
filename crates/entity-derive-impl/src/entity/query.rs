@@ -44,6 +44,15 @@
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
+/// `#[derive(utoipa::ToSchema)]` when the facade `api` feature is on.
+fn api_schema_derive() -> proc_macro2::TokenStream {
+    if cfg!(feature = "api") {
+        quote::quote! { #[derive(utoipa::ToSchema)] }
+    } else {
+        proc_macro2::TokenStream::new()
+    }
+}
+
 use super::parse::{EntityDef, FilterType};
 use crate::utils::marker;
 
@@ -84,6 +93,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
         })
         .collect();
 
+    let api_derive = api_schema_derive();
     let marker = marker::generated();
 
     let filter_name = entity.ident_with("", "Filter");
@@ -95,7 +105,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
 
         #marker
         #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
-        #[cfg_attr(feature = "api", derive(utoipa::ToSchema))]
+        #api_derive
         #vis struct #query_name {
             #(#field_defs,)*
             #sort_field
@@ -141,6 +151,7 @@ fn generate_sort_enum(entity: &EntityDef) -> (TokenStream, TokenStream) {
     }
 
     let doc = format!("Sortable columns for [`{}`] queries.", entity.name());
+    let api_derive = api_schema_derive();
     let marker = marker::generated();
 
     let sort_enum = quote! {
@@ -148,7 +159,7 @@ fn generate_sort_enum(entity: &EntityDef) -> (TokenStream, TokenStream) {
         #[doc = #doc]
         #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
         #[serde(rename_all = "snake_case")]
-        #[cfg_attr(feature = "api", derive(utoipa::ToSchema))]
+        #api_derive
         #vis enum #sort_name {
             #(#variants,)*
         }

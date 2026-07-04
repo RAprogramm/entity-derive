@@ -206,6 +206,11 @@ jobs:
       - name: Run doctests
         run: cargo test --doc --all-features || true
 
+      - name: Test garde backend (garde without validate)
+        run: |
+          cargo nextest run -p entity-derive-impl --no-default-features --features garde --profile ci --no-tests=pass
+          cargo nextest run -p entity-derive --no-default-features --features postgres,garde --test garde --profile ci --no-tests=pass
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v7

@@ -72,16 +72,33 @@ fn generate_create_dto(entity: &EntityDef) -> TokenStream {
         }
     });
 
+    let extra_derives = dto_extra_derives();
     let marker = marker::generated();
 
     quote! {
         #marker
         #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-        #[cfg_attr(feature = "api", derive(utoipa::ToSchema))]
-        #[cfg_attr(feature = "validate", derive(validator::Validate))]
-        #[cfg_attr(all(feature = "garde", not(feature = "validate")), derive(garde::Validate))]
+        #extra_derives
         #vis struct #name { #(#field_defs),* }
     }
+}
+
+/// Backend-dependent derives for generated DTOs.
+///
+/// Emitted only for features enabled on the facade at expansion time,
+/// so consumer crates never receive `cfg_attr`s for features they do
+/// not declare (`unexpected_cfgs`).
+fn dto_extra_derives() -> TokenStream {
+    let mut derives = TokenStream::new();
+    if cfg!(feature = "api") {
+        derives.extend(quote! { #[derive(utoipa::ToSchema)] });
+    }
+    if cfg!(feature = "validate") {
+        derives.extend(quote! { #[derive(validator::Validate)] });
+    } else if cfg!(feature = "garde") {
+        derives.extend(quote! { #[derive(garde::Validate)] });
+    }
+    derives
 }
 
 /// Build the `#[garde(...)]` attribute for a DTO field.
@@ -127,8 +144,11 @@ fn garde_attr(field: &FieldDef, option_depth: usize) -> TokenStream {
         inner
     };
 
+    if !cfg!(feature = "garde") || cfg!(feature = "validate") {
+        return TokenStream::new();
+    }
     let tokens: TokenStream = body.parse().expect("garde rules are valid tokens");
-    quote! { #[cfg_attr(all(feature = "garde", not(feature = "validate")), garde(#tokens))] }
+    quote! { #[garde(#tokens)] }
 }
 
 fn generate_update_dto(entity: &EntityDef) -> TokenStream {
@@ -162,6 +182,11 @@ fn generate_update_dto(entity: &EntityDef) -> TokenStream {
         }
     });
 
+    let version_garde_skip = if cfg!(feature = "garde") && !cfg!(feature = "validate") {
+        quote! { #[garde(skip)] }
+    } else {
+        TokenStream::new()
+    };
     let version_field = entity.version_field().map(|f| {
         let vt = f.ty();
         quote! {
@@ -169,19 +194,18 @@ fn generate_update_dto(entity: &EntityDef) -> TokenStream {
             ///
             /// The UPDATE only applies when the row still carries this
             /// version; on mismatch the call fails with a conflict.
-            #[cfg_attr(all(feature = "garde", not(feature = "validate")), garde(skip))]
+            #version_garde_skip
             pub expected_version: #vt,
         }
     });
 
+    let extra_derives = dto_extra_derives();
     let marker = marker::generated();
 
     quote! {
         #marker
         #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
-        #[cfg_attr(feature = "api", derive(utoipa::ToSchema))]
-        #[cfg_attr(feature = "validate", derive(validator::Validate))]
-        #[cfg_attr(all(feature = "garde", not(feature = "validate")), derive(garde::Validate))]
+        #extra_derives
         #vis struct #name {
             #(#field_defs,)*
             #version_field
@@ -204,17 +228,22 @@ fn generate_response_dto(entity: &EntityDef) -> TokenStream {
         quote! { pub #n: #t }
     });
 
+    let extra_derives_api = if cfg!(feature = "api") {
+        quote! { #[derive(utoipa::ToSchema)] }
+    } else {
+        TokenStream::new()
+    };
     let marker = marker::generated();
 
     quote! {
         #marker
         #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-        #[cfg_attr(feature = "api", derive(utoipa::ToSchema))]
+        #extra_derives_api
         #vis struct #name { #(#field_defs),* }
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "garde", not(feature = "validate")))]
 mod garde_tests {
     use quote::quote;
     use syn::DeriveInput;
@@ -265,8 +294,34 @@ mod garde_tests {
     }
 
     #[test]
-    fn validate_takes_precedence_when_both_enabled() {
+    fn garde_derive_emitted_without_cfg_wrapper() {
         let code = generate(&validated_entity()).to_string();
-        assert!(code.contains("all (feature = \"garde\" , not (feature = \"validate\"))"));
+        assert!(code.contains("derive (garde :: Validate)"));
+        assert!(!code.contains("cfg_attr"));
+    }
+}
+
+#[cfg(all(test, feature = "garde", feature = "validate"))]
+mod garde_precedence_tests {
+    use syn::DeriveInput;
+
+    use super::*;
+
+    #[test]
+    fn validate_wins_over_garde() {
+        let input: DeriveInput = syn::parse_quote! {
+            #[entity(table = "users")]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                #[validate(email)]
+                pub email: String,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let code = generate(&entity).to_string();
+        assert!(code.contains("validator :: Validate"));
+        assert!(!code.contains("garde"));
     }
 }

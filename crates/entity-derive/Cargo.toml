@@ -31,7 +31,7 @@ default = [
 ]
 
 # Database dialects
-postgres = ["entity-core/postgres"]
+postgres = ["entity-core/postgres", "entity-derive-impl/postgres"]
 clickhouse = ["entity-core/clickhouse"]
 mongodb = ["entity-core/mongodb"]
 
@@ -41,12 +41,12 @@ streams = ["entity-core/streams", "events"]
 outbox = ["entity-core/outbox", "events"]
 
 # HTTP handlers + OpenAPI generation.
-api = []
+api = ["entity-derive-impl/api"]
 
 # `validator::Validate` integration on DTOs.
-validate = []
+validate = ["entity-derive-impl/validate"]
 # `garde::Validate` integration on DTOs (mutually exclusive with `validate`).
-garde = []
+garde = ["entity-derive-impl/garde"]
 
 # Lifecycle event types (`{Entity}Event::Created` / `Updated` / etc.).
 events = ["entity-derive-impl/events"]
@@ -73,7 +73,7 @@ projections = ["entity-derive-impl/projections"]
 # Opt-in: emit `#[tracing::instrument]` on every generated async method.
 # Users who enable this must also depend on `tracing` directly so the
 # generated `::tracing::instrument` resolves.
-tracing = ["entity-core/tracing"]
+tracing = ["entity-core/tracing", "entity-derive-impl/tracing"]
 
 [dependencies]
 entity-core = { path = "../entity-core", version = "0.10", features = ["serde"] }
