@@ -11,12 +11,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.16.0...HEAD)
+## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.17.0...HEAD)
+
+### ✨ Features
+
+- Migrations options for updated_at trigger, audit log, and extensions (#169) ([e5b8ac0](https://github.com/RAprogramm/entity-derive/commit/e5b8ac07e8fa92525c6dd7599cdb70cfb91f42f8)) by [@RAprogramm](https://github.com/RAprogramm) in [#169](https://github.com/RAprogramm/entity-derive/pull/169)
+
+## [0.17.0](https://github.com/RAprogramm/entity-derive/releases/tag/v0.17.0) — 2026-07-04
 
 ### ✨ Features
 
 - True PATCH semantics with dynamic SET and double-Option nullable fields (#168) ([e3b0f04](https://github.com/RAprogramm/entity-derive/commit/e3b0f04863aa065f7c3d504cca6908bbff1f5ae3)) by [@RAprogramm](https://github.com/RAprogramm) in [#168](https://github.com/RAprogramm/entity-derive/pull/168)
 
+**Full Changelog**: [`v0.16.0...v0.17.0`](https://github.com/RAprogramm/entity-derive/compare/v0.16.0...v0.17.0)
 ## [0.16.0](https://github.com/RAprogramm/entity-derive/releases/tag/v0.16.0) — 2026-07-04
 
 ### ✨ Features
