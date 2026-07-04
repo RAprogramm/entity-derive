@@ -92,6 +92,14 @@ pub fn generate_where_conditions(fields: &[&FieldDef], soft_delete: bool) -> Tok
                         }
                     }]
                 }
+                FilterType::Search => {
+                    vec![quote! {
+                        if query.#name.is_some() {
+                            conditions.push(format!("{} ILIKE '%' || ${} || '%'", #name_str, param_idx));
+                            param_idx += 1;
+                        }
+                    }]
+                }
                 FilterType::Range => {
                     let from_name = format_ident!("{}_from", name);
                     let to_name = format_ident!("{}_to", name);
@@ -163,6 +171,13 @@ pub fn generate_query_bindings(fields: &[&FieldDef]) -> TokenStream {
                                 .replace('%', "\\%")
                                 .replace('_', "\\_");
                             q = q.bind(format!("%{}%", escaped));
+                        }
+                    }]
+                }
+                FilterType::Search => {
+                    vec![quote! {
+                        if let Some(ref v) = query.#name {
+                            q = q.bind(v);
                         }
                     }]
                 }

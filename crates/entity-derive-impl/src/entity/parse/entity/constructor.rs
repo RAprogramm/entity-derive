@@ -190,6 +190,25 @@ impl EntityDef {
             }
         }
 
+        for field in &fields {
+            if matches!(
+                field.filter.filter_type,
+                super::super::field::FilterType::Search
+            ) && !matches!(
+                &field.ty,
+                syn::Type::Path(tp) if tp
+                    .path
+                    .segments
+                    .last()
+                    .is_some_and(|s| s.ident == "String")
+            ) {
+                return Err(
+                    darling::Error::custom("#[filter(search)] requires a String field")
+                        .with_span(&field.ident)
+                );
+            }
+        }
+
         if attrs.migrations.touch_updated_at
             && !fields.iter().any(|f| f.name_str() == "updated_at")
         {

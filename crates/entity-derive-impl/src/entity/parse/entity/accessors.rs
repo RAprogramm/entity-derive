@@ -150,6 +150,15 @@ impl EntityDef {
         self.fields.iter().find(|f| f.storage.is_version)
     }
 
+    /// Get all fields with `#[filter(search)]` trigram filters.
+    #[must_use]
+    pub fn search_fields(&self) -> Vec<&FieldDef> {
+        self.fields
+            .iter()
+            .filter(|f| matches!(f.filter.filter_type, super::super::FilterType::Search))
+            .collect()
+    }
+
     /// Get all fields marked `#[sort]`.
     #[must_use]
     pub fn sort_fields(&self) -> Vec<&FieldDef> {

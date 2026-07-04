@@ -41,7 +41,16 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     let entity_name = entity.name();
     let vis = &entity.vis;
 
-    let up_sql = ddl::generate_up(entity);
+    let mut up_sql = ddl::generate_up(entity);
+    for field in entity.search_fields() {
+        let column = field.name_str();
+        let table = entity.full_table_name();
+        let base = entity.table_name();
+        up_sql.push_str(&format!(
+            " CREATE INDEX IF NOT EXISTS idx_{base}_{column}_trgm \
+             ON {table} USING gin ({column} gin_trgm_ops);"
+        ));
+    }
     let down_sql = ddl::generate_down(entity);
 
     let enum_fields: Vec<(&Type, String)> = entity
@@ -278,13 +287,16 @@ fn trigger_migration_const(entity: &EntityDef) -> TokenStream {
 
 /// Generate the `MIGRATION_EXTENSIONS` constant.
 fn extension_migration_const(entity: &EntityDef) -> TokenStream {
-    if entity.extensions.is_empty() {
+    let mut extensions: Vec<String> = entity.extensions.clone();
+    if !entity.search_fields().is_empty() && !extensions.iter().any(|e| e == "pg_trgm") {
+        extensions.push("pg_trgm".to_string());
+    }
+    if extensions.is_empty() {
         return TokenStream::new();
     }
 
     let vis = &entity.vis;
-    let ddls: Vec<String> = entity
-        .extensions
+    let ddls: Vec<String> = extensions
         .iter()
         .map(|ext| format!("CREATE EXTENSION IF NOT EXISTS \"{ext}\";"))
         .collect();
@@ -531,5 +543,59 @@ mod trigger_tests {
             }
         };
         assert!(EntityDef::from_derive_input(&input).is_err());
+    }
+}
+
+#[cfg(test)]
+mod search_tests {
+    use syn::DeriveInput;
+
+    use super::*;
+
+    fn search_entity() -> EntityDef {
+        let input: DeriveInput = syn::parse_quote! {
+            #[entity(table = "articles", migrations)]
+            pub struct Article {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, update, response)]
+                #[filter(search)]
+                pub title: String,
+            }
+        };
+        EntityDef::from_derive_input(&input).unwrap()
+    }
+
+    #[test]
+    fn search_filter_emits_trgm_index_and_extension() {
+        let code = generate(&search_entity()).to_string();
+        assert!(code.contains("idx_articles_title_trgm"));
+        assert!(code.contains("gin_trgm_ops"));
+        assert!(code.contains("pg_trgm"));
+    }
+
+    #[test]
+    fn search_on_non_string_rejected() {
+        let input: DeriveInput = syn::parse_quote! {
+            #[entity(table = "articles")]
+            pub struct Article {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                #[filter(search)]
+                pub views: i64,
+            }
+        };
+        let err = EntityDef::from_derive_input(&input).unwrap_err();
+        assert!(err.to_string().contains("requires a String field"));
+    }
+
+    #[test]
+    fn search_condition_uses_contains_ilike() {
+        let entity = search_entity();
+        let code = crate::entity::sql::postgres::Context::new(&entity)
+            .query_method()
+            .to_string();
+        assert!(code.contains("ILIKE '%' || ${} || '%'"));
     }
 }

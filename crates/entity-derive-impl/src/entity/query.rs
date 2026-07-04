@@ -67,7 +67,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             let filter = f.filter();
 
             match filter.filter_type {
-                FilterType::Eq | FilterType::Like => {
+                FilterType::Eq | FilterType::Like | FilterType::Search => {
                     vec![quote! { pub #name: Option<#ty> }]
                 }
                 FilterType::Range => {

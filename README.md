@@ -78,7 +78,7 @@ pub struct User {
 
 ```toml
 [dependencies]
-entity-derive = { version = "0.19", features = ["postgres", "api"] }
+entity-derive = { version = "0.20", features = ["postgres", "api"] }
 ```
 
 ### Feature flags
@@ -106,7 +106,7 @@ Default features cover the full entity-attribute surface so existing projects wo
 ```toml
 [dependencies]
 # Just repositories — no events, hooks, commands, etc.
-entity-derive = { version = "0.19", default-features = false, features = ["postgres"] }
+entity-derive = { version = "0.20", default-features = false, features = ["postgres"] }
 ```
 
 If you use an entity attribute whose feature is disabled (e.g. `#[entity(commands)]` without `features = ["commands"]`), the macro emits a `compile_error!` at the attribute pointing to the missing feature.
@@ -115,7 +115,7 @@ Enable extras alongside the defaults:
 
 ```toml
 [dependencies]
-entity-derive = { version = "0.19", features = ["postgres", "api", "tracing", "streams"] }
+entity-derive = { version = "0.20", features = ["postgres", "api", "tracing", "streams"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
 ```
@@ -130,7 +130,7 @@ tracing-subscriber = "0.3"
 | **Type Safe** | Change a field once, everything updates |
 | **Auto HTTP Handlers** | `api(handlers)` generates CRUD endpoints + router |
 | **`OpenAPI` Docs** | Auto-generated Swagger/OpenAPI documentation |
-| **Query Filtering** | Type-safe `#[filter]`, `#[filter(like)]`, `#[filter(range)]` |
+| **Query Filtering** | Type-safe `#[filter]`, `#[filter(like)]`, `#[filter(range)]`, `#[filter(search)]` |
 | **Sorting & Keyset** | `#[sort]` whitelisted ORDER BY + `list_after` cursor pagination |
 | **Bulk Operations** | `find_by_ids`, atomic `create_many`, soft-delete-aware `delete_many` |
 | **PATCH Semantics** | Dynamic UPDATE SET; double-`Option` distinguishes "leave" from "set NULL" |
@@ -223,6 +223,7 @@ tracing-subscriber = "0.3"
 #[filter]                      // Exact match filter
 #[filter(like)]                // ILIKE pattern filter
 #[filter(range)]               // Range filter (from/to)
+#[filter(search)]              // Trigram substring search (pg_trgm)
 #[sort]                        // Whitelisted dynamic ORDER BY
 #[belongs_to(Entity)]          // Foreign key relation
 #[has_many(Entity)]            // One-to-many relation
@@ -320,6 +321,21 @@ pub struct User { /* ... */ }
 Per-operation overrides accept `create`, `get`, `update`, `delete`, `list`
 and `commands`; the literal `"none"` disables the guard for that operation.
 Commands listed in `public = [...]` never receive a guard.
+
+### Trigram Search
+
+`#[filter(search)]` on a text column gives the Query struct a fuzzy
+substring filter (`col ILIKE '%' || $n || '%'`), while `migrations`
+emit the matching `gin_trgm_ops` index and add `pg_trgm` to
+`MIGRATION_EXTENSIONS` automatically:
+
+```rust,ignore
+#[field(create, update, response)]
+#[filter(search)]
+pub title: String,
+
+let hits = pool.query(ArticleQuery { title: Some("rust".into()), ..Default::default() }).await?;
+```
 
 ### Optimistic Locking
 
@@ -541,7 +557,7 @@ projections, transaction adapters, stream subscribers) is wrapped in
 `#[tracing::instrument(skip_all, fields(entity, op), err(Debug))]`.
 
 ```toml
-entity-derive = { version = "0.19", features = ["postgres", "tracing"] }
+entity-derive = { version = "0.20", features = ["postgres", "tracing"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 ```
