@@ -260,7 +260,8 @@ impl EntityDef {
             extensions: attrs.migrations.extensions,
             indexes,
             aggregate_root: attrs.aggregate_root,
-            upsert: attrs.upsert
+            upsert: attrs.upsert,
+            typed_constraints: attrs.typed_constraints
         })
     }
 }

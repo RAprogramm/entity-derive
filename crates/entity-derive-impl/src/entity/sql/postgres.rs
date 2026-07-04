@@ -61,6 +61,7 @@
 //! Generated code is gated behind `#[cfg(feature = "postgres")]`.
 
 mod bulk;
+mod constraints;
 mod context;
 mod crud;
 mod lookup;
@@ -122,10 +123,13 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     let scoped_impls = ctx.scoped_methods();
     let lookup_impls = ctx.lookup_methods();
     let save_impl = ctx.save_method();
+    let constraint_mapper = ctx.constraint_mapper();
     let marker = marker::generated();
 
     quote! {
         #marker
+        #constraint_mapper
+
         #[cfg(feature = #feature)]
         #[async_trait::async_trait]
         impl #trait_name for sqlx::PgPool {

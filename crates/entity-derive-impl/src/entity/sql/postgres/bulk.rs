@@ -80,6 +80,7 @@ impl Context<'_> {
         let span = instrument(&entity_name.to_string(), "create_many");
         let outbox_created = self.outbox_created();
         let notify = self.notify_created();
+        let constraint_map_err = self.constraint_map_err();
 
         let insert_row = if matches!(returning, ReturningMode::Full) {
             quote! {
@@ -87,14 +88,14 @@ impl Context<'_> {
                     concat!("INSERT INTO ", #table, " (", #columns_str, ") VALUES (", #placeholders_str, ") RETURNING *")
                 )
                     #(#bindings)*
-                    .fetch_one(&mut *tx).await?;
+                    .fetch_one(&mut *tx).await #constraint_map_err?;
                 let entity = #entity_name::from(row);
             }
         } else {
             quote! {
                 sqlx::query(concat!("INSERT INTO ", #table, " (", #columns_str, ") VALUES (", #placeholders_str, ")"))
                     #(#bindings)*
-                    .execute(&mut *tx).await?;
+                    .execute(&mut *tx).await #constraint_map_err?;
             }
         };
 

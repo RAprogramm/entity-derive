@@ -247,5 +247,8 @@ pub struct EntityDef {
     /// When present, an `upsert` repository method is generated using
     /// `INSERT ... ON CONFLICT`. Conflict columns are validated at parse
     /// time against uniqueness guarantees.
-    pub upsert: Option<UpsertDef>
+    pub upsert: Option<UpsertDef>,
+
+    /// Whether typed constraint-violation errors are enabled.
+    pub typed_constraints: bool
 }

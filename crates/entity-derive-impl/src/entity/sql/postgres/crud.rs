@@ -152,6 +152,7 @@ impl Context<'_> {
             ..
         } = self;
         let bindings = insert_bindings(entity.all_fields());
+        let constraint_map_err = self.constraint_map_err();
 
         let span = instrument(&entity_name.to_string(), "create");
         // When `streams` is on, the DML and the `pg_notify` must commit as
@@ -175,7 +176,7 @@ impl Context<'_> {
                             concat!("INSERT INTO ", #table, " (", #columns_str, ") VALUES (", #placeholders_str, ") RETURNING *")
                         )
                             #(#bindings)*
-                            .fetch_one(#executor).await?;
+                            .fetch_one(#executor).await #constraint_map_err?;
                         let entity = #entity_name::from(row);
                         #outbox_created
                         #notify
@@ -194,7 +195,7 @@ impl Context<'_> {
                         let insertable = #insertable_name::from(&entity);
                         sqlx::query(concat!("INSERT INTO ", #table, " (", #columns_str, ") VALUES (", #placeholders_str, ") RETURNING ", stringify!(#id_name)))
                             #(#bindings)*
-                            .execute(#executor).await?;
+                            .execute(#executor).await #constraint_map_err?;
                         #outbox_created
                         #notify
                         #tx_close
@@ -211,7 +212,7 @@ impl Context<'_> {
                         let insertable = #insertable_name::from(&entity);
                         sqlx::query(concat!("INSERT INTO ", #table, " (", #columns_str, ") VALUES (", #placeholders_str, ")"))
                             #(#bindings)*
-                            .execute(#executor).await?;
+                            .execute(#executor).await #constraint_map_err?;
                         #outbox_created
                         #notify
                         #tx_close
@@ -229,7 +230,7 @@ impl Context<'_> {
                         let insertable = #insertable_name::from(&entity);
                         sqlx::query(::sqlx::AssertSqlSafe(format!("INSERT INTO {} ({}) VALUES ({}) RETURNING {}", #table, #columns_str, #placeholders_str, #returning_cols)))
                             #(#bindings)*
-                            .execute(#executor).await?;
+                            .execute(#executor).await #constraint_map_err?;
                         #outbox_created
                         #notify
                         #tx_close
@@ -459,6 +460,7 @@ impl Context<'_> {
         // statement otherwise — no perf regression for non-streams entities.
         let (tx_open, tx_close, executor) = tx_wrapping(*streams || self.outbox);
         let outbox_deleted = self.outbox_deleted();
+        let constraint_map_err = self.constraint_map_err();
 
         if *soft_delete {
             let notify = self.notify_soft_deleted();
@@ -470,7 +472,7 @@ impl Context<'_> {
                     let result = sqlx::query(::sqlx::AssertSqlSafe(format!(
                         "UPDATE {} SET deleted_at = NOW() WHERE {} = {} AND deleted_at IS NULL",
                         #table, stringify!(#id_name), #placeholder
-                    ))).bind(&id).execute(#executor).await?;
+                    ))).bind(&id).execute(#executor).await #constraint_map_err?;
                     let deleted = result.rows_affected() > 0;
                     if deleted {
                         #outbox_deleted
@@ -488,7 +490,7 @@ impl Context<'_> {
                 async fn delete(&self, id: #id_type) -> Result<bool, Self::Error> {
                     #tx_open
                     let result = sqlx::query(::sqlx::AssertSqlSafe(format!("DELETE FROM {} WHERE {} = {}", #table, stringify!(#id_name), #placeholder)))
-                        .bind(&id).execute(#executor).await?;
+                        .bind(&id).execute(#executor).await #constraint_map_err?;
                     let deleted = result.rows_affected() > 0;
                     if deleted {
                         #outbox_deleted
