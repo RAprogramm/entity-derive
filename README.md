@@ -78,7 +78,7 @@ pub struct User {
 
 ```toml
 [dependencies]
-entity-derive = { version = "0.15", features = ["postgres", "api"] }
+entity-derive = { version = "0.16", features = ["postgres", "api"] }
 ```
 
 ### Feature flags
@@ -106,7 +106,7 @@ Default features cover the full entity-attribute surface so existing projects wo
 ```toml
 [dependencies]
 # Just repositories — no events, hooks, commands, etc.
-entity-derive = { version = "0.15", default-features = false, features = ["postgres"] }
+entity-derive = { version = "0.16", default-features = false, features = ["postgres"] }
 ```
 
 If you use an entity attribute whose feature is disabled (e.g. `#[entity(commands)]` without `features = ["commands"]`), the macro emits a `compile_error!` at the attribute pointing to the missing feature.
@@ -115,7 +115,7 @@ Enable extras alongside the defaults:
 
 ```toml
 [dependencies]
-entity-derive = { version = "0.15", features = ["postgres", "api", "tracing", "streams"] }
+entity-derive = { version = "0.16", features = ["postgres", "api", "tracing", "streams"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
 ```
@@ -132,6 +132,7 @@ tracing-subscriber = "0.3"
 | **`OpenAPI` Docs** | Auto-generated Swagger/OpenAPI documentation |
 | **Query Filtering** | Type-safe `#[filter]`, `#[filter(like)]`, `#[filter(range)]` |
 | **Sorting & Keyset** | `#[sort]` whitelisted ORDER BY + `list_after` cursor pagination |
+| **Bulk Operations** | `find_by_ids`, atomic `create_many`, soft-delete-aware `delete_many` |
 | **Relations** | `#[belongs_to]`, `#[has_many]` and many-to-many via `through = "junction"` |
 | **Ownership Scoping** | `#[owner]` generates `find_by_id_scoped` / `list_by_owner` / `update_scoped` / `delete_scoped` |
 | **Upsert** | `upsert(conflict = "…")` generates `INSERT ... ON CONFLICT DO UPDATE / DO NOTHING` |
@@ -312,6 +313,22 @@ Per-operation overrides accept `create`, `get`, `update`, `delete`, `list`
 and `commands`; the literal `"none"` disables the guard for that operation.
 Commands listed in `public = [...]` never receive a guard.
 
+### Bulk Operations
+
+Every repository ships batch primitives — one round-trip reads and
+atomic writes:
+
+```rust,ignore
+let posts: Vec<Post> = pool.find_by_ids(ids).await?;          // WHERE id = ANY($1)
+let created: Vec<Post> = pool.create_many(dtos).await?;       // one transaction
+let removed: u64 = pool.delete_many(stale_ids).await?;        // soft-delete aware
+```
+
+`create_many` rolls the whole batch back if any row fails; `delete_many`
+returns the number of rows actually affected. With `events` delivery
+(streams or outbox) per-row events are emitted inside the same
+transaction.
+
 ### Sorting & Keyset Pagination
 
 Mark sortable columns with `#[sort]` — the Query struct gains a
@@ -454,7 +471,7 @@ projections, transaction adapters, stream subscribers) is wrapped in
 `#[tracing::instrument(skip_all, fields(entity, op), err(Debug))]`.
 
 ```toml
-entity-derive = { version = "0.15", features = ["postgres", "tracing"] }
+entity-derive = { version = "0.16", features = ["postgres", "tracing"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 ```

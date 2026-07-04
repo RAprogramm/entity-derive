@@ -60,6 +60,7 @@
 //!
 //! Generated code is gated behind `#[cfg(feature = "postgres")]`.
 
+mod bulk;
 mod context;
 mod crud;
 mod lookup;
@@ -110,6 +111,9 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     let delete_impl = ctx.delete_method();
     let list_impl = ctx.list_method();
     let list_after_impl = ctx.list_after_method();
+    let find_by_ids_impl = ctx.find_by_ids_method();
+    let create_many_impl = ctx.create_many_method();
+    let delete_many_impl = ctx.delete_many_method();
     let query_impl = ctx.query_method();
     let stream_impl = ctx.stream_filtered_method();
     let relation_impls = ctx.relation_methods();
@@ -139,6 +143,9 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             #delete_impl
             #list_impl
             #list_after_impl
+            #find_by_ids_impl
+            #create_many_impl
+            #delete_many_impl
             #query_impl
             #stream_impl
             #lookup_impls
