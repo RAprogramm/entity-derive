@@ -249,3 +249,32 @@ mod tests {
         assert!(code.contains("id = $2 AND user_id = $3 RETURNING *"));
     }
 }
+
+#[cfg(test)]
+mod no_update_fields_tests {
+    use quote::quote;
+    use syn::DeriveInput;
+
+    use super::super::context::Context;
+    use crate::entity::parse::EntityDef;
+
+    #[test]
+    fn update_scoped_absent_without_update_fields() {
+        let input: DeriveInput = syn::parse_quote! {
+            #[entity(table = "orders")]
+            pub struct Order {
+                #[id]
+                pub id: uuid::Uuid,
+                #[owner]
+                pub user_id: uuid::Uuid,
+                #[field(create, response)]
+                pub note: String,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let code = Context::new(&entity).scoped_methods().to_string();
+        assert!(code.contains("find_by_id_scoped"));
+        assert!(!code.contains("update_scoped"));
+        let _ = quote!();
+    }
+}

@@ -866,3 +866,50 @@ mod tests {
         assert!(code.contains("bool"));
     }
 }
+
+#[cfg(test)]
+mod scoped_trait_tests {
+    use syn::{DeriveInput, parse_quote};
+
+    use super::*;
+    use crate::entity::parse::EntityDef;
+
+    #[test]
+    fn scoped_trait_methods_without_update_fields() {
+        let input: DeriveInput = parse_quote! {
+            #[entity(table = "orders")]
+            pub struct Order {
+                #[id]
+                pub id: uuid::Uuid,
+                #[owner]
+                pub user_id: uuid::Uuid,
+                #[field(create, response)]
+                pub note: String,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let code = generate(&entity).to_string();
+        assert!(code.contains("find_by_id_scoped"));
+        assert!(code.contains("list_by_owner"));
+        assert!(code.contains("delete_scoped"));
+        assert!(!code.contains("update_scoped"));
+    }
+
+    #[test]
+    fn scoped_trait_methods_with_update_fields() {
+        let input: DeriveInput = parse_quote! {
+            #[entity(table = "orders")]
+            pub struct Order {
+                #[id]
+                pub id: uuid::Uuid,
+                #[owner]
+                pub user_id: uuid::Uuid,
+                #[field(create, update, response)]
+                pub note: String,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let code = generate(&entity).to_string();
+        assert!(code.contains("update_scoped"));
+    }
+}
