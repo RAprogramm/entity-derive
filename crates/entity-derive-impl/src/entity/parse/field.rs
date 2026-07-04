@@ -178,6 +178,8 @@ impl FieldDef {
                 storage.is_owner = true;
             } else if attr.path().is_ident("sort") {
                 sortable = true;
+            } else if attr.path().is_ident("version") {
+                storage.is_version = true;
             } else if attr.path().is_ident("field") {
                 expose = ExposeConfig::from_attr(attr);
             } else if attr.path().is_ident("belongs_to") {

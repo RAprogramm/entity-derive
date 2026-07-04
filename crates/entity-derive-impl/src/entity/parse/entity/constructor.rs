@@ -107,7 +107,7 @@ impl EntityDef {
     pub fn from_derive_input(input: &DeriveInput) -> darling::Result<Self> {
         let attrs = EntityAttrs::from_derive_input(input)?;
 
-        let fields: Vec<FieldDef> = match &input.data {
+        let mut fields: Vec<FieldDef> = match &input.data {
             syn::Data::Struct(data) => match &data.fields {
                 syn::Fields::Named(named) => named
                     .named
@@ -156,6 +156,38 @@ impl EntityDef {
                 "#[owner] cannot be combined with #[id]: the owner column scopes rows of another principal"
             )
             .with_span(&input.ident));
+        }
+
+        let version_fields: Vec<usize> = fields
+            .iter()
+            .enumerate()
+            .filter(|(_, f)| f.storage.is_version)
+            .map(|(i, _)| i)
+            .collect();
+        if version_fields.len() > 1 {
+            return Err(
+                darling::Error::custom("Entity can have at most one #[version] field")
+                    .with_span(&input.ident)
+            );
+        }
+        if let Some(&idx) = version_fields.first() {
+            let ty_ok = matches!(
+                &fields[idx].ty,
+                syn::Type::Path(tp) if tp
+                    .path
+                    .segments
+                    .last()
+                    .is_some_and(|s| matches!(s.ident.to_string().as_str(), "i16" | "i32" | "i64"))
+            );
+            if !ty_ok {
+                return Err(darling::Error::custom(
+                    "#[version] requires an integer field (i16, i32 or i64)"
+                )
+                .with_span(&fields[idx].ident));
+            }
+            if fields[idx].column.default.is_none() {
+                fields[idx].column.default = Some("0".to_string());
+            }
         }
 
         if attrs.migrations.touch_updated_at

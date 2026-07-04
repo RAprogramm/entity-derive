@@ -62,6 +62,12 @@ pub struct StorageConfig {
     /// generated row-level scoped repository methods.
     pub is_owner: bool,
 
+    /// Optimistic-locking column (`#[version]`).
+    ///
+    /// Auto-incremented on every generated UPDATE; updates carry a
+    /// `WHERE version = expected` guard.
+    pub is_version: bool,
+
     /// Foreign key relation (`#[belongs_to(Entity)]`).
     ///
     /// Stores the related entity name. When set, generates:
@@ -120,6 +126,7 @@ mod tests {
             is_id:      false,
             is_auto:    false,
             is_owner:   false,
+            is_version: false,
             belongs_to: Some(Ident::new("User", Span::call_site())),
             on_delete:  None
         };
@@ -132,6 +139,7 @@ mod tests {
             is_id:      false,
             is_auto:    false,
             is_owner:   false,
+            is_version: false,
             belongs_to: Some(Ident::new("User", Span::call_site())),
             on_delete:  Some(ReferentialAction::Cascade)
         };

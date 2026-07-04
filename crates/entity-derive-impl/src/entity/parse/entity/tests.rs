@@ -522,3 +522,56 @@ fn owner_absent_returns_none() {
     let entity = EntityDef::from_derive_input(&input).unwrap();
     assert!(entity.owner_field().is_none());
 }
+
+#[test]
+fn version_field_parsed_with_auto_default() {
+    let input: DeriveInput = syn::parse_quote! {
+        #[entity(table = "orders")]
+        pub struct Order {
+            #[id]
+            pub id: uuid::Uuid,
+            #[field(create, update, response)]
+            pub note: String,
+            #[version]
+            #[field(response)]
+            #[auto]
+            pub version: i32,
+        }
+    };
+    let entity = EntityDef::from_derive_input(&input).unwrap();
+    let field = entity.version_field().unwrap();
+    assert_eq!(field.name_str(), "version");
+    assert_eq!(field.column.default.as_deref(), Some("0"));
+}
+
+#[test]
+fn version_duplicate_rejected() {
+    let input: DeriveInput = syn::parse_quote! {
+        #[entity(table = "orders")]
+        pub struct Order {
+            #[id]
+            pub id: uuid::Uuid,
+            #[version]
+            pub v1: i32,
+            #[version]
+            pub v2: i32,
+        }
+    };
+    let err = EntityDef::from_derive_input(&input).unwrap_err();
+    assert!(err.to_string().contains("at most one #[version]"));
+}
+
+#[test]
+fn version_non_integer_rejected() {
+    let input: DeriveInput = syn::parse_quote! {
+        #[entity(table = "orders")]
+        pub struct Order {
+            #[id]
+            pub id: uuid::Uuid,
+            #[version]
+            pub version: String,
+        }
+    };
+    let err = EntityDef::from_derive_input(&input).unwrap_err();
+    assert!(err.to_string().contains("integer field"));
+}

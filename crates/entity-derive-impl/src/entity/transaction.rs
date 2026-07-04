@@ -111,6 +111,8 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
         let update_fields = entity.update_fields();
         let set_stmts = super::sql::postgres::helpers::dynamic_set_stmts(&update_fields);
         let set_binds = super::sql::postgres::helpers::dynamic_set_binds(&update_fields);
+        let (version_stmts, version_where, version_bind) =
+            super::sql::postgres::helpers::version_guard(entity, &quote! { __idx + 1 });
 
         quote! {
             /// Update an entity within the transaction.
@@ -127,13 +129,16 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
                 if __sets.is_empty() {
                     return self.find_by_id(id).await?.ok_or(sqlx::Error::RowNotFound);
                 }
+                #version_stmts
                 let mut q = sqlx::query_as::<_, #row_name>(
-                    ::sqlx::AssertSqlSafe(format!("UPDATE {} SET {} WHERE {} = ${} RETURNING *",
-                        #table, __sets.join(", "), stringify!(#id_name), __idx))
+                    ::sqlx::AssertSqlSafe(format!("UPDATE {} SET {} WHERE {} = ${}{} RETURNING *",
+                        #table, __sets.join(", "), stringify!(#id_name), __idx, #version_where))
                 );
                 #set_binds
                 q = q.bind(&id);
-                let row: #row_name = q.fetch_one(&mut **self.tx).await?;
+                #version_bind
+                let row: #row_name = q.fetch_optional(&mut **self.tx).await?
+                    .ok_or_else(|| sqlx::Error::Protocol("row not found or version conflict".into()))?;
                 Ok(#entity_name::from(row))
             }
         }

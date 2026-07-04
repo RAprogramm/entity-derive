@@ -104,6 +104,17 @@ fn generate_update_dto(entity: &EntityDef) -> TokenStream {
         }
     });
 
+    let version_field = entity.version_field().map(|f| {
+        let vt = f.ty();
+        quote! {
+            /// Version observed by the caller (optimistic locking).
+            ///
+            /// The UPDATE only applies when the row still carries this
+            /// version; on mismatch the call fails with a conflict.
+            pub expected_version: #vt,
+        }
+    });
+
     let marker = marker::generated();
 
     quote! {
@@ -111,7 +122,10 @@ fn generate_update_dto(entity: &EntityDef) -> TokenStream {
         #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
         #[cfg_attr(feature = "api", derive(utoipa::ToSchema))]
         #[cfg_attr(feature = "validate", derive(validator::Validate))]
-        #vis struct #name { #(#field_defs),* }
+        #vis struct #name {
+            #(#field_defs,)*
+            #version_field
+        }
     }
 }
 

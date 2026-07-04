@@ -150,6 +150,8 @@ impl Context<'_> {
 
         let set_stmts = super::helpers::dynamic_set_stmts(&update_fields);
         let set_binds = super::helpers::dynamic_set_binds(&update_fields);
+        let (version_stmts, version_where, version_bind) =
+            super::helpers::version_guard(entity, &quote! { __idx + 2 });
         let _ = dialect;
         let owner_col_str = owner_col.to_string();
 
@@ -167,13 +169,16 @@ impl Context<'_> {
                 if __sets.is_empty() {
                     return self.find_by_id_scoped(id, #owner_name).await;
                 }
+                #version_stmts
+                let __owner_where = format!(" AND {} = ${}", #owner_col_str, __idx + 1);
                 let mut q = sqlx::query_as::<_, #row_name>(::sqlx::AssertSqlSafe(format!(
-                    "UPDATE {} SET {} WHERE {} = ${} AND {} = ${} RETURNING *",
-                    #table, __sets.join(", "), stringify!(#id_name), __idx, #owner_col_str, __idx + 1
+                    "UPDATE {} SET {} WHERE {} = ${}{}{} RETURNING *",
+                    #table, __sets.join(", "), stringify!(#id_name), __idx, __owner_where, #version_where
                 )));
                 #set_binds
                 q = q.bind(&id);
                 q = q.bind(&#owner_name);
+                #version_bind
                 let row: Option<#row_name> = q.fetch_optional(self).await?;
                 Ok(row.map(#entity_name::from))
             }
