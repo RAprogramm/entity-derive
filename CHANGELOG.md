@@ -27,6 +27,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.22.0...HEAD)
 
+## [0.22.2](https://github.com/RAprogramm/entity-derive/compare/v0.22.1...v0.22.2) - 2026-07-04
+
+### 🐛 Bug Fixes
+
+- emit feature-dependent derives at expansion time instead of consumer cfgs ([#186](https://github.com/RAprogramm/entity-derive/issues/186))
+
 ### 🔧 Miscellaneous
 
 - Publish wiki from in-repo sources on merge to main (#174) ([8475551](https://github.com/RAprogramm/entity-derive/commit/84755518dc57af96bde856d8a3526249df8b2f83)) by [@RAprogramm](https://github.com/RAprogramm) in [#174](https://github.com/RAprogramm/entity-derive/pull/174)
