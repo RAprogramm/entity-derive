@@ -141,6 +141,14 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
 
             async fn list(&self, limit: i64, offset: i64) -> Result<Vec<#entity_name>, Self::Error>;
 
+            /// List entities after the given cursor (keyset pagination).
+            ///
+            /// Rows are ordered by id descending; pass the id of the last
+            /// row from the previous page as the cursor. With the default
+            /// UUIDv7 ids this is a stable time-ordered walk that does not
+            /// degrade on deep pages the way OFFSET does.
+            async fn list_after(&self, cursor: Option<#id_type>, limit: i64) -> Result<Vec<#entity_name>, Self::Error>;
+
             #query_method
 
             #stream_method
@@ -323,7 +331,7 @@ fn generate_soft_delete_methods(entity: &EntityDef, id_type: &syn::Type) -> Toke
 /// async fn query(&self, query: UserQuery) -> Result<Vec<User>, Self::Error>;
 /// ```
 fn generate_query_method(entity: &EntityDef) -> TokenStream {
-    if !entity.has_filters() {
+    if !entity.has_filters() && !entity.has_sort_fields() {
         return TokenStream::new();
     }
 

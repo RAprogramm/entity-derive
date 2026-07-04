@@ -103,6 +103,9 @@ pub struct FieldDef {
     pub ty: Type,
 
     /// DTO exposure configuration.
+    /// Whether the field is marked `#[sort]` (dynamic ORDER BY).
+    pub sortable: bool,
+
     pub expose: ExposeConfig,
 
     /// Database storage configuration.
@@ -159,6 +162,7 @@ impl FieldDef {
         let validation = validation::parse_validation_attrs(&field.attrs);
         let example = example::parse_example_attr(&field.attrs);
 
+        let mut sortable = false;
         let mut expose = ExposeConfig::default();
         let mut storage = StorageConfig::default();
         let mut filter = FilterConfig::default();
@@ -172,6 +176,8 @@ impl FieldDef {
                 storage.is_auto = true;
             } else if attr.path().is_ident("owner") {
                 storage.is_owner = true;
+            } else if attr.path().is_ident("sort") {
+                sortable = true;
             } else if attr.path().is_ident("field") {
                 expose = ExposeConfig::from_attr(attr);
             } else if attr.path().is_ident("belongs_to") {
@@ -192,6 +198,7 @@ impl FieldDef {
         Ok(Self {
             ident,
             ty,
+            sortable,
             expose,
             storage,
             filter,
