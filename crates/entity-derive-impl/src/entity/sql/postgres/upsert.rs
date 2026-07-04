@@ -61,7 +61,8 @@ impl Context<'_> {
 
         let bindings = insert_bindings(entity.all_fields());
         let span = instrument(&entity_name.to_string(), "upsert");
-        let (tx_open, tx_close, executor) = tx_wrapping(*streams);
+        let (tx_open, tx_close, executor) = tx_wrapping(*streams || self.outbox);
+        let outbox_created = self.outbox_created();
         let notify = self.notify_created();
         let sql = self.upsert_sql();
 
@@ -77,6 +78,7 @@ impl Context<'_> {
                             #(#bindings)*
                             .fetch_one(#executor).await?;
                         let entity = #entity_name::from(row);
+                        #outbox_created
                         #notify
                         #tx_close
                         Ok(entity)
@@ -96,6 +98,7 @@ impl Context<'_> {
                         match row {
                             Some(row) => {
                                 let entity = #entity_name::from(row);
+                                #outbox_created
                                 #notify
                                 #tx_close
                                 Ok(Some(entity))

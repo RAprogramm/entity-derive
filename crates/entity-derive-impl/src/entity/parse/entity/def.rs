@@ -164,6 +164,13 @@ pub struct EntityDef {
     /// Created, Updated, Deleted, etc.
     pub events: bool,
 
+    /// Whether transactional-outbox delivery is enabled.
+    ///
+    /// Set via `#[entity(events(outbox))]`. CRUD methods enqueue the
+    /// serialized event into the `entity_outbox` table in the same
+    /// transaction as the write.
+    pub outbox: bool,
+
     /// Whether to generate lifecycle hooks trait.
     ///
     /// When `true`, generates a `{Entity}Hooks` trait with before/after

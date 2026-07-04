@@ -64,6 +64,7 @@ mod context;
 mod crud;
 mod lookup;
 mod notify;
+mod outbox;
 mod projections;
 mod query;
 mod relations;

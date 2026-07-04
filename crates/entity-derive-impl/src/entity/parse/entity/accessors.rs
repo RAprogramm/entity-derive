@@ -276,6 +276,12 @@ impl EntityDef {
         self.events
     }
 
+    /// Check if transactional-outbox delivery is enabled.
+    #[must_use]
+    pub const fn has_outbox(&self) -> bool {
+        self.outbox
+    }
+
     /// Check if lifecycle hooks trait should be generated.
     pub const fn has_hooks(&self) -> bool {
         self.hooks

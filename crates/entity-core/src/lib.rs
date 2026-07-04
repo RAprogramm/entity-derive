@@ -31,6 +31,8 @@
 #![warn(missing_docs)]
 #![warn(clippy::all)]
 
+#[cfg(feature = "outbox")]
+pub mod outbox;
 pub mod policy;
 pub mod prelude;
 #[cfg(feature = "streams")]

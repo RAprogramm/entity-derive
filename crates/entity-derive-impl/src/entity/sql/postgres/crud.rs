@@ -97,7 +97,8 @@ impl Context<'_> {
         // it on rollback, so wrapping both in a transaction eliminates the
         // crash-between-commit-and-notify window. Non-streams entities keep
         // the single-statement fast path.
-        let (tx_open, tx_close, executor) = tx_wrapping(*streams);
+        let (tx_open, tx_close, executor) = tx_wrapping(*streams || self.outbox);
+        let outbox_created = self.outbox_created();
         let notify = self.notify_created();
 
         match returning {
@@ -114,6 +115,7 @@ impl Context<'_> {
                             #(#bindings)*
                             .fetch_one(#executor).await?;
                         let entity = #entity_name::from(row);
+                        #outbox_created
                         #notify
                         #tx_close
                         Ok(entity)
@@ -131,6 +133,7 @@ impl Context<'_> {
                         sqlx::query(concat!("INSERT INTO ", #table, " (", #columns_str, ") VALUES (", #placeholders_str, ") RETURNING ", stringify!(#id_name)))
                             #(#bindings)*
                             .execute(#executor).await?;
+                        #outbox_created
                         #notify
                         #tx_close
                         Ok(entity)
@@ -147,6 +150,7 @@ impl Context<'_> {
                         sqlx::query(concat!("INSERT INTO ", #table, " (", #columns_str, ") VALUES (", #placeholders_str, ")"))
                             #(#bindings)*
                             .execute(#executor).await?;
+                        #outbox_created
                         #notify
                         #tx_close
                         Ok(entity)
@@ -164,6 +168,7 @@ impl Context<'_> {
                         sqlx::query(::sqlx::AssertSqlSafe(format!("INSERT INTO {} ({}) VALUES ({}) RETURNING {}", #table, #columns_str, #placeholders_str, #returning_cols)))
                             #(#bindings)*
                             .execute(#executor).await?;
+                        #outbox_created
                         #notify
                         #tx_close
                         Ok(entity)
@@ -261,8 +266,9 @@ impl Context<'_> {
         // of `returning` config) because the Updated event payload requires
         // it; a streams entity that asked for a narrower `RETURNING` clause
         // would have to re-fetch separately anyway, defeating the optimization.
-        if *streams {
+        if *streams || self.outbox {
             let fetch_old = self.fetch_old_for_update();
+            let outbox_updated = self.outbox_updated();
             let notify = self.notify_updated();
             return quote! {
                 #span
@@ -276,6 +282,7 @@ impl Context<'_> {
                         .bind(&id)
                         .fetch_one(&mut *tx).await?;
                     let entity = #entity_name::from(row);
+                    #outbox_updated
                     #notify
                     tx.commit().await?;
                     Ok(entity)
@@ -358,7 +365,8 @@ impl Context<'_> {
         // When streams are on, wrap the DML + notify in one transaction so
         // the event commits atomically with the deletion. Single SQL
         // statement otherwise — no perf regression for non-streams entities.
-        let (tx_open, tx_close, executor) = tx_wrapping(*streams);
+        let (tx_open, tx_close, executor) = tx_wrapping(*streams || self.outbox);
+        let outbox_deleted = self.outbox_deleted();
 
         if *soft_delete {
             let notify = self.notify_soft_deleted();
@@ -373,6 +381,7 @@ impl Context<'_> {
                     ))).bind(&id).execute(#executor).await?;
                     let deleted = result.rows_affected() > 0;
                     if deleted {
+                        #outbox_deleted
                         #notify
                     }
                     #tx_close
@@ -390,6 +399,7 @@ impl Context<'_> {
                         .bind(&id).execute(#executor).await?;
                     let deleted = result.rows_affected() > 0;
                     if deleted {
+                        #outbox_deleted
                         #notify
                     }
                     #tx_close
