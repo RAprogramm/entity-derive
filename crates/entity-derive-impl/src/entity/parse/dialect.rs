@@ -72,41 +72,6 @@ impl DatabaseDialect {
             .join(", ")
     }
 
-    /// Get the feature flag name for this dialect.
-    #[must_use]
-    pub const fn feature_flag(&self) -> &'static str {
-        match self {
-            Self::Postgres => "postgres",
-            Self::ClickHouse => "clickhouse",
-            Self::MongoDB => "mongodb"
-        }
-    }
-}
-
-impl FromMeta for DatabaseDialect {
-    fn from_string(value: &str) -> darling::Result<Self> {
-        match value.to_lowercase().as_str() {
-            "postgres" | "postgresql" | "pg" => Ok(Self::Postgres),
-            "clickhouse" | "ch" => Ok(Self::ClickHouse),
-            "mongodb" | "mongo" => Ok(Self::MongoDB),
-            _ => Err(darling::Error::unknown_value(value))
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn postgres_placeholders() {
-        let d = DatabaseDialect::Postgres;
-        assert_eq!(d.placeholder(1), "$1");
-        assert_eq!(d.placeholder(5), "$5");
-        assert_eq!(d.placeholders(3), "$1, $2, $3");
-        assert_eq!(d.placeholders(0), "");
-    }
-
     #[test]
     fn clickhouse_placeholders() {
         let d = DatabaseDialect::ClickHouse;
@@ -119,13 +84,6 @@ mod tests {
         let d = DatabaseDialect::MongoDB;
         assert_eq!(d.placeholder(1), "$1");
         assert_eq!(d.placeholders(3), "$1, $2, $3");
-    }
-
-    #[test]
-    fn feature_flags() {
-        assert_eq!(DatabaseDialect::Postgres.feature_flag(), "postgres");
-        assert_eq!(DatabaseDialect::ClickHouse.feature_flag(), "clickhouse");
-        assert_eq!(DatabaseDialect::MongoDB.feature_flag(), "mongodb");
     }
 
     #[test]
