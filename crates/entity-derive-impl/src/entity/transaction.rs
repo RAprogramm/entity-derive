@@ -105,6 +105,53 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
         }
     };
 
+    let upsert_span = instrument(&entity_name_str, "tx.upsert");
+    let upsert_method = match &entity.upsert {
+        Some(upsert_def) if !entity.create_fields().is_empty() => {
+            let sql = ctx.upsert_sql();
+            match upsert_def.action {
+                crate::entity::parse::UpsertAction::Update => quote! {
+                    /// Insert or update the conflicting row within the transaction.
+                    ///
+                    /// Same semantics as the pool-backed `upsert`, executed on
+                    /// the transaction handle so it can share atomicity with
+                    /// adjacent statements.
+                    #upsert_span
+                    pub async fn upsert(
+                        &mut self,
+                        dto: #create_dto
+                    ) -> Result<#entity_name, sqlx::Error> {
+                        let entity = #entity_name::from(dto);
+                        let insertable = #insertable_name::from(&entity);
+                        let row: #row_name = sqlx::query_as(#sql)
+                            #(#bindings)*
+                            .fetch_one(&mut **self.tx).await?;
+                        Ok(#entity_name::from(row))
+                    }
+                },
+                crate::entity::parse::UpsertAction::Nothing => quote! {
+                    /// Insert the entity or keep the conflicting row, within
+                    /// the transaction.
+                    ///
+                    /// Returns `None` when a conflicting row already existed.
+                    #upsert_span
+                    pub async fn upsert(
+                        &mut self,
+                        dto: #create_dto
+                    ) -> Result<Option<#entity_name>, sqlx::Error> {
+                        let entity = #entity_name::from(dto);
+                        let insertable = #insertable_name::from(&entity);
+                        let row: Option<#row_name> = sqlx::query_as(#sql)
+                            #(#bindings)*
+                            .fetch_optional(&mut **self.tx).await?;
+                        Ok(row.map(#entity_name::from))
+                    }
+                }
+            }
+        }
+        _ => TokenStream::new()
+    };
+
     let update_span = instrument(&entity_name_str, "tx.update");
     let update_method = if entity.update_fields().is_empty() {
         TokenStream::new()
@@ -190,6 +237,8 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
             }
 
             #create_method
+
+            #upsert_method
 
             /// Find an entity by ID within the transaction.
             #find_span
@@ -498,5 +547,70 @@ mod tests {
         // surprises like `childcare → childrencare`.
         assert_eq!(pluralize("childcare"), "childcares");
         assert_eq!(pluralize("manager"), "managers");
+    }
+}
+
+#[cfg(all(test, feature = "postgres", feature = "transactions"))]
+mod tx_upsert_tests {
+    use quote::quote;
+    use syn::DeriveInput;
+
+    use super::*;
+
+    fn parse_entity(tokens: proc_macro2::TokenStream) -> EntityDef {
+        let input: DeriveInput = syn::parse2(tokens).expect("test entity must parse");
+        EntityDef::from_derive_input(&input).expect("test entity must be valid")
+    }
+
+    #[test]
+    fn adapter_gains_upsert_with_both_attributes() {
+        let entity = parse_entity(quote! {
+            #[entity(table = "users", transactions, upsert(conflict = "email"))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                #[column(unique)]
+                pub email: String,
+                #[field(create, update, response)]
+                pub name: String,
+            }
+        });
+        let code = generate(&entity).to_string();
+        assert!(code.contains("pub async fn upsert"));
+        assert!(code.contains("ON CONFLICT (email) DO UPDATE"));
+        assert!(code.contains("self . tx"));
+    }
+
+    #[test]
+    fn adapter_upsert_nothing_returns_option() {
+        let entity = parse_entity(quote! {
+            #[entity(table = "subs", transactions, upsert(conflict = "email", action = "nothing"))]
+            pub struct Sub {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                #[column(unique)]
+                pub email: String,
+            }
+        });
+        let code = generate(&entity).to_string();
+        assert!(code.contains("Result < Option < Sub > , sqlx :: Error >"));
+        assert!(code.contains("fetch_optional"));
+    }
+
+    #[test]
+    fn adapter_without_upsert_attribute_has_no_method() {
+        let entity = parse_entity(quote! {
+            #[entity(table = "users", transactions)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, update, response)]
+                pub name: String,
+            }
+        });
+        let code = generate(&entity).to_string();
+        assert!(!code.contains("pub async fn upsert"));
     }
 }

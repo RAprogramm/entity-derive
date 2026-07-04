@@ -5,7 +5,7 @@ use entity_derive::Entity;
 use uuid::Uuid;
 
 #[derive(Entity)]
-#[entity(table = "users", upsert(conflict = "email"))]
+#[entity(table = "users", transactions, upsert(conflict = "email"))]
 pub struct User {
     #[id]
     pub id: Uuid,
@@ -55,6 +55,15 @@ fn assert_upsert_signatures() {
     takes_nothing_style::<sqlx::PgPool>();
 }
 
+async fn exercise_tx_upsert(pool: sqlx::PgPool, dto: CreateUserRequest) -> Result<(), sqlx::Error> {
+    let mut tx = pool.begin().await?;
+    let mut repo = UserTransactionRepo::new(&mut tx);
+    let _user: User = repo.upsert(dto).await?;
+    tx.commit().await?;
+    Ok(())
+}
+
 fn main() {
     assert_upsert_signatures();
+    let _ = exercise_tx_upsert;
 }

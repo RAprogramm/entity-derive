@@ -737,3 +737,14 @@ Declara constraints que la macro no puede inferir — claves foráneas sobre cla
     constraint(name = "orders_window_check", kind = "check"),
 )]
 ```
+
+### Upsert transaccional
+
+Con `transactions` y `upsert(...)` habilitados, el adaptador `{Entity}TransactionRepo` expone `upsert` con la misma semántica SQL que el método del pool, ejecutado sobre el handle de la transacción — para flujos donde el upsert debe compartir atomicidad con sentencias adyacentes.
+
+```rust
+let mut tx = pool.begin().await?;
+sqlx::query("UPDATE users SET username = NULL WHERE ...").execute(&mut *tx).await?;
+let user = UserTransactionRepo::new(&mut tx).upsert(dto).await?;
+tx.commit().await?;
+```
