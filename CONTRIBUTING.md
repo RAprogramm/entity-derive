@@ -62,3 +62,13 @@ cargo test
 ## Full guidelines
 
 See [RustManifest](https://github.com/RAprogramm/RustManifest)
+
+## Wiki
+
+The GitHub wiki is generated from the `wiki/` directory in this
+repository — do not edit wiki pages directly on GitHub. Change the
+Markdown files under `wiki/` in the same PR as your code change; on
+merge to `main`, the `Publish Wiki` workflow force-syncs the directory
+to the wiki. Pages exist in five languages (English plus Spanish,
+Russian, Korean and Chinese translations); update all of them when you
+touch a documented feature.
