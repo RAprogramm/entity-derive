@@ -64,6 +64,7 @@ use super::{
         returning::ReturningMode, sql_level::SqlLevel, uuid_version::UuidVersion
     },
     CompositeIndexDef, ProjectionDef,
+    helpers::HasManyDef,
     upsert::UpsertDef
 };
 
@@ -139,7 +140,7 @@ pub struct EntityDef {
     /// Has-many relations defined via `#[has_many(Entity)]`.
     ///
     /// Each entry is the related entity name.
-    pub has_many: Vec<Ident>,
+    pub has_many: Vec<HasManyDef>,
 
     /// Projections defined via `#[projection(Name: field1, field2)]`.
     ///

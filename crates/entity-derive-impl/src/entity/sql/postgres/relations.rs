@@ -101,7 +101,8 @@ impl Context<'_> {
     /// ```sql
     /// SELECT * FROM {schema}.{child}s WHERE {parent}_id = $1
     /// ```
-    fn has_many_method(&self, related: &syn::Ident) -> TokenStream {
+    fn has_many_method(&self, relation: &crate::entity::parse::HasManyDef) -> TokenStream {
+        let related = &relation.entity;
         let related_snake = related.to_string().to_case(Case::Snake);
         let method_name = format_ident!("find_{}s", related_snake);
         let related_row = format_ident!("{}Row", related);
@@ -113,6 +114,65 @@ impl Context<'_> {
         let id_type = self.id_type;
         let placeholder = self.dialect.placeholder(1);
 
+        if let Some(junction) = &relation.through {
+            let junction_table = self.entity.full_table_name_for(junction);
+            let find_sql = format!(
+                "SELECT c.* FROM {related_table} c \
+                 INNER JOIN {junction_table} j ON j.{related_snake}_id = c.id \
+                 WHERE j.{entity_snake}_id = $1"
+            );
+            let add_sql = format!(
+                "INSERT INTO {junction_table} ({entity_snake}_id, {related_snake}_id) \
+                 VALUES ($1, $2) ON CONFLICT DO NOTHING"
+            );
+            let remove_sql = format!(
+                "DELETE FROM {junction_table} \
+                 WHERE {entity_snake}_id = $1 AND {related_snake}_id = $2"
+            );
+            let has_sql = format!(
+                "SELECT EXISTS(SELECT 1 FROM {junction_table} \
+                 WHERE {entity_snake}_id = $1 AND {related_snake}_id = $2)"
+            );
+
+            let add_name = format_ident!("add_{}", related_snake);
+            let remove_name = format_ident!("remove_{}", related_snake);
+            let has_name = format_ident!("has_{}", related_snake);
+            let child_id = format_ident!("{}_id", related_snake);
+
+            return quote! {
+                async fn #method_name(&self, #fk_field: #id_type) -> Result<Vec<#related>, Self::Error> {
+                    let rows: Vec<#related_row> = sqlx::query_as(#find_sql)
+                        .bind(&#fk_field)
+                        .fetch_all(self).await?;
+                    Ok(rows.into_iter().map(#related::from).collect())
+                }
+
+                async fn #add_name(&self, #fk_field: #id_type, #child_id: #id_type) -> Result<(), Self::Error> {
+                    sqlx::query(#add_sql)
+                        .bind(&#fk_field)
+                        .bind(&#child_id)
+                        .execute(self).await?;
+                    Ok(())
+                }
+
+                async fn #remove_name(&self, #fk_field: #id_type, #child_id: #id_type) -> Result<bool, Self::Error> {
+                    let result = sqlx::query(#remove_sql)
+                        .bind(&#fk_field)
+                        .bind(&#child_id)
+                        .execute(self).await?;
+                    Ok(result.rows_affected() > 0)
+                }
+
+                async fn #has_name(&self, #fk_field: #id_type, #child_id: #id_type) -> Result<bool, Self::Error> {
+                    let exists: bool = sqlx::query_scalar(#has_sql)
+                        .bind(&#fk_field)
+                        .bind(&#child_id)
+                        .fetch_one(self).await?;
+                    Ok(exists)
+                }
+            };
+        }
+
         quote! {
             async fn #method_name(&self, #fk_field: #id_type) -> Result<Vec<#related>, Self::Error> {
                 let rows: Vec<#related_row> = sqlx::query_as(
@@ -121,5 +181,59 @@ impl Context<'_> {
                 Ok(rows.into_iter().map(#related::from).collect())
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod through_tests {
+    use quote::quote;
+    use syn::DeriveInput;
+
+    use super::super::context::Context;
+    use crate::entity::parse::EntityDef;
+
+    fn team_entity() -> EntityDef {
+        let input: DeriveInput = syn::parse_quote! {
+            #[entity(table = "teams")]
+            #[has_many(User, through = "team_members")]
+            pub struct Team {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, update, response)]
+                pub name: String,
+            }
+        };
+        EntityDef::from_derive_input(&input).unwrap()
+    }
+
+    #[test]
+    fn through_relation_generates_junction_methods() {
+        let entity = team_entity();
+        let code = Context::new(&entity).relation_methods().to_string();
+        assert!(code.contains("find_users"));
+        assert!(code.contains("add_user"));
+        assert!(code.contains("remove_user"));
+        assert!(code.contains("has_user"));
+        assert!(code.contains("INNER JOIN team_members j ON j.user_id = c.id"));
+        assert!(code.contains("ON CONFLICT DO NOTHING"));
+        let _ = quote!();
+    }
+
+    #[test]
+    fn plain_relation_has_no_junction_methods() {
+        let input: DeriveInput = syn::parse_quote! {
+            #[entity(table = "teams")]
+            #[has_many(User)]
+            pub struct Team {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, update, response)]
+                pub name: String,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let code = Context::new(&entity).relation_methods().to_string();
+        assert!(code.contains("find_users"));
+        assert!(!code.contains("add_user"));
     }
 }

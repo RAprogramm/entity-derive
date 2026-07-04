@@ -90,12 +90,48 @@ use super::{
 ///
 /// // Returns: vec![Ident("Post"), Ident("Comment")]
 /// ```
-pub fn parse_has_many_attrs(attrs: &[Attribute]) -> Vec<Ident> {
+pub fn parse_has_many_attrs(attrs: &[Attribute]) -> Vec<HasManyDef> {
     attrs
         .iter()
         .filter(|attr| attr.path().is_ident("has_many"))
-        .filter_map(|attr| attr.parse_args::<Ident>().ok())
+        .filter_map(|attr| {
+            attr.parse_args_with(|input: syn::parse::ParseStream<'_>| {
+                let entity: Ident = input.parse()?;
+                let mut through = None;
+                if input.peek(syn::Token![,]) {
+                    let _: syn::Token![,] = input.parse()?;
+                    let key: Ident = input.parse()?;
+                    if key != "through" {
+                        return Err(syn::Error::new(
+                            key.span(),
+                            "unknown has_many option; expected `through = \"junction_table\"`"
+                        ));
+                    }
+                    let _: syn::Token![=] = input.parse()?;
+                    let table: syn::LitStr = input.parse()?;
+                    through = Some(table.value());
+                }
+                Ok(HasManyDef {
+                    entity,
+                    through
+                })
+            })
+            .ok()
+        })
         .collect()
+}
+
+/// One `#[has_many(...)]` relation declaration.
+#[derive(Debug, Clone)]
+pub struct HasManyDef {
+    /// Related entity type name.
+    pub entity: Ident,
+
+    /// Junction table for many-to-many relations.
+    ///
+    /// `None` means a plain one-to-many relation over a
+    /// `{parent}_id` foreign key on the child table.
+    pub through: Option<String>
 }
 
 /// Parse `api(...)` from `#[entity(...)]` attribute.
@@ -279,7 +315,7 @@ mod tests {
         let attrs: Vec<syn::Attribute> = vec![parse_quote!(#[has_many(Post)])];
         let result = parse_has_many_attrs(&attrs);
         assert_eq!(result.len(), 1);
-        assert_eq!(result[0].to_string(), "Post");
+        assert_eq!(result[0].entity.to_string(), "Post");
     }
 
     #[test]
@@ -291,9 +327,34 @@ mod tests {
         ];
         let result = parse_has_many_attrs(&attrs);
         assert_eq!(result.len(), 3);
-        assert_eq!(result[0].to_string(), "Post");
-        assert_eq!(result[1].to_string(), "Comment");
-        assert_eq!(result[2].to_string(), "Like");
+        assert_eq!(result[0].entity.to_string(), "Post");
+        assert_eq!(result[1].entity.to_string(), "Comment");
+        assert_eq!(result[2].entity.to_string(), "Like");
+    }
+
+    #[test]
+    fn has_many_through_parsed() {
+        let attrs: Vec<syn::Attribute> =
+            vec![parse_quote!(#[has_many(User, through = "team_members")])];
+        let result = parse_has_many_attrs(&attrs);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].entity.to_string(), "User");
+        assert_eq!(result[0].through.as_deref(), Some("team_members"));
+    }
+
+    #[test]
+    fn has_many_plain_has_no_through() {
+        let attrs: Vec<syn::Attribute> = vec![parse_quote!(#[has_many(Post)])];
+        let result = parse_has_many_attrs(&attrs);
+        assert!(result[0].through.is_none());
+    }
+
+    #[test]
+    fn has_many_unknown_option_skipped() {
+        let attrs: Vec<syn::Attribute> =
+            vec![parse_quote!(#[has_many(User, via = "team_members")])];
+        let result = parse_has_many_attrs(&attrs);
+        assert!(result.is_empty());
     }
 
     #[test]
@@ -305,7 +366,7 @@ mod tests {
         ];
         let result = parse_has_many_attrs(&attrs);
         assert_eq!(result.len(), 1);
-        assert_eq!(result[0].to_string(), "Post");
+        assert_eq!(result[0].entity.to_string(), "Post");
     }
 
     // =========================================================================

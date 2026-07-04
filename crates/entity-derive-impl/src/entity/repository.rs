@@ -201,22 +201,54 @@ fn generate_belongs_to_method(field: &FieldDef, id_type: &syn::Type) -> Option<T
     })
 }
 
-/// Generate a `find_{entities}` method for a `has_many` relation.
+/// Generate methods for a `has_many` relation.
+///
+/// Plain relations get `find_{child}s`; `through = "..."` relations
+/// additionally get `add_{child}` / `remove_{child}` / `has_{child}`
+/// junction management methods.
 fn generate_has_many_method(
     entity: &EntityDef,
-    related: &syn::Ident,
+    relation: &crate::entity::parse::HasManyDef,
     id_type: &syn::Type
 ) -> TokenStream {
+    let related = &relation.entity;
     let related_snake = related.to_string().to_case(Case::Snake);
     let method_name = format_ident!("find_{}s", related_snake);
     let entity_snake = entity.name_str().to_case(Case::Snake);
     let fk_field = format_ident!("{}_id", entity_snake);
 
-    quote! {
+    let find_method = quote! {
         /// Find all related entities for this parent.
         ///
-        /// The foreign key field is assumed to be `{parent}_id`.
+        /// The foreign key field is assumed to be `{parent}_id`; for
+        /// `through` relations the lookup joins the junction table.
         async fn #method_name(&self, #fk_field: #id_type) -> Result<Vec<#related>, Self::Error>;
+    };
+
+    if relation.through.is_none() {
+        return find_method;
+    }
+
+    let add_name = format_ident!("add_{}", related_snake);
+    let remove_name = format_ident!("remove_{}", related_snake);
+    let has_name = format_ident!("has_{}", related_snake);
+    let child_id = format_ident!("{}_id", related_snake);
+
+    quote! {
+        #find_method
+
+        /// Link a related entity through the junction table.
+        ///
+        /// Idempotent: linking an already-linked pair is a no-op.
+        async fn #add_name(&self, #fk_field: #id_type, #child_id: #id_type) -> Result<(), Self::Error>;
+
+        /// Unlink a related entity from the junction table.
+        ///
+        /// Returns `false` when the pair was not linked.
+        async fn #remove_name(&self, #fk_field: #id_type, #child_id: #id_type) -> Result<bool, Self::Error>;
+
+        /// Check whether the pair is linked in the junction table.
+        async fn #has_name(&self, #fk_field: #id_type, #child_id: #id_type) -> Result<bool, Self::Error>;
     }
 }
 
