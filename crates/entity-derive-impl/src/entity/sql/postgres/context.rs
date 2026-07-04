@@ -64,10 +64,17 @@ pub struct Context<'a> {
     /// Primary key field type.
     pub id_type: &'a syn::Type,
 
-    /// Comma-separated column names for SELECT/INSERT.
+    /// Comma-separated column names for SELECT (all columns).
     pub columns_str: String,
 
-    /// Comma-separated placeholders for INSERT ($1, $2, ...).
+    /// Comma-separated column names for INSERT.
+    ///
+    /// Excludes `#[auto]` fields so database defaults
+    /// (`DEFAULT now()`, sequences, triggers) apply; persisted values
+    /// come back via RETURNING.
+    pub insert_columns_str: String,
+
+    /// Comma-separated placeholders matching [`Self::insert_columns_str`].
     pub placeholders_str: String,
 
     /// Whether soft delete is enabled.
@@ -88,6 +95,11 @@ impl<'a> Context<'a> {
     pub fn new(entity: &'a EntityDef) -> Self {
         let id_field = entity.id_field();
         let fields = entity.column_fields();
+        let insert_fields: Vec<&crate::entity::parse::FieldDef> = fields
+            .iter()
+            .copied()
+            .filter(|f| !f.storage.is_auto)
+            .collect();
         let dialect = entity.dialect;
 
         Self {
@@ -103,7 +115,8 @@ impl<'a> Context<'a> {
             id_name: id_field.name(),
             id_type: id_field.ty(),
             columns_str: join_columns(&fields),
-            placeholders_str: dialect.placeholders(fields.len()),
+            insert_columns_str: join_columns(&insert_fields),
+            placeholders_str: dialect.placeholders(insert_fields.len()),
             soft_delete: entity.is_soft_delete(),
             returning: entity.returning.clone(),
             streams: entity.has_streams(),

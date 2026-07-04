@@ -76,7 +76,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     let field_defs = entity
         .all_fields()
         .iter()
-        .filter(|f| f.embed.is_none())
+        .filter(|f| f.embed.is_none() && !f.storage.is_auto)
         .map(|f| {
             let name = f.name();
             let ty = f.ty();

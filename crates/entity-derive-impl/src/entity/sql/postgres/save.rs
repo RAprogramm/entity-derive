@@ -68,7 +68,7 @@ impl Context<'_> {
         let row_name = &self.row_name;
         let insertable_name = &self.insertable_name;
         let table = &self.table;
-        let columns_str = &self.columns_str;
+        let insert_columns_str = &self.insert_columns_str;
         let placeholders_str = &self.placeholders_str;
         let bindings = super::helpers::insert_bindings(self.entity.all_fields());
         let error_type = self.entity.error_type();
@@ -91,7 +91,7 @@ impl Context<'_> {
                 let mut entity: #entity_name = new.into();
                 let insertable = #insertable_name::from(&entity);
                 let row: #row_name = sqlx::query_as(
-                    concat!("INSERT INTO ", #table, " (", #columns_str, ") VALUES (", #placeholders_str, ") RETURNING *")
+                    concat!("INSERT INTO ", #table, " (", #insert_columns_str, ") VALUES (", #placeholders_str, ") RETURNING *")
                 )
                     #(#bindings)*
                     .fetch_one(&mut *tx).await?;

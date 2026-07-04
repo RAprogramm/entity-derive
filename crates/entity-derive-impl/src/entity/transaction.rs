@@ -65,6 +65,7 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
     let create_dto = &ctx.create_dto;
     let update_dto = &ctx.update_dto;
     let table = &ctx.table;
+    let insert_columns_str = &ctx.insert_columns_str;
     let columns_str = &ctx.columns_str;
     let placeholders_str = &ctx.placeholders_str;
     let id_name = ctx.id_name;
@@ -95,7 +96,7 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
                 let entity = #entity_name::from(dto);
                 let insertable = #insertable_name::from(&entity);
                 let row: #row_name = sqlx::query_as(
-                    concat!("INSERT INTO ", #table, " (", #columns_str, ") VALUES (", #placeholders_str, ") RETURNING *")
+                    concat!("INSERT INTO ", #table, " (", #insert_columns_str, ") VALUES (", #placeholders_str, ") RETURNING *")
                 )
                     #(#bindings)*
                     .fetch_one(&mut **self.tx).await?;

@@ -69,7 +69,7 @@ impl Context<'_> {
             insertable_name,
             create_dto,
             table,
-            columns_str,
+            insert_columns_str,
             placeholders_str,
             entity,
             returning,
@@ -85,7 +85,7 @@ impl Context<'_> {
         let insert_row = if matches!(returning, ReturningMode::Full) {
             quote! {
                 let row: #row_name = sqlx::query_as(
-                    concat!("INSERT INTO ", #table, " (", #columns_str, ") VALUES (", #placeholders_str, ") RETURNING *")
+                    concat!("INSERT INTO ", #table, " (", #insert_columns_str, ") VALUES (", #placeholders_str, ") RETURNING *")
                 )
                     #(#bindings)*
                     .fetch_one(&mut *tx).await #constraint_map_err?;
@@ -93,7 +93,7 @@ impl Context<'_> {
             }
         } else {
             quote! {
-                sqlx::query(concat!("INSERT INTO ", #table, " (", #columns_str, ") VALUES (", #placeholders_str, ")"))
+                sqlx::query(concat!("INSERT INTO ", #table, " (", #insert_columns_str, ") VALUES (", #placeholders_str, ")"))
                     #(#bindings)*
                     .execute(&mut *tx).await #constraint_map_err?;
             }

@@ -45,7 +45,7 @@ pub fn assigns(fields: &[FieldDef], source: &str) -> Vec<TokenStream> {
     let src = Ident::new(source, Span::call_site());
     fields
         .iter()
-        .filter(|f| f.embed.is_none())
+        .filter(|f| f.embed.is_none() && !f.storage.is_auto)
         .map(|f: &FieldDef| {
             let name = f.name();
             if let Some((parent, sub)) = &f.embed_origin {
@@ -63,7 +63,7 @@ pub fn assigns_clone(fields: &[FieldDef], source: &str) -> Vec<TokenStream> {
     let src = Ident::new(source, Span::call_site());
     fields
         .iter()
-        .filter(|f| f.embed.is_none())
+        .filter(|f| f.embed.is_none() && !f.storage.is_auto)
         .map(|f: &FieldDef| {
             let name = f.name();
             if let Some((parent, sub)) = &f.embed_origin {
