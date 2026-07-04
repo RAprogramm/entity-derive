@@ -98,8 +98,8 @@ fn generate(input: &DeriveInput) -> syn::Result<TokenStream2> {
         }
     };
 
-    // Validate pg_type attribute exists (but we don't use it in trait impls)
-    extract_pg_type(&input.attrs)?;
+    let pg_type = extract_pg_type(&input.attrs)?;
+    let generate_sqlx = extract_sqlx_flag(&input.attrs);
 
     // Build lowercase variant names using convert_case
     let variant_names: Vec<String> = variants
@@ -141,7 +141,63 @@ fn generate(input: &DeriveInput) -> syn::Result<TokenStream2> {
         })
         .collect();
 
+    let create_type_sql = format!(
+        "DO $$ BEGIN CREATE TYPE {} AS ENUM ({}); EXCEPTION WHEN duplicate_object THEN NULL; END $$;",
+        pg_type,
+        variant_names
+            .iter()
+            .map(|v| format!("'{v}'"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+
+    let sqlx_impls = if generate_sqlx {
+        quote! {
+            #[cfg(feature = "postgres")]
+            impl ::sqlx::Type<::sqlx::Postgres> for #name {
+                fn type_info() -> ::sqlx::postgres::PgTypeInfo {
+                    ::sqlx::postgres::PgTypeInfo::with_name(#pg_type)
+                }
+            }
+
+            #[cfg(feature = "postgres")]
+            impl<'q> ::sqlx::Encode<'q, ::sqlx::Postgres> for #name {
+                fn encode_by_ref(
+                    &self,
+                    buf: &mut ::sqlx::postgres::PgArgumentBuffer
+                ) -> Result<::sqlx::encode::IsNull, ::sqlx::error::BoxDynError> {
+                    <&str as ::sqlx::Encode<'q, ::sqlx::Postgres>>::encode_by_ref(&self.as_ref(), buf)
+                }
+            }
+
+            #[cfg(feature = "postgres")]
+            impl<'r> ::sqlx::Decode<'r, ::sqlx::Postgres> for #name {
+                fn decode(
+                    value: ::sqlx::postgres::PgValueRef<'r>
+                ) -> Result<Self, ::sqlx::error::BoxDynError> {
+                    let s = <&str as ::sqlx::Decode<'r, ::sqlx::Postgres>>::decode(value)?;
+                    s.parse().map_err(Into::into)
+                }
+            }
+        }
+    } else {
+        TokenStream2::new()
+    };
+
     Ok(quote! {
+        impl #name {
+            /// Postgres enum type name declared via `#[value_object(pg_type = "...")]`.
+            pub const PG_TYPE: &'static str = #pg_type;
+
+            /// Idempotent DDL creating the Postgres enum type.
+            ///
+            /// Safe to run repeatedly: an existing type is left untouched.
+            /// Execute before `MIGRATION_UP` of entities using this enum.
+            pub const PG_CREATE_TYPE: &'static str = #create_type_sql;
+        }
+
+        #sqlx_impls
+
         impl std::fmt::Display for #name {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 match self {
@@ -216,6 +272,34 @@ fn extract_pg_type(attrs: &[syn::Attribute]) -> syn::Result<String> {
             "missing #[value_object(pg_type = \"...\")] attribute"
         )
     })
+}
+
+/// Whether `#[value_object(..., sqlx)]` requests generated sqlx impls.
+///
+/// When set, the derive emits `sqlx::Type`, `Encode` and `Decode`
+/// implementations for Postgres (gated behind the user's `postgres`
+/// feature). Off by default so enums that already derive `sqlx::Type`
+/// keep compiling.
+fn extract_sqlx_flag(attrs: &[syn::Attribute]) -> bool {
+    let mut flag = false;
+
+    for attr in attrs {
+        if attr.path().is_ident("value_object")
+            && let syn::Meta::List(meta_list) = &attr.meta
+        {
+            let _ = meta_list.parse_nested_meta(|meta| {
+                if meta.path.is_ident("pg_type") {
+                    let val_stream = meta.value()?;
+                    let _: LitStr = val_stream.parse()?;
+                } else if meta.path.is_ident("sqlx") {
+                    flag = true;
+                }
+                Ok(())
+            });
+        }
+    }
+
+    flag
 }
 
 #[cfg(test)]
@@ -528,5 +612,67 @@ mod tests {
         assert!(output.contains("FromStrforStatus"));
         assert!(output.contains("AsRef<str>forStatus"));
         assert!(output.contains("TryFrom<&str>forStatus"));
+    }
+}
+
+#[cfg(test)]
+mod pg_type_tests {
+    use super::*;
+
+    #[test]
+    fn generates_pg_type_const() {
+        let input: DeriveInput = syn::parse_quote! {
+            #[value_object(pg_type = "order_status")]
+            enum OrderStatus { Pending, Shipped }
+        };
+        let code = generate(&input).unwrap().to_string();
+        assert!(code.contains("PG_TYPE"));
+        assert!(code.contains("\"order_status\""));
+    }
+
+    #[test]
+    fn generates_idempotent_create_type() {
+        let input: DeriveInput = syn::parse_quote! {
+            #[value_object(pg_type = "order_status")]
+            enum OrderStatus { Pending, Shipped }
+        };
+        let code = generate(&input).unwrap().to_string();
+        assert!(code.contains(
+            "DO $$ BEGIN CREATE TYPE order_status AS ENUM ('pending', 'shipped'); \
+             EXCEPTION WHEN duplicate_object THEN NULL; END $$;"
+        ));
+    }
+
+    #[test]
+    fn sqlx_impls_absent_by_default() {
+        let input: DeriveInput = syn::parse_quote! {
+            #[value_object(pg_type = "order_status")]
+            enum OrderStatus { Pending }
+        };
+        let code = generate(&input).unwrap().to_string();
+        assert!(!code.contains("Encode"));
+        assert!(!code.contains("Decode"));
+    }
+
+    #[test]
+    fn sqlx_flag_generates_impls() {
+        let input: DeriveInput = syn::parse_quote! {
+            #[value_object(pg_type = "order_status", sqlx)]
+            enum OrderStatus { Pending }
+        };
+        let code = generate(&input).unwrap().to_string();
+        assert!(code.contains("Encode"));
+        assert!(code.contains("Decode"));
+        assert!(code.contains("type_info"));
+    }
+
+    #[test]
+    fn multi_word_variants_snake_cased() {
+        let input: DeriveInput = syn::parse_quote! {
+            #[value_object(pg_type = "kind")]
+            enum Kind { InReview, DoneDeal }
+        };
+        let code = generate(&input).unwrap().to_string();
+        assert!(code.contains("'in_review', 'done_deal'"));
     }
 }

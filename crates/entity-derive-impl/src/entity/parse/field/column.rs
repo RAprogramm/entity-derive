@@ -165,6 +165,14 @@ pub struct ColumnConfig {
     /// Bypasses automatic type mapping.
     pub sql_type: Option<String>,
 
+    /// Postgres enum type name for `ValueObject` fields.
+    ///
+    /// Sets the DDL column type and registers the field type's
+    /// `PG_CREATE_TYPE` DDL in `{Entity}::MIGRATION_TYPES`. The name is
+    /// checked against the field type's `PG_TYPE` constant at compile
+    /// time.
+    pub pg_enum: Option<String>,
+
     /// Explicitly allow NULL even for non-Option types.
     pub nullable: bool,
 
@@ -218,6 +226,10 @@ impl ColumnConfig {
                     let _: syn::Token![=] = meta.input.parse()?;
                     let value: syn::LitStr = meta.input.parse()?;
                     config.sql_type = Some(value.value());
+                } else if meta.path.is_ident("pg_enum") {
+                    let _: syn::Token![=] = meta.input.parse()?;
+                    let value: syn::LitStr = meta.input.parse()?;
+                    config.pg_enum = Some(value.value());
                 } else if meta.path.is_ident("nullable") {
                     config.nullable = true;
                 } else if meta.path.is_ident("name") {

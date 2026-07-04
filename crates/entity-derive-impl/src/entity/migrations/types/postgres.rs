@@ -55,6 +55,15 @@ impl TypeMapper for PostgresTypeMapper {
             };
         }
 
+        // Postgres enum type declared via #[column(pg_enum = "...")]
+        if let Some(ref pg_enum) = column.pg_enum {
+            return SqlType {
+                name:      pg_enum.clone(),
+                nullable:  is_option(ty) || column.nullable,
+                array_dim: 0
+            };
+        }
+
         // Handle Option<T>
         if let Some(inner) = extract_option_inner(ty) {
             let mut result = self.map_type(inner, column);

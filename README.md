@@ -78,7 +78,7 @@ pub struct User {
 
 ```toml
 [dependencies]
-entity-derive = { version = "0.9", features = ["postgres", "api"] }
+entity-derive = { version = "0.10", features = ["postgres", "api"] }
 ```
 
 ### Feature flags
@@ -105,7 +105,7 @@ Default features cover the full entity-attribute surface so existing projects wo
 ```toml
 [dependencies]
 # Just repositories — no events, hooks, commands, etc.
-entity-derive = { version = "0.9", default-features = false, features = ["postgres"] }
+entity-derive = { version = "0.10", default-features = false, features = ["postgres"] }
 ```
 
 If you use an entity attribute whose feature is disabled (e.g. `#[entity(commands)]` without `features = ["commands"]`), the macro emits a `compile_error!` at the attribute pointing to the missing feature.
@@ -114,7 +114,7 @@ Enable extras alongside the defaults:
 
 ```toml
 [dependencies]
-entity-derive = { version = "0.9", features = ["postgres", "api", "tracing", "streams"] }
+entity-derive = { version = "0.10", features = ["postgres", "api", "tracing", "streams"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
 ```
@@ -211,6 +211,41 @@ tracing-subscriber = "0.3"
 #[projection(Name: fields)]    // Partial view
 ```
 
+### Postgres Enums
+
+Derive `ValueObject` on a status-style enum and reference it from entities
+with `#[column(pg_enum = "...")]`:
+
+```rust,ignore
+#[derive(ValueObject, Debug, Clone, Serialize, Deserialize)]
+#[value_object(pg_type = "order_status", sqlx)]
+pub enum OrderStatus { Pending, Shipped, Delivered }
+
+#[derive(Entity)]
+#[entity(table = "orders", migrations)]
+pub struct Order {
+    #[id]
+    pub id: Uuid,
+    #[field(create, update, response)]
+    #[column(pg_enum = "order_status")]
+    pub status: OrderStatus,
+}
+
+for ddl in Order::MIGRATION_TYPES {
+    sqlx::query(ddl).execute(&pool).await?;
+}
+sqlx::query(Order::MIGRATION_UP).execute(&pool).await?;
+```
+
+- `ValueObject` generates `PG_TYPE` and idempotent `PG_CREATE_TYPE` constants;
+  the opt-in `sqlx` flag additionally emits `sqlx::Type` / `Encode` / `Decode`
+  impls so the enum binds and decodes without hand-written glue (omit it if
+  you already derive `sqlx::Type` yourself).
+- `#[column(pg_enum = "...")]` sets the DDL column type and registers the
+  enum's DDL in `{Entity}::MIGRATION_TYPES` — run those before `MIGRATION_UP`.
+- The declared name is checked against the enum's `pg_type` at compile time;
+  a typo fails the build.
+
 ### Upsert
 
 Declare a conflict target with a uniqueness guarantee (`#[id]`,
@@ -273,7 +308,7 @@ projections, transaction adapters, stream subscribers) is wrapped in
 `#[tracing::instrument(skip_all, fields(entity, op), err(Debug))]`.
 
 ```toml
-entity-derive = { version = "0.9", features = ["postgres", "tracing"] }
+entity-derive = { version = "0.10", features = ["postgres", "tracing"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 ```

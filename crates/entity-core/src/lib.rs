@@ -40,6 +40,28 @@ pub mod transaction;
 /// Re-export `async_trait` for generated code.
 pub use async_trait::async_trait;
 
+/// Compare two strings in const context.
+///
+/// Used by generated code to verify at compile time that
+/// `#[column(pg_enum = "...")]` matches the `ValueObject`'s
+/// `#[value_object(pg_type = "...")]` declaration.
+#[must_use]
+pub const fn const_str_eq(a: &str, b: &str) -> bool {
+    let a = a.as_bytes();
+    let b = b.as_bytes();
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut i = 0;
+    while i < a.len() {
+        if a[i] != b[i] {
+            return false;
+        }
+        i += 1;
+    }
+    true
+}
+
 /// Base repository trait.
 ///
 /// All generated `{Entity}Repository` traits include these associated types
