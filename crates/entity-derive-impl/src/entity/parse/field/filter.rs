@@ -29,6 +29,12 @@ pub enum FilterType {
     /// The value should include wildcards (e.g., `%search%`).
     Like,
 
+    /// Trigram substring search filter.
+    ///
+    /// Generates: `WHERE field ILIKE '%' || $n || '%'` and a
+    /// `gin_trgm_ops` index (plus `pg_trgm`) in migrations.
+    Search,
+
     /// Range filter for comparable types.
     ///
     /// Generates two optional fields:
@@ -66,6 +72,7 @@ impl FilterConfig {
                 "eq" => FilterType::Eq,
                 "like" => FilterType::Like,
                 "range" => FilterType::Range,
+                "search" => FilterType::Search,
                 _ => FilterType::Eq
             });
 
