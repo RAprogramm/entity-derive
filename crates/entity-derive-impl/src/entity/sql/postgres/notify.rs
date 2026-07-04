@@ -128,7 +128,7 @@ impl Context<'_> {
     /// state immediately preceding the UPDATE — no concurrent writer can
     /// slip in between read and write.
     pub fn fetch_old_for_update(&self) -> TokenStream {
-        if !self.streams {
+        if !self.streams && !self.outbox {
             return TokenStream::new();
         }
 

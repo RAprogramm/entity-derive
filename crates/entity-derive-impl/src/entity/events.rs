@@ -87,8 +87,9 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
 
     let marker = marker::generated();
 
-    // Add serde derives when streams is enabled
-    let serde_derives = if entity.has_streams() {
+    // Serde derives: streams serializes events for NOTIFY payloads,
+    // outbox serializes them for the entity_outbox table
+    let serde_derives = if entity.has_streams() || entity.has_outbox() {
         quote! { , ::serde::Serialize, ::serde::Deserialize }
     } else {
         TokenStream::new()

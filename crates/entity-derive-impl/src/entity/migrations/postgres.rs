@@ -71,6 +71,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
         })
         .collect();
 
+    let outbox_const = outbox_migration_const(entity);
     let marker = marker::generated();
 
     quote! {
@@ -102,11 +103,46 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             /// sqlx::query(User::MIGRATION_UP).execute(&pool).await?;
             /// ```
             #vis const MIGRATION_TYPES: &'static [&'static str] = &[#(#create_type_refs),*];
+
+            #outbox_const
         }
 
         const _: () = {
             #(#name_assertions)*
         };
+    }
+}
+
+/// Generate the `MIGRATION_OUTBOX` constant for outbox-enabled entities.
+///
+/// The DDL is idempotent and shared: every outbox entity emits the same
+/// statement, so running it once per entity is safe.
+fn outbox_migration_const(entity: &EntityDef) -> TokenStream {
+    if !entity.has_outbox() {
+        return TokenStream::new();
+    }
+
+    let vis = &entity.vis;
+    let ddl = "CREATE TABLE IF NOT EXISTS entity_outbox (\
+                   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, \
+                   entity TEXT NOT NULL, \
+                   kind TEXT NOT NULL, \
+                   entity_id TEXT NOT NULL, \
+                   payload JSONB NOT NULL, \
+                   attempts INTEGER NOT NULL DEFAULT 0, \
+                   next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), \
+                   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), \
+                   processed_at TIMESTAMPTZ\
+               ); \
+               CREATE INDEX IF NOT EXISTS idx_entity_outbox_pending \
+               ON entity_outbox (next_attempt_at) WHERE processed_at IS NULL;";
+
+    quote! {
+        /// Idempotent DDL for the shared transactional-outbox table.
+        ///
+        /// Execute alongside [`Self::MIGRATION_UP`]. Safe to run once
+        /// per outbox-enabled entity — the statements are `IF NOT EXISTS`.
+        #vis const MIGRATION_OUTBOX: &'static str = #ddl;
     }
 }
 

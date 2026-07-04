@@ -78,7 +78,7 @@ pub struct User {
 
 ```toml
 [dependencies]
-entity-derive = { version = "0.12", features = ["postgres", "api"] }
+entity-derive = { version = "0.13", features = ["postgres", "api"] }
 ```
 
 ### Feature flags
@@ -96,6 +96,7 @@ entity-derive = { version = "0.12", features = ["postgres", "api"] }
 | `clickhouse` |   | Generate ClickHouse-backed repositories *(planned)* |
 | `mongodb` |   | Generate MongoDB-backed repositories *(planned)* |
 | `streams` |   | `{Entity}Subscriber` using Postgres `LISTEN`/`NOTIFY` (pulls in `events`) |
+| `outbox` |   | Transactional-outbox enqueue in generated writes + `OutboxDrainer` runtime (pulls in `events`) |
 | `api` |   | Generate HTTP handlers (`axum`) and `utoipa` OpenAPI schemas |
 | `validate` |   | Wire up `validator::Validate` on generated DTOs |
 | `tracing` |   | Wrap every generated async method in `#[tracing::instrument]` carrying `entity` + `op` span fields |
@@ -105,7 +106,7 @@ Default features cover the full entity-attribute surface so existing projects wo
 ```toml
 [dependencies]
 # Just repositories — no events, hooks, commands, etc.
-entity-derive = { version = "0.12", default-features = false, features = ["postgres"] }
+entity-derive = { version = "0.13", default-features = false, features = ["postgres"] }
 ```
 
 If you use an entity attribute whose feature is disabled (e.g. `#[entity(commands)]` without `features = ["commands"]`), the macro emits a `compile_error!` at the attribute pointing to the missing feature.
@@ -114,7 +115,7 @@ Enable extras alongside the defaults:
 
 ```toml
 [dependencies]
-entity-derive = { version = "0.12", features = ["postgres", "api", "tracing", "streams"] }
+entity-derive = { version = "0.13", features = ["postgres", "api", "tracing", "streams"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
 ```
@@ -137,6 +138,7 @@ tracing-subscriber = "0.3"
 | **Transactions** | Multi-entity atomic operations |
 | **Lifecycle Events** | `Created`, `Updated`, `Deleted` events |
 | **Real-Time Streams** | Postgres LISTEN/NOTIFY integration |
+| **Transactional Outbox** | `events(outbox)` — durable at-least-once event delivery with retry/backoff |
 | **Lifecycle Hook Traits** | `{Entity}Hooks` trait emitted with `before_create` / `after_update` / etc.; invocation is currently manual at your service layer (tracking auto-invocation: [#127](https://github.com/RAprogramm/entity-derive/issues/127)) |
 | **CQRS Commands** | Business-oriented command pattern |
 | **Soft Delete** | `deleted_at` timestamp support |
@@ -181,6 +183,7 @@ tracing-subscriber = "0.3"
         action = "update",     // "update" (default) or "nothing"
     ),
     events,                    // Optional: generate lifecycle events
+    events(outbox),            // Optional: + durable transactional outbox
     streams,                   // Optional: real-time Postgres NOTIFY
     hooks,                     // Optional: before/after lifecycle hooks
     commands,                  // Optional: CQRS command pattern
@@ -214,6 +217,41 @@ tracing-subscriber = "0.3"
 #[has_many(Entity)]            // One-to-many relation
 #[projection(Name: fields)]    // Partial view
 ```
+
+### Transactional Outbox
+
+LISTEN/NOTIFY (`streams`) is fire-and-forget: events are lost if no
+subscriber is listening. `events(outbox)` makes delivery durable — every
+generated write inserts the serialized event into the `entity_outbox`
+table in the same transaction as the DML, and a drainer delivers rows
+with retry and exponential backoff:
+
+```rust,ignore
+#[derive(Entity, Serialize, Deserialize)]
+#[entity(table = "orders", events(outbox), migrations)]
+pub struct Order { /* ... */ }
+
+sqlx::query(Order::MIGRATION_OUTBOX).execute(&pool).await?;
+
+struct Notifier;
+
+#[async_trait::async_trait]
+impl entity_core::outbox::OutboxHandler for Notifier {
+    type Error = anyhow::Error;
+    async fn handle(&self, row: &OutboxRow) -> Result<(), Self::Error> {
+        deliver(&row.entity, &row.payload).await
+    }
+}
+
+entity_core::outbox::OutboxDrainer::new(pool, Notifier).run().await;
+```
+
+Rows are claimed with `FOR UPDATE SKIP LOCKED` (multiple drainers
+cooperate), retried with exponential backoff and parked after
+`max_attempts` for manual inspection. Delivery is at-least-once —
+handlers must be idempotent. Composes with `streams`: NOTIFY wakes
+subscribers instantly, the outbox guarantees nothing is lost. Requires
+the `outbox` feature and `serde_json` in your crate.
 
 ### Ownership Scoping
 
@@ -368,7 +406,7 @@ projections, transaction adapters, stream subscribers) is wrapped in
 `#[tracing::instrument(skip_all, fields(entity, op), err(Debug))]`.
 
 ```toml
-entity-derive = { version = "0.12", features = ["postgres", "tracing"] }
+entity-derive = { version = "0.13", features = ["postgres", "tracing"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 ```

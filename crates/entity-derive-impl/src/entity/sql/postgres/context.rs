@@ -77,7 +77,10 @@ pub struct Context<'a> {
     pub returning: ReturningMode,
 
     /// Whether streams (LISTEN/NOTIFY) is enabled.
-    pub streams: bool
+    pub streams: bool,
+
+    /// Whether transactional-outbox delivery is enabled.
+    pub outbox: bool
 }
 
 impl<'a> Context<'a> {
@@ -103,7 +106,8 @@ impl<'a> Context<'a> {
             placeholders_str: dialect.placeholders(fields.len()),
             soft_delete: entity.is_soft_delete(),
             returning: entity.returning.clone(),
-            streams: entity.has_streams()
+            streams: entity.has_streams(),
+            outbox: entity.has_outbox()
         }
     }
 }

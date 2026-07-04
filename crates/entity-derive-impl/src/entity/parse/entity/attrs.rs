@@ -31,6 +31,54 @@ use syn::{Ident, Visibility};
 use super::upsert::UpsertDef;
 use crate::entity::parse::{DatabaseDialect, ReturningMode, SqlLevel, UuidVersion};
 
+/// Events configuration parsed from `#[entity(events)]` or
+/// `#[entity(events(outbox))]`.
+///
+/// | Form | Meaning |
+/// |------|---------|
+/// | `events` | Generate the `{Entity}Event` enum |
+/// | `events(outbox)` | Additionally enqueue events into the transactional outbox |
+#[derive(Debug, Clone, Copy, Default)]
+pub struct EventsAttr {
+    /// Whether event generation is enabled at all.
+    pub enabled: bool,
+
+    /// Whether transactional-outbox delivery is enabled.
+    pub outbox: bool
+}
+
+impl darling::FromMeta for EventsAttr {
+    fn from_word() -> darling::Result<Self> {
+        Ok(Self {
+            enabled: true,
+            outbox:  false
+        })
+    }
+
+    fn from_list(items: &[darling::ast::NestedMeta]) -> darling::Result<Self> {
+        let mut outbox = false;
+        for item in items {
+            match item {
+                darling::ast::NestedMeta::Meta(syn::Meta::Path(path))
+                    if path.is_ident("outbox") =>
+                {
+                    outbox = true;
+                }
+                other => {
+                    return Err(darling::Error::custom(
+                        "unknown events option; expected `events` or `events(outbox)`"
+                    )
+                    .with_span(other));
+                }
+            }
+        }
+        Ok(Self {
+            enabled: true,
+            outbox
+        })
+    }
+}
+
 /// Default error type path for SQL implementations.
 ///
 /// Used when no custom error type is specified.
@@ -167,7 +215,7 @@ pub struct EntityAttrs {
     /// }
     /// ```
     #[darling(default)]
-    pub events: bool,
+    pub events: EventsAttr,
 
     /// Generate lifecycle hooks trait.
     ///
