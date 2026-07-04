@@ -11,12 +11,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.19.0...HEAD)
+## [0.20.0](https://github.com/RAprogramm/entity-derive/releases/tag/v0.20.0) — 2026-07-04
 
 ### ✨ Features
 
 - Trigram search filter with automatic gin_trgm_ops index (#171) ([b0e1596](https://github.com/RAprogramm/entity-derive/commit/b0e15962d63102ee0a2e240b0d6f94291cc442c6)) by [@RAprogramm](https://github.com/RAprogramm) in [#171](https://github.com/RAprogramm/entity-derive/pull/171)
 
+**Full Changelog**: [`v0.19.0...v0.20.0`](https://github.com/RAprogramm/entity-derive/compare/v0.19.0...v0.20.0)
 ## [0.19.0](https://github.com/RAprogramm/entity-derive/releases/tag/v0.19.0) — 2026-07-04
 
 ### ✨ Features
