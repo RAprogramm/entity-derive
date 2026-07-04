@@ -25,7 +25,6 @@
 //! # Generated Implementation
 //!
 //! ```rust,ignore
-//! #[cfg(feature = "postgres")]
 //! #[async_trait]
 //! impl UserRepository for sqlx::PgPool {
 //!     type Error = sqlx::Error;
@@ -58,7 +57,9 @@
 //!
 //! # Feature Flag
 //!
-//! Generated code is gated behind `#[cfg(feature = "postgres")]`.
+//! The implementation is emitted only when the facade's `postgres`
+//! feature is enabled at expansion time; consumer crates never see the
+//! cfg.
 
 mod bulk;
 mod constraints;
@@ -100,9 +101,12 @@ use crate::{entity::parse::EntityDef, utils::marker};
 /// | Projections | `find_by_id_{projection}` |
 /// | Soft Delete | `hard_delete`, `restore`, `*_with_deleted` |
 pub fn generate(entity: &EntityDef) -> TokenStream {
+    if !cfg!(feature = "postgres") {
+        return TokenStream::new();
+    }
+
     let ctx = Context::new(entity);
     let trait_name = &ctx.trait_name;
-    let feature = entity.dialect.feature_flag();
     let error_type = entity.error_type();
 
     let create_impl = ctx.create_method();
@@ -130,7 +134,6 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
         #marker
         #constraint_mapper
 
-        #[cfg(feature = #feature)]
         #[async_trait::async_trait]
         impl #trait_name for sqlx::PgPool {
             type Error = #error_type;
