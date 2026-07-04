@@ -123,6 +123,22 @@ impl EntityDef {
         self.fields.iter().find(|f| f.storage.is_owner)
     }
 
+    /// Get all database-column fields.
+    ///
+    /// Equals [`Self::all_fields`] minus `#[embed]` parents: parents
+    /// live on the entity struct only, their synthetic prefixed
+    /// subfields are the actual columns.
+    #[must_use]
+    pub fn column_fields(&self) -> Vec<&FieldDef> {
+        self.fields.iter().filter(|f| f.embed.is_none()).collect()
+    }
+
+    /// Get all `#[embed]` parent fields.
+    #[must_use]
+    pub fn embed_parents(&self) -> Vec<&FieldDef> {
+        self.fields.iter().filter(|f| f.embed.is_some()).collect()
+    }
+
     pub fn all_fields(&self) -> &[FieldDef] {
         &self.fields
     }

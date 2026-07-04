@@ -45,8 +45,12 @@ pub fn assigns(fields: &[FieldDef], source: &str) -> Vec<TokenStream> {
     let src = Ident::new(source, Span::call_site());
     fields
         .iter()
+        .filter(|f| f.embed.is_none())
         .map(|f: &FieldDef| {
             let name = f.name();
+            if let Some((parent, sub)) = &f.embed_origin {
+                return quote! { #name: #src.#parent.#sub.clone() };
+            }
             quote! { #name: #src.#name }
         })
         .collect()
@@ -59,8 +63,12 @@ pub fn assigns_clone(fields: &[FieldDef], source: &str) -> Vec<TokenStream> {
     let src = Ident::new(source, Span::call_site());
     fields
         .iter()
+        .filter(|f| f.embed.is_none())
         .map(|f: &FieldDef| {
             let name = f.name();
+            if let Some((parent, sub)) = &f.embed_origin {
+                return quote! { #name: #src.#parent.#sub.clone() };
+            }
             quote! { #name: #src.#name.clone() }
         })
         .collect()
@@ -109,6 +117,7 @@ pub fn create_assigns(
 ) -> Vec<TokenStream> {
     all_fields
         .iter()
+        .filter(|f| f.embed_origin.is_none())
         .map(|f: &FieldDef| {
             let name = f.name();
             let is_in_create = create_fields.iter().any(|cf: &&FieldDef| cf.name() == name);
@@ -152,19 +161,31 @@ pub fn create_assigns(
 /// ```
 pub fn row_assigns(fields: &[FieldDef], source: &str) -> Vec<TokenStream> {
     let src = Ident::new(source, Span::call_site());
-    fields
-        .iter()
-        .map(|f: &FieldDef| {
+    let mut assigns: Vec<TokenStream> = Vec::new();
+    for f in fields {
+        if f.embed_origin.is_some() {
+            continue;
+        }
+        if let Some(embed) = &f.embed {
             let name = f.name();
-            let map = f.map();
-            if matches!(map, MapConfig::None) {
-                quote! { #name: #src.#name }
-            } else {
-                let expr = map.generate(name, &src);
-                quote! { #name: #expr }
-            }
-        })
-        .collect()
+            let ty = &f.ty;
+            let sub_assigns = embed.subfields.iter().map(|(sub, _)| {
+                let column = Ident::new(&format!("{}{}", embed.prefix, sub), Span::call_site());
+                quote! { #sub: #src.#column }
+            });
+            assigns.push(quote! { #name: #ty { #(#sub_assigns),* } });
+            continue;
+        }
+        let name = f.name();
+        let map = f.map();
+        if matches!(map, MapConfig::None) {
+            assigns.push(quote! { #name: #src.#name });
+        } else {
+            let expr = map.generate(name, &src);
+            assigns.push(quote! { #name: #expr });
+        }
+    }
+    assigns
 }
 
 #[cfg(test)]

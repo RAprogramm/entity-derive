@@ -78,7 +78,7 @@ pub struct User {
 
 ```toml
 [dependencies]
-entity-derive = { version = "0.21", features = ["postgres", "api"] }
+entity-derive = { version = "0.22", features = ["postgres", "api"] }
 ```
 
 ### Feature flags
@@ -106,7 +106,7 @@ Default features cover the full entity-attribute surface so existing projects wo
 ```toml
 [dependencies]
 # Just repositories — no events, hooks, commands, etc.
-entity-derive = { version = "0.21", default-features = false, features = ["postgres"] }
+entity-derive = { version = "0.22", default-features = false, features = ["postgres"] }
 ```
 
 If you use an entity attribute whose feature is disabled (e.g. `#[entity(commands)]` without `features = ["commands"]`), the macro emits a `compile_error!` at the attribute pointing to the missing feature.
@@ -115,7 +115,7 @@ Enable extras alongside the defaults:
 
 ```toml
 [dependencies]
-entity-derive = { version = "0.21", features = ["postgres", "api", "tracing", "streams"] }
+entity-derive = { version = "0.22", features = ["postgres", "api", "tracing", "streams"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
 ```
@@ -136,6 +136,7 @@ tracing-subscriber = "0.3"
 | **PATCH Semantics** | Dynamic UPDATE SET; double-`Option` distinguishes "leave" from "set NULL" |
 | **Optimistic Locking** | `#[version]` — guarded, auto-incremented version column |
 | **Typed Constraint Errors** | `typed_constraints` — violations resolved to `ConstraintError` with field info |
+| **Embedded Value Objects** | `#[embed(prefix, fields(...))]` — structs flattened to prefixed columns |
 | **Relations** | `#[belongs_to]`, `#[has_many]` and many-to-many via `through = "junction"` |
 | **Ownership Scoping** | `#[owner]` generates `find_by_id_scoped` / `list_by_owner` / `update_scoped` / `delete_scoped` |
 | **Upsert** | `upsert(conflict = "…")` generates `INSERT ... ON CONFLICT DO UPDATE / DO NOTHING` |
@@ -218,6 +219,7 @@ tracing-subscriber = "0.3"
 #[auto]                        // Auto-generated (timestamps)
 #[owner]                       // Ownership column: adds *_scoped methods
 #[version]                     // Optimistic locking: guarded, auto-bumped
+#[embed(prefix, fields(...))]  // Flatten a value object to prefixed columns
 #[field(create)]               // Include in CreateRequest
 #[field(update)]               // Include in UpdateRequest
 #[field(response)]             // Include in Response
@@ -323,6 +325,30 @@ pub struct User { /* ... */ }
 Per-operation overrides accept `create`, `get`, `update`, `delete`, `list`
 and `commands`; the literal `"none"` disables the guard for that operation.
 Commands listed in `public = [...]` never receive a guard.
+
+### Embedded Value Objects
+
+Keep money-style value objects as real structs on the entity while
+storing them as flat scalar columns — no JSONB detour:
+
+```rust,ignore
+pub struct Money { pub amount_cents: i64, pub currency: String }
+
+#[derive(Entity)]
+#[entity(table = "products", migrations)]
+pub struct Product {
+    #[id] pub id: Uuid,
+    #[field(create, update, response)]
+    #[embed(prefix = "price_", fields(amount_cents: i64, currency: String))]
+    pub price: Money,
+}
+```
+
+DDL, Row struct, CRUD SQL and dynamic updates operate on
+`price_amount_cents` / `price_currency`; DTOs and the entity carry
+`Money` itself. The declared shape is destructured against the real
+struct at compile time — a renamed, retyped, missing or extra field
+fails the build. `Option<Money>` parents are not supported yet.
 
 ### Typed Constraint Errors
 
@@ -583,7 +609,7 @@ projections, transaction adapters, stream subscribers) is wrapped in
 `#[tracing::instrument(skip_all, fields(entity, op), err(Debug))]`.
 
 ```toml
-entity-derive = { version = "0.21", features = ["postgres", "tracing"] }
+entity-derive = { version = "0.22", features = ["postgres", "tracing"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 ```

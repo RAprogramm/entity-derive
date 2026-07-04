@@ -63,11 +63,15 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
 
     let vis = &entity.vis;
     let row_name = entity.ident_with("", "Row");
-    let field_defs = entity.all_fields().iter().map(|f| {
-        let name = f.name();
-        let ty = f.ty();
-        quote! { pub #name: #ty }
-    });
+    let field_defs = entity
+        .all_fields()
+        .iter()
+        .filter(|f| f.embed.is_none())
+        .map(|f| {
+            let name = f.name();
+            let ty = f.ty();
+            quote! { pub #name: #ty }
+        });
 
     let marker = marker::generated();
 

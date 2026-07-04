@@ -158,6 +158,8 @@ impl EntityDef {
             .with_span(&input.ident));
         }
 
+        expand_embed_fields(&mut fields)?;
+
         let version_fields: Vec<usize> = fields
             .iter()
             .enumerate()
@@ -264,6 +266,75 @@ impl EntityDef {
             typed_constraints: attrs.typed_constraints
         })
     }
+}
+
+/// Expand `#[embed(...)]` parents into synthetic prefixed column fields.
+///
+/// Each declared subfield becomes a `FieldDef` named
+/// `{prefix}{subfield}` inserted right after its parent. Synthetic
+/// fields carry no DTO exposure — they exist purely for the database
+/// layer (Row struct, DDL, CRUD SQL) — and remember their origin for
+/// the generated mapping code.
+fn expand_embed_fields(fields: &mut Vec<FieldDef>) -> darling::Result<()> {
+    let mut existing: std::collections::HashSet<String> = fields
+        .iter()
+        .map(super::super::field::FieldDef::name_str)
+        .collect();
+
+    let mut insertions: Vec<(usize, Vec<FieldDef>)> = Vec::new();
+    for (idx, field) in fields.iter().enumerate() {
+        let Some(embed) = &field.embed else {
+            continue;
+        };
+
+        if matches!(
+            &field.ty,
+            syn::Type::Path(tp) if tp
+                .path
+                .segments
+                .last()
+                .is_some_and(|s| s.ident == "Option")
+        ) {
+            return Err(
+                darling::Error::custom("#[embed] does not support Option<T> parents yet")
+                    .with_span(&field.ident)
+            );
+        }
+
+        let mut synthetic = Vec::new();
+        for (sub, ty) in &embed.subfields {
+            let column = format!("{}{}", embed.prefix, sub);
+            if !existing.insert(column.clone()) {
+                return Err(darling::Error::custom(format!(
+                    "embed column `{column}` collides with an existing column"
+                ))
+                .with_span(&field.ident));
+            }
+            synthetic.push(FieldDef {
+                ident:        syn::Ident::new(&column, field.ident.span()),
+                ty:           ty.clone(),
+                sortable:     false,
+                embed:        None,
+                embed_origin: Some((field.ident.clone(), sub.clone())),
+                expose:       Default::default(),
+                storage:      Default::default(),
+                filter:       Default::default(),
+                column:       Default::default(),
+                doc:          None,
+                validation:   Default::default(),
+                example:      None,
+                map:          Default::default()
+            });
+        }
+        insertions.push((idx + 1, synthetic));
+    }
+
+    for (at, synthetic) in insertions.into_iter().rev() {
+        for (offset, field) in synthetic.into_iter().enumerate() {
+            fields.insert(at + offset, field);
+        }
+    }
+    Ok(())
 }
 
 /// Validate `#[entity(upsert(...))]` configuration at parse time.

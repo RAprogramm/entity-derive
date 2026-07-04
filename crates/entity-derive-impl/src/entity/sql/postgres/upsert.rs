@@ -129,8 +129,8 @@ impl Context<'_> {
             UpsertAction::Update => {
                 let assignments: Vec<String> = self
                     .entity
-                    .all_fields()
-                    .iter()
+                    .column_fields()
+                    .into_iter()
                     .filter(|f| {
                         let col = f.name_str();
                         !FieldDef::is_id(f) && !conflict.contains(&col)
