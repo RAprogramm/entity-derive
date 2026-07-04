@@ -159,45 +159,102 @@ impl<H: OutboxHandler> OutboxDrainer<H> {
         .fetch_all(&mut *tx)
         .await?;
 
-        let mut processed = 0usize;
+        let mut claimed = Vec::with_capacity(rows.len());
         for row in rows {
-            let outbox_row = OutboxRow {
+            claimed.push(OutboxRow {
                 id:        row.try_get("id")?,
                 entity:    row.try_get("entity")?,
                 kind:      row.try_get("kind")?,
                 entity_id: row.try_get("entity_id")?,
                 payload:   row.try_get("payload")?,
                 attempts:  row.try_get("attempts")?
-            };
+            });
+        }
 
-            match self.handler.handle(&outbox_row).await {
-                Ok(()) => {
+        let actions = process_rows(
+            &self.handler,
+            &claimed,
+            self.base_backoff,
+            self.max_attempts
+        )
+        .await;
+        let processed = actions.len();
+
+        for action in actions {
+            match action {
+                OutboxAction::MarkProcessed {
+                    id
+                } => {
                     sqlx::query("UPDATE entity_outbox SET processed_at = NOW() WHERE id = $1")
-                        .bind(outbox_row.id)
+                        .bind(id)
                         .execute(&mut *tx)
                         .await?;
                 }
-                Err(_) => {
-                    let delay =
-                        backoff_delay(self.base_backoff, outbox_row.attempts, self.max_attempts);
+                OutboxAction::ScheduleRetry {
+                    id,
+                    delay
+                } => {
                     sqlx::query(
                         "UPDATE entity_outbox \
                          SET attempts = attempts + 1, \
                              next_attempt_at = NOW() + $2 * INTERVAL '1 second' \
                          WHERE id = $1"
                     )
-                    .bind(outbox_row.id)
+                    .bind(id)
                     .bind(delay.as_secs_f64())
                     .execute(&mut *tx)
                     .await?;
                 }
             }
-            processed += 1;
         }
 
         tx.commit().await?;
         Ok(processed)
     }
+}
+
+/// Outcome of handling one claimed outbox row.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum OutboxAction {
+    /// Delivery succeeded — stamp `processed_at`.
+    MarkProcessed {
+        /// Outbox row id.
+        id: i64
+    },
+
+    /// Delivery failed — bump `attempts` and reschedule.
+    ScheduleRetry {
+        /// Outbox row id.
+        id:    i64,
+        /// Delay before the next attempt.
+        delay: Duration
+    }
+}
+
+/// Run the handler over claimed rows and decide per-row follow-up.
+///
+/// Pure decision logic extracted from [`OutboxDrainer::drain_once`] so
+/// delivery semantics are unit-testable without a database.
+pub async fn process_rows<H: OutboxHandler>(
+    handler: &H,
+    rows: &[OutboxRow],
+    base_backoff: Duration,
+    max_attempts: i32
+) -> Vec<OutboxAction> {
+    let mut actions = Vec::with_capacity(rows.len());
+    for row in rows {
+        let action = match handler.handle(row).await {
+            Ok(()) => OutboxAction::MarkProcessed {
+                id: row.id
+            },
+            Err(_) => OutboxAction::ScheduleRetry {
+                id:    row.id,
+                delay: backoff_delay(base_backoff, row.attempts, max_attempts)
+            }
+        };
+        actions.push(action);
+    }
+    actions
 }
 
 /// Compute the retry delay for a row that has already failed `attempts`
@@ -219,6 +276,78 @@ pub fn backoff_delay(base: Duration, attempts: i32, max_attempts: i32) -> Durati
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    struct FlakyHandler;
+
+    #[async_trait::async_trait]
+    impl OutboxHandler for FlakyHandler {
+        type Error = String;
+
+        async fn handle(&self, row: &OutboxRow) -> Result<(), Self::Error> {
+            if row.kind == "created" {
+                Ok(())
+            } else {
+                Err("boom".to_string())
+            }
+        }
+    }
+
+    fn row(id: i64, kind: &str, attempts: i32) -> OutboxRow {
+        OutboxRow {
+            id,
+            entity: "users".to_string(),
+            kind: kind.to_string(),
+            entity_id: "x".to_string(),
+            payload: serde_json::json!({}),
+            attempts
+        }
+    }
+
+    #[tokio::test]
+    async fn process_rows_marks_success_and_schedules_retry() {
+        let rows = vec![row(1, "created", 0), row(2, "updated", 1)];
+        let actions = process_rows(&FlakyHandler, &rows, Duration::from_secs(5), 10).await;
+        assert_eq!(
+            actions,
+            vec![
+                OutboxAction::MarkProcessed {
+                    id: 1
+                },
+                OutboxAction::ScheduleRetry {
+                    id:    2,
+                    delay: Duration::from_secs(10)
+                },
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn process_rows_parks_exhausted_rows() {
+        let rows = vec![row(3, "updated", 9)];
+        let actions = process_rows(&FlakyHandler, &rows, Duration::from_secs(5), 10).await;
+        assert_eq!(
+            actions,
+            vec![OutboxAction::ScheduleRetry {
+                id:    3,
+                delay: Duration::from_secs(60 * 60 * 24 * 30)
+            }]
+        );
+    }
+
+    #[tokio::test]
+    async fn drainer_builder_configures_all_knobs() {
+        let pool = sqlx::PgPool::connect_lazy("postgres://localhost/unused")
+            .expect("lazy pool never connects");
+        let drainer = OutboxDrainer::new(pool, FlakyHandler)
+            .batch_size(7)
+            .poll_interval(Duration::from_millis(250))
+            .base_backoff(Duration::from_secs(2))
+            .max_attempts(3);
+        assert_eq!(drainer.batch_size, 7);
+        assert_eq!(drainer.poll_interval, Duration::from_millis(250));
+        assert_eq!(drainer.base_backoff, Duration::from_secs(2));
+        assert_eq!(drainer.max_attempts, 3);
+    }
 
     #[test]
     fn backoff_grows_exponentially() {
