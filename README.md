@@ -78,7 +78,7 @@ pub struct User {
 
 ```toml
 [dependencies]
-entity-derive = { version = "0.13", features = ["postgres", "api"] }
+entity-derive = { version = "0.14", features = ["postgres", "api"] }
 ```
 
 ### Feature flags
@@ -106,7 +106,7 @@ Default features cover the full entity-attribute surface so existing projects wo
 ```toml
 [dependencies]
 # Just repositories — no events, hooks, commands, etc.
-entity-derive = { version = "0.13", default-features = false, features = ["postgres"] }
+entity-derive = { version = "0.14", default-features = false, features = ["postgres"] }
 ```
 
 If you use an entity attribute whose feature is disabled (e.g. `#[entity(commands)]` without `features = ["commands"]`), the macro emits a `compile_error!` at the attribute pointing to the missing feature.
@@ -115,7 +115,7 @@ Enable extras alongside the defaults:
 
 ```toml
 [dependencies]
-entity-derive = { version = "0.13", features = ["postgres", "api", "tracing", "streams"] }
+entity-derive = { version = "0.14", features = ["postgres", "api", "tracing", "streams"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
 ```
@@ -131,7 +131,7 @@ tracing-subscriber = "0.3"
 | **Auto HTTP Handlers** | `api(handlers)` generates CRUD endpoints + router |
 | **`OpenAPI` Docs** | Auto-generated Swagger/OpenAPI documentation |
 | **Query Filtering** | Type-safe `#[filter]`, `#[filter(like)]`, `#[filter(range)]` |
-| **Relations** | `#[belongs_to]` and `#[has_many]` |
+| **Relations** | `#[belongs_to]`, `#[has_many]` and many-to-many via `through = "junction"` |
 | **Ownership Scoping** | `#[owner]` generates `find_by_id_scoped` / `list_by_owner` / `update_scoped` / `delete_scoped` |
 | **Upsert** | `upsert(conflict = "…")` generates `INSERT ... ON CONFLICT DO UPDATE / DO NOTHING` |
 | **Aggregate Roots** | `#[entity(aggregate_root)]` with `New{T}` DTOs and transactional `save` |
@@ -215,6 +215,7 @@ tracing-subscriber = "0.3"
 #[filter(range)]               // Range filter (from/to)
 #[belongs_to(Entity)]          // Foreign key relation
 #[has_many(Entity)]            // One-to-many relation
+#[has_many(E, through = "t")]  // Many-to-many via junction table
 #[projection(Name: fields)]    // Partial view
 ```
 
@@ -308,6 +309,28 @@ pub struct User { /* ... */ }
 Per-operation overrides accept `create`, `get`, `update`, `delete`, `list`
 and `commands`; the literal `"none"` disables the guard for that operation.
 Commands listed in `public = [...]` never receive a guard.
+
+### Many-to-Many Relations
+
+Declare the junction table with `through` and the repository gains a
+JOIN-backed lookup plus link management, while `migrations` emits the
+junction DDL (composite primary key, cascading foreign keys):
+
+```rust,ignore
+#[derive(Entity)]
+#[entity(table = "teams", migrations)]
+#[has_many(User, through = "team_members")]
+pub struct Team { /* ... */ }
+
+for ddl in Team::MIGRATION_JUNCTIONS {
+    sqlx::query(ddl).execute(&pool).await?;
+}
+
+pool.add_user(team_id, user_id).await?;          // idempotent link
+let members: Vec<User> = pool.find_users(team_id).await?;
+let linked = pool.has_user(team_id, user_id).await?;
+let removed = pool.remove_user(team_id, user_id).await?;
+```
 
 ### Postgres Enums
 
@@ -406,7 +429,7 @@ projections, transaction adapters, stream subscribers) is wrapped in
 `#[tracing::instrument(skip_all, fields(entity, op), err(Debug))]`.
 
 ```toml
-entity-derive = { version = "0.13", features = ["postgres", "tracing"] }
+entity-derive = { version = "0.14", features = ["postgres", "tracing"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 ```

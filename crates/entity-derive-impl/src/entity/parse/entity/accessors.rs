@@ -154,7 +154,7 @@ impl EntityDef {
     ///
     /// Returns entity identifiers for one-to-many relationships.
     /// Used to generate collection methods in the repository.
-    pub fn has_many_relations(&self) -> &[Ident] {
+    pub fn has_many_relations(&self) -> &[super::HasManyDef] {
         &self.has_many
     }
 

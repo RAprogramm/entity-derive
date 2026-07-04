@@ -7,6 +7,7 @@
 
 mod ddl;
 
+use convert_case::Casing;
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::Type;
@@ -72,6 +73,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
         .collect();
 
     let outbox_const = outbox_migration_const(entity);
+    let junctions_const = junction_migration_const(entity);
     let marker = marker::generated();
 
     quote! {
@@ -105,6 +107,8 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             #vis const MIGRATION_TYPES: &'static [&'static str] = &[#(#create_type_refs),*];
 
             #outbox_const
+
+            #junctions_const
         }
 
         const _: () = {
@@ -143,6 +147,61 @@ fn outbox_migration_const(entity: &EntityDef) -> TokenStream {
         /// Execute alongside [`Self::MIGRATION_UP`]. Safe to run once
         /// per outbox-enabled entity — the statements are `IF NOT EXISTS`.
         #vis const MIGRATION_OUTBOX: &'static str = #ddl;
+    }
+}
+
+/// Generate the `MIGRATION_JUNCTIONS` constant for many-to-many relations.
+///
+/// One idempotent `CREATE TABLE IF NOT EXISTS` statement per
+/// `#[has_many(Child, through = "...")]` declaration: composite primary
+/// key over both foreign keys, `ON DELETE CASCADE` on each side. The
+/// child id column type mirrors the parent's `#[id]` type.
+fn junction_migration_const(entity: &EntityDef) -> TokenStream {
+    let through: Vec<_> = entity
+        .has_many_relations()
+        .iter()
+        .filter_map(|r| r.through.as_ref().map(|j| (r, j)))
+        .collect();
+    if through.is_empty() {
+        return TokenStream::new();
+    }
+
+    let vis = &entity.vis;
+    let mapper = crate::entity::migrations::types::PostgresTypeMapper;
+    let id_field = entity.id_field();
+    let id_sql = crate::entity::migrations::types::TypeMapper::map_type(
+        &mapper,
+        id_field.ty(),
+        &Default::default()
+    )
+    .name;
+    let parent_snake = entity.name_str().to_case(convert_case::Case::Snake);
+    let parent_table = entity.full_table_name();
+
+    let ddls: Vec<String> = through
+        .iter()
+        .map(|(relation, junction)| {
+            let child_snake = relation
+                .entity
+                .to_string()
+                .to_case(convert_case::Case::Snake);
+            let child_table = entity.full_table_name_for(&format!("{child_snake}s"));
+            let junction_table = entity.full_table_name_for(junction);
+            format!(
+                "CREATE TABLE IF NOT EXISTS {junction_table} (\
+                     {parent_snake}_id {id_sql} NOT NULL REFERENCES {parent_table}(id) ON DELETE CASCADE, \
+                     {child_snake}_id {id_sql} NOT NULL REFERENCES {child_table}(id) ON DELETE CASCADE, \
+                     PRIMARY KEY ({parent_snake}_id, {child_snake}_id)\
+                 );"
+            )
+        })
+        .collect();
+
+    quote! {
+        /// Idempotent DDL for many-to-many junction tables.
+        ///
+        /// Execute after [`Self::MIGRATION_UP`] of both related tables.
+        #vis const MIGRATION_JUNCTIONS: &'static [&'static str] = &[#(#ddls),*];
     }
 }
 
@@ -222,5 +281,53 @@ mod pg_enum_tests {
         let code = generate(&entity).to_string();
         assert!(code.contains("OrderStatus > :: PG_CREATE_TYPE"));
         assert!(!code.contains("Option < OrderStatus > :: PG_CREATE_TYPE"));
+    }
+}
+
+#[cfg(test)]
+mod junction_tests {
+    use syn::DeriveInput;
+
+    use super::*;
+
+    fn team_entity() -> EntityDef {
+        let input: DeriveInput = syn::parse_quote! {
+            #[entity(table = "teams", migrations)]
+            #[has_many(User, through = "team_members")]
+            pub struct Team {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, update, response)]
+                pub name: String,
+            }
+        };
+        EntityDef::from_derive_input(&input).unwrap()
+    }
+
+    #[test]
+    fn junction_ddl_emitted_for_through() {
+        let code = generate(&team_entity()).to_string();
+        assert!(code.contains("MIGRATION_JUNCTIONS"));
+        assert!(code.contains("CREATE TABLE IF NOT EXISTS team_members"));
+        assert!(code.contains("team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE"));
+        assert!(code.contains("user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE"));
+        assert!(code.contains("PRIMARY KEY (team_id, user_id)"));
+    }
+
+    #[test]
+    fn junction_const_absent_for_plain_has_many() {
+        let input: DeriveInput = syn::parse_quote! {
+            #[entity(table = "teams", migrations)]
+            #[has_many(User)]
+            pub struct Team {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, update, response)]
+                pub name: String,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let code = generate(&entity).to_string();
+        assert!(!code.contains("MIGRATION_JUNCTIONS"));
     }
 }
