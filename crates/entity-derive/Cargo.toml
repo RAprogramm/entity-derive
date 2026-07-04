@@ -45,6 +45,8 @@ api = []
 
 # `validator::Validate` integration on DTOs.
 validate = []
+# `garde::Validate` integration on DTOs (mutually exclusive with `validate`).
+garde = []
 
 # Lifecycle event types (`{Entity}Event::Created` / `Updated` / etc.).
 events = ["entity-derive-impl/events"]
@@ -96,6 +98,7 @@ tracing = "0.1"
 utoipa = { version = "5", features = ["chrono", "uuid"] }
 validator = { version = "0.20", features = ["derive"] }
 axum = "0.8"
+garde = { version = "0.23", features = ["derive", "email", "url"] }
 masterror = { version = "0.27", features = ["axum", "openapi"] }
 
 [package.metadata.docs.rs]

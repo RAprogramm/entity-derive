@@ -99,6 +99,7 @@ entity-derive = { version = "0.22", features = ["postgres", "api"] }
 | `outbox` |   | Transactional-outbox enqueue in generated writes + `OutboxDrainer` runtime (pulls in `events`) |
 | `api` |   | Generate HTTP handlers (`axum`) and `utoipa` OpenAPI schemas |
 | `validate` |   | Wire up `validator::Validate` on generated DTOs |
+| `garde` |   | Maintained alternative: `garde::Validate` with translated `#[validate(...)]` rules (`validate` wins if both are on) |
 | `tracing` |   | Wrap every generated async method in `#[tracing::instrument]` carrying `entity` + `op` span fields |
 
 Default features cover the full entity-attribute surface so existing projects work without changes. For lean builds, opt out of what you don't need:
@@ -600,6 +601,17 @@ Need conditional commit/rollback inside the closure? Use
 [`run_with_commit`](https://docs.rs/entity-core/latest/entity_core/transaction/struct.Transaction.html#method.run_with_commit)
 — it takes `TransactionContext` by value so the closure can call
 `ctx.commit().await` (or `ctx.rollback().await`) itself.
+
+### Validation Backends
+
+`#[validate(...)]` constraints on entity fields translate to the chosen
+backend. `validate` derives `validator::Validate` (unchanged). The new
+`garde` feature derives `garde::Validate` instead, translating
+`length`/`range`/`email`/`url`/`pattern` rules (Option-wrapped DTO
+fields validate the inner value; unconstrained fields get
+`garde(skip)`). `validator_derive` depends on the unmaintained
+`proc-macro-error2` (RUSTSEC-2026-0173) — `garde` avoids it. When both
+features are enabled, `validate` takes precedence.
 
 ### Tracing
 
