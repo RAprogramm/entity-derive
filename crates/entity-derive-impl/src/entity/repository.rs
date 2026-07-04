@@ -91,6 +91,19 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
         quote! { async fn create(&self, dto: #create_dto) -> Result<#entity_name, Self::Error>; }
     };
 
+    let create_many_method = if entity.create_fields().is_empty() {
+        TokenStream::new()
+    } else {
+        quote! {
+            /// Insert a batch of entities atomically.
+            ///
+            /// All rows are inserted inside one transaction: a failing
+            /// row rolls back the whole batch. Per-row events are
+            /// emitted when events delivery is enabled.
+            async fn create_many(&self, dtos: Vec<#create_dto>) -> Result<Vec<#entity_name>, Self::Error>;
+        }
+    };
+
     let update_method = if entity.update_fields().is_empty() {
         TokenStream::new()
     } else {
@@ -140,6 +153,21 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             async fn delete(&self, id: #id_type) -> Result<bool, Self::Error>;
 
             async fn list(&self, limit: i64, offset: i64) -> Result<Vec<#entity_name>, Self::Error>;
+
+            /// Fetch all entities whose ids are in the given list.
+            ///
+            /// Uses `WHERE id = ANY($1)`; missing ids are silently absent
+            /// from the result. Soft-deleted rows are filtered out.
+            async fn find_by_ids(&self, ids: Vec<#id_type>) -> Result<Vec<#entity_name>, Self::Error>;
+
+            #create_many_method
+
+            /// Delete all entities whose ids are in the given list.
+            ///
+            /// Returns the number of rows actually deleted. Soft-delete
+            /// aware; per-row events are emitted when events delivery is
+            /// enabled.
+            async fn delete_many(&self, ids: Vec<#id_type>) -> Result<u64, Self::Error>;
 
             /// List entities after the given cursor (keyset pagination).
             ///
