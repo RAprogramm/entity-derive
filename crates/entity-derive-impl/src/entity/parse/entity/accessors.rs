@@ -114,6 +114,15 @@ impl EntityDef {
     ///
     /// These database-layer structs include ALL fields from the
     /// entity, regardless of DTO inclusion settings.
+    /// Get the `#[owner]` field, if any.
+    ///
+    /// Marks the column carrying the owning principal's id and enables
+    /// generated row-level scoped repository methods.
+    #[must_use]
+    pub fn owner_field(&self) -> Option<&FieldDef> {
+        self.fields.iter().find(|f| f.storage.is_owner)
+    }
+
     pub fn all_fields(&self) -> &[FieldDef] {
         &self.fields
     }

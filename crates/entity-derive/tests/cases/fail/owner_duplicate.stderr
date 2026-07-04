@@ -1,0 +1,5 @@
+error: Entity can have at most one #[owner] field
+ --> tests/cases/fail/owner_duplicate.rs:9:12
+  |
+9 | pub struct Order {
+  |            ^^^^^

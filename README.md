@@ -78,7 +78,7 @@ pub struct User {
 
 ```toml
 [dependencies]
-entity-derive = { version = "0.11", features = ["postgres", "api"] }
+entity-derive = { version = "0.12", features = ["postgres", "api"] }
 ```
 
 ### Feature flags
@@ -105,7 +105,7 @@ Default features cover the full entity-attribute surface so existing projects wo
 ```toml
 [dependencies]
 # Just repositories — no events, hooks, commands, etc.
-entity-derive = { version = "0.11", default-features = false, features = ["postgres"] }
+entity-derive = { version = "0.12", default-features = false, features = ["postgres"] }
 ```
 
 If you use an entity attribute whose feature is disabled (e.g. `#[entity(commands)]` without `features = ["commands"]`), the macro emits a `compile_error!` at the attribute pointing to the missing feature.
@@ -114,7 +114,7 @@ Enable extras alongside the defaults:
 
 ```toml
 [dependencies]
-entity-derive = { version = "0.11", features = ["postgres", "api", "tracing", "streams"] }
+entity-derive = { version = "0.12", features = ["postgres", "api", "tracing", "streams"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
 ```
@@ -131,6 +131,7 @@ tracing-subscriber = "0.3"
 | **`OpenAPI` Docs** | Auto-generated Swagger/OpenAPI documentation |
 | **Query Filtering** | Type-safe `#[filter]`, `#[filter(like)]`, `#[filter(range)]` |
 | **Relations** | `#[belongs_to]` and `#[has_many]` |
+| **Ownership Scoping** | `#[owner]` generates `find_by_id_scoped` / `list_by_owner` / `update_scoped` / `delete_scoped` |
 | **Upsert** | `upsert(conflict = "…")` generates `INSERT ... ON CONFLICT DO UPDATE / DO NOTHING` |
 | **Aggregate Roots** | `#[entity(aggregate_root)]` with `New{T}` DTOs and transactional `save` |
 | **Transactions** | Multi-entity atomic operations |
@@ -201,6 +202,7 @@ tracing-subscriber = "0.3"
 ```rust,ignore
 #[id]                          // Primary key (auto-generated UUID)
 #[auto]                        // Auto-generated (timestamps)
+#[owner]                       // Ownership column: adds *_scoped methods
 #[field(create)]               // Include in CreateRequest
 #[field(update)]               // Include in UpdateRequest
 #[field(response)]             // Include in Response
@@ -212,6 +214,33 @@ tracing-subscriber = "0.3"
 #[has_many(Entity)]            // One-to-many relation
 #[projection(Name: fields)]    // Partial view
 ```
+
+### Ownership Scoping
+
+Mark the column carrying the owning principal's id with `#[owner]` and the
+repository gains row-level scoped methods — "only this user's rows" without
+hand-written predicates:
+
+```rust,ignore
+#[derive(Entity)]
+#[entity(table = "orders")]
+pub struct Order {
+    #[id]
+    pub id: Uuid,
+    #[owner]
+    pub user_id: Uuid,
+    #[field(create, update, response)]
+    pub note: String,
+}
+
+let mine: Vec<Order> = pool.list_by_owner(user_id, 20, 0).await?;
+let order = pool.find_by_id_scoped(id, user_id).await?;          // None if not theirs
+let updated = pool.update_scoped(id, user_id, patch).await?;     // None if not theirs
+let removed = pool.delete_scoped(id, user_id).await?;            // false if not theirs
+```
+
+Scoped reads and writes never reveal whether a row exists for another
+owner, and all of them respect `soft_delete`.
 
 ### Handler Guards
 
@@ -339,7 +368,7 @@ projections, transaction adapters, stream subscribers) is wrapped in
 `#[tracing::instrument(skip_all, fields(entity, op), err(Debug))]`.
 
 ```toml
-entity-derive = { version = "0.11", features = ["postgres", "tracing"] }
+entity-derive = { version = "0.12", features = ["postgres", "tracing"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 ```

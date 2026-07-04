@@ -461,3 +461,64 @@ fn upsert_unique_index_order_insensitive() {
     };
     assert!(EntityDef::from_derive_input(&input).is_ok());
 }
+
+#[test]
+fn owner_field_accessor_returns_marked_field() {
+    let input: DeriveInput = syn::parse_quote! {
+        #[entity(table = "orders")]
+        pub struct Order {
+            #[id]
+            pub id: uuid::Uuid,
+            #[owner]
+            pub user_id: uuid::Uuid,
+            #[field(create, response)]
+            pub note: String,
+        }
+    };
+    let entity = EntityDef::from_derive_input(&input).unwrap();
+    assert_eq!(entity.owner_field().unwrap().name_str(), "user_id");
+}
+
+#[test]
+fn owner_duplicate_rejected() {
+    let input: DeriveInput = syn::parse_quote! {
+        #[entity(table = "orders")]
+        pub struct Order {
+            #[id]
+            pub id: uuid::Uuid,
+            #[owner]
+            pub user_id: uuid::Uuid,
+            #[owner]
+            pub tenant_id: uuid::Uuid,
+        }
+    };
+    let err = EntityDef::from_derive_input(&input).unwrap_err();
+    assert!(err.to_string().contains("at most one #[owner]"));
+}
+
+#[test]
+fn owner_on_id_rejected() {
+    let input: DeriveInput = syn::parse_quote! {
+        #[entity(table = "orders")]
+        pub struct Order {
+            #[id]
+            #[owner]
+            pub id: uuid::Uuid,
+        }
+    };
+    let err = EntityDef::from_derive_input(&input).unwrap_err();
+    assert!(err.to_string().contains("cannot be combined with #[id]"));
+}
+
+#[test]
+fn owner_absent_returns_none() {
+    let input: DeriveInput = syn::parse_quote! {
+        #[entity(table = "users")]
+        pub struct User {
+            #[id]
+            pub id: uuid::Uuid,
+        }
+    };
+    let entity = EntityDef::from_derive_input(&input).unwrap();
+    assert!(entity.owner_field().is_none());
+}

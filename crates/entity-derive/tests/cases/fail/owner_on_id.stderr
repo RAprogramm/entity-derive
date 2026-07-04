@@ -1,0 +1,5 @@
+error: #[owner] cannot be combined with #[id]: the owner column scopes rows of another principal
+ --> tests/cases/fail/owner_on_id.rs:9:12
+  |
+9 | pub struct Order {
+  |            ^^^^^

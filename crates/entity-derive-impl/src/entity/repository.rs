@@ -98,6 +98,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     };
 
     let upsert_method = generate_upsert_method(entity);
+    let scoped_methods = generate_scoped_methods(entity, id_type);
     let relation_methods = generate_relation_methods(entity, id_type);
     let projection_methods = generate_projection_methods(entity, id_type);
     let soft_delete_methods = generate_soft_delete_methods(entity, id_type);
@@ -151,6 +152,8 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             #projection_methods
 
             #soft_delete_methods
+
+            #scoped_methods
 
             #save_method
         }
@@ -436,6 +439,52 @@ fn generate_trait_method(def: &LookupMethodDef) -> TokenStream {
     quote! {
         #doc_comment
         async fn #method_name(&self, #param_name: #param_type) -> Result<#return_type, Self::Error>;
+    }
+}
+
+/// Generate ownership-scoped methods when an `#[owner]` field is present.
+///
+/// | Method | Purpose |
+/// |--------|---------|
+/// | `find_by_id_scoped` | Fetch a row only if it belongs to the owner |
+/// | `list_by_owner` | Paginated listing of the owner's rows |
+/// | `update_scoped` | Update only within the owner's rows (`None` = not theirs) |
+/// | `delete_scoped` | Delete only within the owner's rows |
+fn generate_scoped_methods(entity: &EntityDef, id_type: &syn::Type) -> TokenStream {
+    let Some(owner) = entity.owner_field() else {
+        return TokenStream::new();
+    };
+
+    let entity_name = entity.name();
+    let owner_name = owner.name();
+    let owner_type = owner.ty();
+    let update_dto = entity.ident_with("Update", "Request");
+
+    let update_method = if entity.update_fields().is_empty() {
+        TokenStream::new()
+    } else {
+        quote! {
+            /// Update the entity only if it belongs to the given owner.
+            ///
+            /// Returns `None` when no row matches the id/owner pair,
+            /// without revealing whether the row exists for another owner.
+            async fn update_scoped(&self, id: #id_type, #owner_name: #owner_type, dto: #update_dto) -> Result<Option<#entity_name>, Self::Error>;
+        }
+    };
+
+    quote! {
+        /// Find the entity only if it belongs to the given owner.
+        async fn find_by_id_scoped(&self, id: #id_type, #owner_name: #owner_type) -> Result<Option<#entity_name>, Self::Error>;
+
+        /// List entities belonging to the given owner.
+        async fn list_by_owner(&self, #owner_name: #owner_type, limit: i64, offset: i64) -> Result<Vec<#entity_name>, Self::Error>;
+
+        #update_method
+
+        /// Delete the entity only if it belongs to the given owner.
+        ///
+        /// Soft-delete aware. Returns `false` when no row matches.
+        async fn delete_scoped(&self, id: #id_type, #owner_name: #owner_type) -> Result<bool, Self::Error>;
     }
 }
 

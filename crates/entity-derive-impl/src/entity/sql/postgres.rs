@@ -68,6 +68,7 @@ mod projections;
 mod query;
 mod relations;
 mod save;
+mod scoped;
 mod soft_delete;
 mod upsert;
 
@@ -112,6 +113,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     let relation_impls = ctx.relation_methods();
     let projection_impls = ctx.projection_methods();
     let soft_delete_impls = ctx.soft_delete_methods();
+    let scoped_impls = ctx.scoped_methods();
     let lookup_impls = ctx.lookup_methods();
     let save_impl = ctx.save_method();
     let marker = marker::generated();
@@ -140,6 +142,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             #relation_impls
             #projection_impls
             #soft_delete_impls
+            #scoped_impls
             #save_impl
         }
     }

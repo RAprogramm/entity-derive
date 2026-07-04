@@ -142,6 +142,22 @@ impl EntityDef {
                     .with_span(&input.ident)
             })?;
 
+        let owner_count = fields.iter().filter(|f| f.storage.is_owner).count();
+        if owner_count > 1 {
+            return Err(
+                darling::Error::custom("Entity can have at most one #[owner] field")
+                    .with_span(&input.ident)
+            );
+        }
+        if let Some(owner) = fields.iter().find(|f| f.storage.is_owner)
+            && owner.is_id()
+        {
+            return Err(darling::Error::custom(
+                "#[owner] cannot be combined with #[id]: the owner column scopes rows of another principal"
+            )
+            .with_span(&input.ident));
+        }
+
         if let Some(upsert) = &attrs.upsert {
             validate_upsert(
                 upsert,
