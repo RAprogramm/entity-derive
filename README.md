@@ -78,7 +78,7 @@ pub struct User {
 
 ```toml
 [dependencies]
-entity-derive = { version = "0.18", features = ["postgres", "api"] }
+entity-derive = { version = "0.19", features = ["postgres", "api"] }
 ```
 
 ### Feature flags
@@ -106,7 +106,7 @@ Default features cover the full entity-attribute surface so existing projects wo
 ```toml
 [dependencies]
 # Just repositories — no events, hooks, commands, etc.
-entity-derive = { version = "0.18", default-features = false, features = ["postgres"] }
+entity-derive = { version = "0.19", default-features = false, features = ["postgres"] }
 ```
 
 If you use an entity attribute whose feature is disabled (e.g. `#[entity(commands)]` without `features = ["commands"]`), the macro emits a `compile_error!` at the attribute pointing to the missing feature.
@@ -115,7 +115,7 @@ Enable extras alongside the defaults:
 
 ```toml
 [dependencies]
-entity-derive = { version = "0.18", features = ["postgres", "api", "tracing", "streams"] }
+entity-derive = { version = "0.19", features = ["postgres", "api", "tracing", "streams"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
 ```
@@ -134,6 +134,7 @@ tracing-subscriber = "0.3"
 | **Sorting & Keyset** | `#[sort]` whitelisted ORDER BY + `list_after` cursor pagination |
 | **Bulk Operations** | `find_by_ids`, atomic `create_many`, soft-delete-aware `delete_many` |
 | **PATCH Semantics** | Dynamic UPDATE SET; double-`Option` distinguishes "leave" from "set NULL" |
+| **Optimistic Locking** | `#[version]` — guarded, auto-incremented version column |
 | **Relations** | `#[belongs_to]`, `#[has_many]` and many-to-many via `through = "junction"` |
 | **Ownership Scoping** | `#[owner]` generates `find_by_id_scoped` / `list_by_owner` / `update_scoped` / `delete_scoped` |
 | **Upsert** | `upsert(conflict = "…")` generates `INSERT ... ON CONFLICT DO UPDATE / DO NOTHING` |
@@ -214,6 +215,7 @@ tracing-subscriber = "0.3"
 #[id]                          // Primary key (auto-generated UUID)
 #[auto]                        // Auto-generated (timestamps)
 #[owner]                       // Ownership column: adds *_scoped methods
+#[version]                     // Optimistic locking: guarded, auto-bumped
 #[field(create)]               // Include in CreateRequest
 #[field(update)]               // Include in UpdateRequest
 #[field(response)]             // Include in Response
@@ -318,6 +320,30 @@ pub struct User { /* ... */ }
 Per-operation overrides accept `create`, `get`, `update`, `delete`, `list`
 and `commands`; the literal `"none"` disables the guard for that operation.
 Commands listed in `public = [...]` never receive a guard.
+
+### Optimistic Locking
+
+Mark an integer column with `#[version]` and concurrent updates stop
+silently overwriting each other. The Update DTO gains a required
+`expected_version`; the generated UPDATE bumps the column and only
+applies when the stored version still matches — a stale write fails
+with a conflict error instead of clobbering newer data:
+
+```rust,ignore
+#[derive(Entity)]
+#[entity(table = "orders", migrations)]
+pub struct Order {
+    #[id] pub id: Uuid,
+    #[field(create, update, response)] pub note: String,
+    #[version] #[field(response)] #[auto] pub version: i32,
+}
+
+let patch = UpdateOrderRequest { note: Some("v2".into()), expected_version: order.version };
+let updated = pool.update(order.id, patch).await?;   // version = version + 1
+```
+
+DDL gets `INTEGER NOT NULL DEFAULT 0` automatically. Works in plain,
+scoped and transactional updates.
 
 ### Migration Triggers & Extensions
 
@@ -515,7 +541,7 @@ projections, transaction adapters, stream subscribers) is wrapped in
 `#[tracing::instrument(skip_all, fields(entity, op), err(Debug))]`.
 
 ```toml
-entity-derive = { version = "0.18", features = ["postgres", "tracing"] }
+entity-derive = { version = "0.19", features = ["postgres", "tracing"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 ```

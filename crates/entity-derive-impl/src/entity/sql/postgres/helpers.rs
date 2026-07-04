@@ -234,6 +234,38 @@ pub fn dynamic_set_stmts(fields: &[&FieldDef]) -> TokenStream {
     }
 }
 
+/// Version-guard fragments for optimistic locking.
+///
+/// Returns `(set_fragment_stmt, where_fragment, bind_stmt)`:
+/// a statement pushing `version = version + 1` into `__sets`, the
+/// extra WHERE condition with its placeholder expression, and the
+/// bind of `dto.expected_version`.
+pub fn version_guard(
+    entity: &crate::entity::parse::EntityDef,
+    where_index: &TokenStream
+) -> (TokenStream, TokenStream, TokenStream) {
+    match entity.version_field() {
+        Some(field) => {
+            let column = field.name_str();
+            let bump = format!("{column} = {column} + 1");
+            let where_fmt = format!(" AND {column} = ${{}}");
+            (
+                quote! {
+                    __sets.push(#bump.to_string());
+                    let __version_where = format!(#where_fmt, #where_index);
+                },
+                quote! { __version_where },
+                quote! { q = q.bind(dto.expected_version); }
+            )
+        }
+        None => (
+            quote! { let __version_where = ""; },
+            quote! { __version_where },
+            TokenStream::new()
+        )
+    }
+}
+
 /// Generate conditional `.bind()` statements matching [`dynamic_set_stmts`].
 ///
 /// The query variable is expected to be named `q`.

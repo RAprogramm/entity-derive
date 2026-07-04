@@ -144,6 +144,12 @@ impl EntityDef {
     }
 
     /// Check if this entity has any filterable fields.
+    /// Get the `#[version]` optimistic-locking field, if any.
+    #[must_use]
+    pub fn version_field(&self) -> Option<&FieldDef> {
+        self.fields.iter().find(|f| f.storage.is_version)
+    }
+
     /// Get all fields marked `#[sort]`.
     #[must_use]
     pub fn sort_fields(&self) -> Vec<&FieldDef> {

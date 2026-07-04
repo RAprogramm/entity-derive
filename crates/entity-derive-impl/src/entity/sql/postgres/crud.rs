@@ -317,6 +317,8 @@ impl Context<'_> {
 
         let set_stmts = super::helpers::dynamic_set_stmts(&update_fields);
         let set_binds = super::helpers::dynamic_set_binds(&update_fields);
+        let (version_stmts, version_where, version_bind) =
+            super::helpers::version_guard(self.entity, &quote! { __idx + 1 });
         let _ = dialect;
 
         let span = instrument(&entity_name.to_string(), "update");
@@ -339,12 +341,15 @@ impl Context<'_> {
                     }
                     let mut tx = self.begin().await?;
                     #fetch_old
+                    #version_stmts
                     let mut q = sqlx::query_as::<_, #row_name>(
-                        ::sqlx::AssertSqlSafe(format!("UPDATE {} SET {} WHERE {} = ${} RETURNING *", #table, __sets.join(", "), stringify!(#id_name), __idx))
+                        ::sqlx::AssertSqlSafe(format!("UPDATE {} SET {} WHERE {} = ${}{} RETURNING *", #table, __sets.join(", "), stringify!(#id_name), __idx, #version_where))
                     );
                     #set_binds
                     q = q.bind(&id);
-                    let row: #row_name = q.fetch_one(&mut *tx).await?;
+                    #version_bind
+                    let row: #row_name = q.fetch_optional(&mut *tx).await?
+                        .ok_or_else(|| sqlx::Error::Protocol("row not found or version conflict".into()))?;
                     let entity = #entity_name::from(row);
                     #outbox_updated
                     #notify
@@ -366,12 +371,15 @@ impl Context<'_> {
                         if __sets.is_empty() {
                             return <Self as #trait_name>::find_by_id(self, id).await?.ok_or_else(|| sqlx::Error::RowNotFound.into());
                         }
+                        #version_stmts
                         let mut q = sqlx::query_as::<_, #row_name>(
-                            ::sqlx::AssertSqlSafe(format!("UPDATE {} SET {} WHERE {} = ${} RETURNING *", #table, __sets.join(", "), stringify!(#id_name), __idx))
+                            ::sqlx::AssertSqlSafe(format!("UPDATE {} SET {} WHERE {} = ${}{} RETURNING *", #table, __sets.join(", "), stringify!(#id_name), __idx, #version_where))
                         );
                         #set_binds
                         q = q.bind(&id);
-                        let row: #row_name = q.fetch_one(self).await?;
+                        #version_bind
+                        let row: #row_name = q.fetch_optional(self).await?
+                            .ok_or_else(|| sqlx::Error::Protocol("row not found or version conflict".into()))?;
                         Ok(#entity_name::from(row))
                     }
                 }
@@ -382,10 +390,15 @@ impl Context<'_> {
                     async fn update(&self, id: #id_type, dto: #update_dto) -> Result<#entity_name, Self::Error> {
                         #set_stmts
                         if !__sets.is_empty() {
-                            let mut q = sqlx::query(::sqlx::AssertSqlSafe(format!("UPDATE {} SET {} WHERE {} = ${}", #table, __sets.join(", "), stringify!(#id_name), __idx)));
+                            #version_stmts
+                            let mut q = sqlx::query(::sqlx::AssertSqlSafe(format!("UPDATE {} SET {} WHERE {} = ${}{}", #table, __sets.join(", "), stringify!(#id_name), __idx, #version_where)));
                             #set_binds
                             q = q.bind(&id);
-                            q.execute(self).await?;
+                            #version_bind
+                            let __result = q.execute(self).await?;
+                            if __result.rows_affected() == 0 {
+                                return Err(sqlx::Error::Protocol("row not found or version conflict".into()).into());
+                            }
                         }
                         <Self as #trait_name>::find_by_id(self, id).await?.ok_or_else(|| sqlx::Error::RowNotFound)
                     }
@@ -398,10 +411,15 @@ impl Context<'_> {
                     async fn update(&self, id: #id_type, dto: #update_dto) -> Result<#entity_name, Self::Error> {
                         #set_stmts
                         if !__sets.is_empty() {
-                            let mut q = sqlx::query(::sqlx::AssertSqlSafe(format!("UPDATE {} SET {} WHERE {} = ${} RETURNING {}", #table, __sets.join(", "), stringify!(#id_name), __idx, #returning_cols)));
+                            #version_stmts
+                            let mut q = sqlx::query(::sqlx::AssertSqlSafe(format!("UPDATE {} SET {} WHERE {} = ${}{} RETURNING {}", #table, __sets.join(", "), stringify!(#id_name), __idx, #version_where, #returning_cols)));
                             #set_binds
                             q = q.bind(&id);
-                            q.execute(self).await?;
+                            #version_bind
+                            let __result = q.execute(self).await?;
+                            if __result.rows_affected() == 0 {
+                                return Err(sqlx::Error::Protocol("row not found or version conflict".into()).into());
+                            }
                         }
                         <Self as #trait_name>::find_by_id(self, id).await?.ok_or_else(|| sqlx::Error::RowNotFound)
                     }
@@ -572,5 +590,59 @@ mod list_after_tests {
         let code = Context::new(&entity).list_after_method().to_string();
         assert!(code.contains("AND deleted_at IS NULL"));
         assert!(code.contains("WHERE deleted_at IS NULL"));
+    }
+}
+
+#[cfg(test)]
+mod version_tests {
+    use quote::quote;
+    use syn::DeriveInput;
+
+    use super::super::context::Context;
+    use crate::entity::parse::EntityDef;
+
+    fn versioned_entity() -> EntityDef {
+        let input: DeriveInput = syn::parse_quote! {
+            #[entity(table = "orders")]
+            pub struct Order {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, update, response)]
+                pub note: String,
+                #[version]
+                #[field(response)]
+                #[auto]
+                pub version: i32,
+            }
+        };
+        EntityDef::from_derive_input(&input).unwrap()
+    }
+
+    #[test]
+    fn update_bumps_and_guards_version() {
+        let code = Context::new(&versioned_entity())
+            .update_method()
+            .to_string();
+        assert!(code.contains("version = version + 1"));
+        assert!(code.contains("AND version = ${}"));
+        assert!(code.contains("expected_version"));
+        assert!(code.contains("version conflict"));
+        let _ = quote!();
+    }
+
+    #[test]
+    fn update_without_version_has_no_guard() {
+        let input: DeriveInput = syn::parse_quote! {
+            #[entity(table = "orders")]
+            pub struct Order {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, update, response)]
+                pub note: String,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let code = Context::new(&entity).update_method().to_string();
+        assert!(!code.contains("expected_version"));
     }
 }
