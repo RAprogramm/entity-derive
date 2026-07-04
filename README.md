@@ -372,8 +372,22 @@ match pool.create(dto).await {
 ```
 
 Covers unique columns, `belongs_to` foreign keys, column checks and
-`unique_index` names. The custom `error` type must implement
-`From<ConstraintError>`; without the flag behavior is unchanged.
+`unique_index` names. Constraints the macro cannot infer — foreign keys
+over natural keys, custom-named CHECKs, indexes from hand-written
+migrations — are declared explicitly and take precedence over derived
+entries with the same name:
+
+```rust,ignore
+#[entity(
+    table = "orders",
+    typed_constraints,
+    constraint(name = "orders_currency_fkey", kind = "foreign_key", field = "currency"),
+    constraint(name = "orders_window_check", kind = "check"),
+)]
+```
+
+The custom `error` type must implement `From<ConstraintError>`; without
+the flag behavior is unchanged.
 
 ### Trigram Search
 

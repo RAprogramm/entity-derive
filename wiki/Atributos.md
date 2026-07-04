@@ -724,3 +724,16 @@ pub name: String,
 let dto: CreateUserRequest = serde_json::from_str(body)?;
 garde::Validate::validate(&dto)?;
 ```
+
+### `constraint(...)` (opcional, junto con `typed_constraints`)
+
+Declara constraints que la macro no puede inferir — claves foráneas sobre claves naturales, CHECKs con nombres personalizados, índices de migraciones manuales — para que las violaciones se resuelvan a `ConstraintError` con el campo declarado. Tipos: `unique`, `foreign_key`, `check`. Las entradas personalizadas tienen prioridad sobre las derivadas con el mismo nombre. Requiere `typed_constraints`.
+
+```rust
+#[entity(
+    table = "orders",
+    typed_constraints,
+    constraint(name = "orders_currency_fkey", kind = "foreign_key", field = "currency"),
+    constraint(name = "orders_window_check", kind = "check"),
+)]
+```

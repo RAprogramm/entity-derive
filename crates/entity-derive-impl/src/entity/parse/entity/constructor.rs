@@ -61,7 +61,7 @@ use syn::DeriveInput;
 use super::{
     super::{command::parse_command_attrs, field::FieldDef, returning::ReturningMode},
     CompositeIndexDef, EntityAttrs, EntityDef,
-    helpers::{parse_api_attr, parse_has_many_attrs, parse_index_attrs},
+    helpers::{parse_api_attr, parse_constraint_attrs, parse_has_many_attrs, parse_index_attrs},
     parse_projection_attrs,
     upsert::{UpsertAction, UpsertDef}
 };
@@ -132,6 +132,14 @@ impl EntityDef {
         let command_defs = parse_command_attrs(&input.attrs).map_err(darling::Error::from)?;
         let api_config = parse_api_attr(&input.attrs);
         let indexes = parse_index_attrs(&input.attrs);
+        let custom_constraints =
+            parse_constraint_attrs(&input.attrs).map_err(darling::Error::from)?;
+        if !custom_constraints.is_empty() && !attrs.typed_constraints {
+            return Err(darling::Error::custom(
+                "constraint(...) requires #[entity(typed_constraints)]"
+            )
+            .with_span(&input.ident));
+        }
         let doc = extract_doc_comments(&input.attrs);
 
         let id_field_index = fields
@@ -263,7 +271,8 @@ impl EntityDef {
             indexes,
             aggregate_root: attrs.aggregate_root,
             upsert: attrs.upsert,
-            typed_constraints: attrs.typed_constraints
+            typed_constraints: attrs.typed_constraints,
+            custom_constraints
         })
     }
 }

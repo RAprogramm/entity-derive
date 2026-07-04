@@ -195,6 +195,95 @@ pub fn parse_api_attr(attrs: &[Attribute]) -> ApiConfig {
     ApiConfig::default()
 }
 
+/// A custom constraint declaration from `#[entity(constraint(...))]`.
+///
+/// Extends the `typed_constraints` registry with constraints the macro
+/// cannot infer: foreign keys over natural keys, custom-named CHECK
+/// constraints, indexes created in hand-written migrations.
+#[derive(Debug, Clone)]
+pub struct CustomConstraintDef {
+    /// Constraint name as reported by the database.
+    pub name: String,
+
+    /// Constraint kind (`unique`, `foreign_key` or `check`).
+    pub kind: String,
+
+    /// Entity field the constraint maps to, when known.
+    pub field: Option<String>
+}
+
+/// Parse `constraint(...)` declarations from `#[entity(...)]` attributes.
+///
+/// # Errors
+///
+/// Returns an error for a missing `name`/`kind`, an unknown `kind`, or
+/// an unknown option inside `constraint(...)`.
+pub fn parse_constraint_attrs(attrs: &[Attribute]) -> syn::Result<Vec<CustomConstraintDef>> {
+    let mut constraints = Vec::new();
+
+    for attr in attrs {
+        if !attr.path().is_ident("entity") {
+            continue;
+        }
+
+        attr.parse_nested_meta(|meta| {
+            if meta.path.is_ident("constraint") {
+                constraints.push(parse_constraint_content(&meta)?);
+            } else if meta.input.peek(syn::Token![=]) {
+                let _: syn::Token![=] = meta.input.parse()?;
+                let _: syn::Expr = meta.input.parse()?;
+            } else if meta.input.peek(syn::token::Paren) {
+                let content;
+                syn::parenthesized!(content in meta.input);
+                let _: proc_macro2::TokenStream = content.parse()?;
+            }
+            Ok(())
+        })?;
+    }
+
+    Ok(constraints)
+}
+
+/// Parse the body of one `constraint(...)` declaration.
+fn parse_constraint_content(
+    meta: &syn::meta::ParseNestedMeta<'_>
+) -> syn::Result<CustomConstraintDef> {
+    let mut name: Option<String> = None;
+    let mut kind: Option<String> = None;
+    let mut field: Option<String> = None;
+
+    meta.parse_nested_meta(|nested| {
+        if nested.path.is_ident("name") {
+            let value: syn::LitStr = nested.value()?.parse()?;
+            name = Some(value.value());
+        } else if nested.path.is_ident("kind") {
+            let value: syn::LitStr = nested.value()?.parse()?;
+            let v = value.value();
+            if !matches!(v.as_str(), "unique" | "foreign_key" | "check") {
+                return Err(nested.error(format!(
+                    "unknown constraint kind `{v}`; expected unique, foreign_key or check"
+                )));
+            }
+            kind = Some(v);
+        } else if nested.path.is_ident("field") {
+            let value: syn::LitStr = nested.value()?.parse()?;
+            field = Some(value.value());
+        } else {
+            return Err(nested.error("unknown constraint option; expected name, kind, field"));
+        }
+        Ok(())
+    })?;
+
+    let name = name.ok_or_else(|| meta.error("constraint requires name = \"...\""))?;
+    let kind = kind.ok_or_else(|| meta.error("constraint requires kind = \"...\""))?;
+
+    Ok(CustomConstraintDef {
+        name,
+        kind,
+        field
+    })
+}
+
 /// Parse `index(...)` and `unique_index(...)` from `#[entity(...)]` attribute.
 ///
 /// Extracts composite index definitions from the entity attribute.
