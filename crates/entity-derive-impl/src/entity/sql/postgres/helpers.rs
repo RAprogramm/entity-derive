@@ -361,10 +361,10 @@ mod tests {
 
     #[test]
     fn join_columns_multiple() {
-        let fields = vec![
+        let fields = [
             parse_field(quote! { pub id: Uuid }),
             parse_field(quote! { pub name: String }),
-            parse_field(quote! { pub email: String }),
+            parse_field(quote! { pub email: String })
         ];
         let refs: Vec<&FieldDef> = fields.iter().collect();
         let result = join_columns(&refs);
