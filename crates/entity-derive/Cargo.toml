@@ -3,7 +3,7 @@
 
 [package]
 name = "entity-derive"
-version = "0.10.0"
+version = "0.11.0"
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
@@ -74,7 +74,7 @@ tracing = ["entity-core/tracing"]
 
 [dependencies]
 entity-core = { path = "../entity-core", version = "0.7" }
-entity-derive-impl = { path = "../entity-derive-impl", version = "0.8", default-features = false }
+entity-derive-impl = { path = "../entity-derive-impl", version = "0.9", default-features = false }
 
 [dev-dependencies]
 trybuild = "1"
@@ -94,6 +94,8 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 tracing = "0.1"
 utoipa = { version = "5", features = ["chrono", "uuid"] }
 validator = { version = "0.20", features = ["derive"] }
+axum = "0.8"
+masterror = { version = "0.27", features = ["axum", "openapi"] }
 
 [package.metadata.docs.rs]
 all-features = true

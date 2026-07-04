@@ -210,7 +210,7 @@ fn parse_single_command(attr: &Attribute) -> syn::Result<CommandDef> {
                     let payload_lit: syn::LitStr = input.parse()?;
                     let payload_str = payload_lit.value();
                     let ty: Type = syn::parse_str(&payload_str)?;
-                    cmd.source = CommandSource::Custom(ty);
+                    cmd.source = CommandSource::Custom(Box::new(ty));
                     cmd.kind = CommandKindHint::Custom;
                 }
                 "result" => {

@@ -252,6 +252,8 @@ pub fn generate_list_handler(entity: &EntityDef) -> TokenStream {
         }
     );
 
+    let guard_param = super::helpers::build_guard_param(entity, "list");
+
     quote! {
         /// Pagination query parameters for list endpoints.
         ///
@@ -296,6 +298,7 @@ pub fn generate_list_handler(entity: &EntityDef) -> TokenStream {
         #vis async fn #handler_name<R>(
             axum::extract::State(repo): axum::extract::State<std::sync::Arc<R>>,
             axum::extract::Query(pagination): axum::extract::Query<PaginationQuery>,
+            #guard_param
         ) -> masterror::AppResult<axum::response::Json<Vec<#response_dto>>>
         where
             R: #repo_trait + 'static,

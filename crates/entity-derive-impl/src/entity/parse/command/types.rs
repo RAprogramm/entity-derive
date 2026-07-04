@@ -115,7 +115,7 @@ pub enum CommandSource {
     /// Use a custom payload struct.
     ///
     /// Example: `#[command(Transfer, payload = "TransferPayload")]`
-    Custom(Type),
+    Custom(Box<Type>),
 
     /// No fields in payload.
     ///

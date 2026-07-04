@@ -191,6 +191,51 @@ pub fn parse_api_config(meta: &syn::Meta) -> syn::Result<ApiConfig> {
                 let value: syn::LitStr = nested.value()?.parse()?;
                 config.security = Some(value.value());
             }
+            "guard" => {
+                if nested.input.peek(syn::token::Paren) {
+                    let content;
+                    syn::parenthesized!(content in nested.input);
+                    while !content.is_empty() {
+                        let op: Ident = content.parse()?;
+                        let op_str = op.to_string();
+                        if !matches!(
+                            op_str.as_str(),
+                            "create" | "get" | "update" | "delete" | "list" | "commands"
+                        ) {
+                            return Err(syn::Error::new(
+                                op.span(),
+                                format!(
+                                    "unknown guard operation '{op_str}', expected: create, get, \
+                                     update, delete, list, commands"
+                                )
+                            ));
+                        }
+                        let _: syn::Token![=] = content.parse()?;
+                        let value: syn::LitStr = content.parse()?;
+                        let guard_str = value.value();
+                        if guard_str != "none" && syn::parse_str::<syn::Path>(&guard_str).is_err() {
+                            return Err(syn::Error::new(
+                                value.span(),
+                                format!("guard '{guard_str}' is not a valid type path")
+                            ));
+                        }
+                        config.guard_overrides.push((op_str, guard_str));
+                        if content.peek(syn::Token![,]) {
+                            let _: syn::Token![,] = content.parse()?;
+                        }
+                    }
+                } else {
+                    let value: syn::LitStr = nested.value()?.parse()?;
+                    let guard_str = value.value();
+                    if guard_str != "none" && syn::parse_str::<syn::Path>(&guard_str).is_err() {
+                        return Err(syn::Error::new(
+                            value.span(),
+                            format!("guard '{guard_str}' is not a valid type path")
+                        ));
+                    }
+                    config.guard = Some(guard_str);
+                }
+            }
             "public" => {
                 let _: syn::Token![=] = nested.input.parse()?;
                 let content;
@@ -282,7 +327,7 @@ pub fn parse_api_config(meta: &syn::Meta) -> syn::Result<ApiConfig> {
                     ident.span(),
                     format!(
                         "unknown api option '{ident_str}', expected: tag, tag_description, path_prefix, \
-                         security, public, version, deprecated_in, handlers, title, description, \
+                         security, guard, public, version, deprecated_in, handlers, title, description, \
                          api_version, license, license_url, contact_name, contact_email, \
                          contact_url"
                     )

@@ -78,7 +78,7 @@ pub struct User {
 
 ```toml
 [dependencies]
-entity-derive = { version = "0.10", features = ["postgres", "api"] }
+entity-derive = { version = "0.11", features = ["postgres", "api"] }
 ```
 
 ### Feature flags
@@ -105,7 +105,7 @@ Default features cover the full entity-attribute surface so existing projects wo
 ```toml
 [dependencies]
 # Just repositories — no events, hooks, commands, etc.
-entity-derive = { version = "0.10", default-features = false, features = ["postgres"] }
+entity-derive = { version = "0.11", default-features = false, features = ["postgres"] }
 ```
 
 If you use an entity attribute whose feature is disabled (e.g. `#[entity(commands)]` without `features = ["commands"]`), the macro emits a `compile_error!` at the attribute pointing to the missing feature.
@@ -114,7 +114,7 @@ Enable extras alongside the defaults:
 
 ```toml
 [dependencies]
-entity-derive = { version = "0.10", features = ["postgres", "api", "tracing", "streams"] }
+entity-derive = { version = "0.11", features = ["postgres", "api", "tracing", "streams"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
 ```
@@ -188,6 +188,8 @@ tracing-subscriber = "0.3"
         tag = "Users",
         handlers,              // All CRUD, or handlers(get, list, create)
         security = "bearer",   // cookie, bearer, api_key, or none
+        guard = "RequireAuth", // FromRequestParts extractor enforced in handlers
+        guard(list = "none"),  // per-op override: create/get/update/delete/list/commands
         title = "My API",
         api_version = "1.0.0",
     ),
@@ -210,6 +212,35 @@ tracing-subscriber = "0.3"
 #[has_many(Entity)]            // One-to-many relation
 #[projection(Name: fields)]    // Partial view
 ```
+
+### Handler Guards
+
+`security = "..."` only documents authentication in the OpenAPI spec. To
+actually enforce it, pass a `guard` — any type implementing axum's
+`FromRequestParts`. It is injected as a leading argument of every generated
+handler, so a failed extraction rejects the request before the handler body
+runs:
+
+```rust,ignore
+pub struct RequireAuth;
+
+impl<S: Send + Sync> FromRequestParts<S> for RequireAuth {
+    type Rejection = StatusCode;
+    async fn from_request_parts(parts: &mut Parts, _: &S) -> Result<Self, Self::Rejection> {
+        parts.headers.contains_key("authorization")
+            .then_some(Self)
+            .ok_or(StatusCode::UNAUTHORIZED)
+    }
+}
+
+#[derive(Entity)]
+#[entity(table = "users", api(tag = "Users", handlers, guard = "RequireAuth", guard(list = "none")))]
+pub struct User { /* ... */ }
+```
+
+Per-operation overrides accept `create`, `get`, `update`, `delete`, `list`
+and `commands`; the literal `"none"` disables the guard for that operation.
+Commands listed in `public = [...]` never receive a guard.
 
 ### Postgres Enums
 
@@ -308,7 +339,7 @@ projections, transaction adapters, stream subscribers) is wrapped in
 `#[tracing::instrument(skip_all, fields(entity, op), err(Debug))]`.
 
 ```toml
-entity-derive = { version = "0.10", features = ["postgres", "tracing"] }
+entity-derive = { version = "0.11", features = ["postgres", "tracing"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 ```

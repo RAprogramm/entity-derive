@@ -235,12 +235,15 @@ pub fn generate_update_handler(entity: &EntityDef) -> TokenStream {
         entity_name
     );
 
+    let guard_param = super::helpers::build_guard_param(entity, "update");
+
     quote! {
         #[doc = #doc]
         #utoipa_attr
         #vis async fn #handler_name<R>(
             axum::extract::State(repo): axum::extract::State<std::sync::Arc<R>>,
             axum::extract::Path(id): axum::extract::Path<#id_type>,
+            #guard_param
             axum::extract::Json(dto): axum::extract::Json<#update_dto>,
         ) -> masterror::AppResult<axum::response::Json<#response_dto>>
         where

@@ -279,6 +279,19 @@ pub fn build_deprecated_attr(entity: &EntityDef) -> TokenStream {
     }
 }
 
+/// Build the guard extractor parameter for a handler signature.
+///
+/// Resolves the effective guard for `operation` and renders it as a
+/// leading handler argument. Guards implement axum's `FromRequestParts`,
+/// so extraction failure rejects the request before the handler body
+/// runs.
+pub fn build_guard_param(entity: &EntityDef, operation: &str) -> TokenStream {
+    match entity.api_config().guard_for(operation) {
+        Some(path) => quote::quote! { _guard: #path, },
+        None => TokenStream::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
