@@ -158,6 +158,15 @@ impl EntityDef {
             .with_span(&input.ident));
         }
 
+        if attrs.migrations.touch_updated_at
+            && !fields.iter().any(|f| f.name_str() == "updated_at")
+        {
+            return Err(darling::Error::custom(
+                "migrations(touch_updated_at) requires an `updated_at` field"
+            )
+            .with_span(&input.ident));
+        }
+
         if let Some(upsert) = &attrs.upsert {
             validate_upsert(
                 upsert,
@@ -194,7 +203,10 @@ impl EntityDef {
             transactions: attrs.transactions,
             api_config,
             doc,
-            migrations: attrs.migrations,
+            migrations: attrs.migrations.enabled,
+            touch_updated_at: attrs.migrations.touch_updated_at,
+            audit: attrs.migrations.audit,
+            extensions: attrs.migrations.extensions,
             indexes,
             aggregate_root: attrs.aggregate_root,
             upsert: attrs.upsert

@@ -78,7 +78,7 @@ pub struct User {
 
 ```toml
 [dependencies]
-entity-derive = { version = "0.17", features = ["postgres", "api"] }
+entity-derive = { version = "0.18", features = ["postgres", "api"] }
 ```
 
 ### Feature flags
@@ -106,7 +106,7 @@ Default features cover the full entity-attribute surface so existing projects wo
 ```toml
 [dependencies]
 # Just repositories — no events, hooks, commands, etc.
-entity-derive = { version = "0.17", default-features = false, features = ["postgres"] }
+entity-derive = { version = "0.18", default-features = false, features = ["postgres"] }
 ```
 
 If you use an entity attribute whose feature is disabled (e.g. `#[entity(commands)]` without `features = ["commands"]`), the macro emits a `compile_error!` at the attribute pointing to the missing feature.
@@ -115,7 +115,7 @@ Enable extras alongside the defaults:
 
 ```toml
 [dependencies]
-entity-derive = { version = "0.17", features = ["postgres", "api", "tracing", "streams"] }
+entity-derive = { version = "0.18", features = ["postgres", "api", "tracing", "streams"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
 ```
@@ -181,6 +181,11 @@ tracing-subscriber = "0.3"
     dialect = "postgres",      // Optional: database dialect
     aggregate_root,            // Optional: New{T} DTOs + transactional save
     soft_delete,               // Optional: use deleted_at instead of DELETE
+    migrations(                // Optional: extra DDL alongside the table
+        touch_updated_at,      // updated_at trigger (shared function)
+        audit,                 // JSONB audit-log table + trigger
+        extensions = "pg_trgm",// CREATE EXTENSION statements
+    ),
     upsert(                    // Optional: INSERT ... ON CONFLICT method
         conflict = "email",    // #[column(unique)] field(s) or unique_index columns
         action = "update",     // "update" (default) or "nothing"
@@ -313,6 +318,26 @@ pub struct User { /* ... */ }
 Per-operation overrides accept `create`, `get`, `update`, `delete`, `list`
 and `commands`; the literal `"none"` disables the guard for that operation.
 Commands listed in `public = [...]` never receive a guard.
+
+### Migration Triggers & Extensions
+
+`migrations(...)` options emit the DDL production tables actually carry:
+
+```rust,ignore
+#[entity(table = "articles", migrations(touch_updated_at, audit, extensions = "pg_trgm"))]
+pub struct Article { /* ... */ }
+
+for ddl in Article::MIGRATION_EXTENSIONS { sqlx::query(ddl).execute(&pool).await?; }
+sqlx::query(Article::MIGRATION_UP).execute(&pool).await?;
+for ddl in Article::MIGRATION_TRIGGERS { sqlx::query(ddl).execute(&pool).await?; }
+```
+
+- `touch_updated_at` — shared `entity_touch_updated_at()` function + per-table
+  BEFORE UPDATE trigger keeping `updated_at` fresh DB-side (requires an
+  `updated_at` field, checked at compile time)
+- `audit` — `entity_audit_log` table + trigger recording `to_jsonb(OLD/NEW)`
+  diffs for INSERT/UPDATE/DELETE
+- `extensions = "..."` — idempotent `CREATE EXTENSION` statements
 
 ### PATCH Semantics
 
@@ -490,7 +515,7 @@ projections, transaction adapters, stream subscribers) is wrapped in
 `#[tracing::instrument(skip_all, fields(entity, op), err(Debug))]`.
 
 ```toml
-entity-derive = { version = "0.17", features = ["postgres", "tracing"] }
+entity-derive = { version = "0.18", features = ["postgres", "tracing"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 ```

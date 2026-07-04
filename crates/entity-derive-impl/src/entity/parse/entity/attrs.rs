@@ -79,6 +79,90 @@ impl darling::FromMeta for EventsAttr {
     }
 }
 
+/// Migrations configuration parsed from `#[entity(migrations)]` or
+/// `#[entity(migrations(...))]`.
+///
+/// | Form | Meaning |
+/// |------|---------|
+/// | `migrations` | `MIGRATION_UP` / `MIGRATION_DOWN` constants |
+/// | `migrations(touch_updated_at)` | + shared trigger keeping `updated_at` fresh |
+/// | `migrations(audit)` | + JSONB audit-log table and trigger |
+/// | `migrations(extensions = "pg_trgm, pgcrypto")` | + `CREATE EXTENSION` statements |
+#[derive(Debug, Clone, Default)]
+pub struct MigrationsAttr {
+    /// Whether migration generation is enabled at all.
+    pub enabled: bool,
+
+    /// Emit the shared `entity_touch_updated_at()` function and a
+    /// per-table trigger bumping `updated_at` on every UPDATE.
+    pub touch_updated_at: bool,
+
+    /// Emit the `entity_audit_log` table and a per-table trigger
+    /// recording `to_jsonb(OLD/NEW)` diffs.
+    pub audit: bool,
+
+    /// Extensions to create before the table DDL.
+    pub extensions: Vec<String>
+}
+
+impl darling::FromMeta for MigrationsAttr {
+    fn from_word() -> darling::Result<Self> {
+        Ok(Self {
+            enabled: true,
+            ..Self::default()
+        })
+    }
+
+    fn from_list(items: &[darling::ast::NestedMeta]) -> darling::Result<Self> {
+        let mut attr = Self {
+            enabled: true,
+            ..Self::default()
+        };
+        for item in items {
+            match item {
+                darling::ast::NestedMeta::Meta(syn::Meta::Path(path))
+                    if path.is_ident("touch_updated_at") =>
+                {
+                    attr.touch_updated_at = true;
+                }
+                darling::ast::NestedMeta::Meta(syn::Meta::Path(path))
+                    if path.is_ident("audit") =>
+                {
+                    attr.audit = true;
+                }
+                darling::ast::NestedMeta::Meta(syn::Meta::NameValue(nv))
+                    if nv.path.is_ident("extensions") =>
+                {
+                    let syn::Expr::Lit(syn::ExprLit {
+                        lit: syn::Lit::Str(lit),
+                        ..
+                    }) = &nv.value
+                    else {
+                        return Err(darling::Error::custom(
+                            "extensions expects a comma-separated string"
+                        )
+                        .with_span(&nv.value));
+                    };
+                    attr.extensions = lit
+                        .value()
+                        .split(',')
+                        .map(str::trim)
+                        .filter(|s| !s.is_empty())
+                        .map(str::to_string)
+                        .collect();
+                }
+                other => {
+                    return Err(darling::Error::custom(
+                        "unknown migrations option; expected touch_updated_at, audit or extensions = \"...\""
+                    )
+                    .with_span(other));
+                }
+            }
+        }
+        Ok(attr)
+    }
+}
+
 /// Default error type path for SQL implementations.
 ///
 /// Used when no custom error type is specified.
@@ -312,7 +396,7 @@ pub struct EntityAttrs {
     /// // User::MIGRATION_DOWN → DROP TABLE users CASCADE
     /// ```
     #[darling(default)]
-    pub migrations: bool,
+    pub migrations: MigrationsAttr,
 
     /// Enable aggregate root pattern.
     ///
