@@ -11,12 +11,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.17.0...HEAD)
+## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.18.0...HEAD)
+
+### ✨ Features
+
+- Optimistic locking via #[version] field (#170) ([8a3d498](https://github.com/RAprogramm/entity-derive/commit/8a3d498f071d2a075687d115cbeb9b412ed9de60)) by [@RAprogramm](https://github.com/RAprogramm) in [#170](https://github.com/RAprogramm/entity-derive/pull/170)
+
+## [0.18.0](https://github.com/RAprogramm/entity-derive/releases/tag/v0.18.0) — 2026-07-04
 
 ### ✨ Features
 
 - Migrations options for updated_at trigger, audit log, and extensions (#169) ([e5b8ac0](https://github.com/RAprogramm/entity-derive/commit/e5b8ac07e8fa92525c6dd7599cdb70cfb91f42f8)) by [@RAprogramm](https://github.com/RAprogramm) in [#169](https://github.com/RAprogramm/entity-derive/pull/169)
 
+**Full Changelog**: [`v0.17.0...v0.18.0`](https://github.com/RAprogramm/entity-derive/compare/v0.17.0...v0.18.0)
 ## [0.17.0](https://github.com/RAprogramm/entity-derive/releases/tag/v0.17.0) — 2026-07-04
 
 ### ✨ Features
