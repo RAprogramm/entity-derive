@@ -27,6 +27,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.22.0...HEAD)
 
+## [0.22.3](https://github.com/RAprogramm/entity-derive/compare/v0.22.2...v0.22.3) - 2026-07-04
+
+### ✨ Features
+
+- declare custom constraint mappings for the typed_constraints registry ([#190](https://github.com/RAprogramm/entity-derive/issues/190))
+
 ## [0.22.2](https://github.com/RAprogramm/entity-derive/compare/v0.22.1...v0.22.2) - 2026-07-04
 
 ### 🐛 Bug Fixes
