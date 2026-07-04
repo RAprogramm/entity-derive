@@ -771,3 +771,16 @@ pub struct Product {
     pub price: Money,
 }
 ```
+
+### `garde` feature (validation backend)
+
+Enables `garde::Validate` on generated DTOs as a maintained alternative to `validator`. Field `#[validate(...)]` rules (`length`, `range`, `email`, `url`, `pattern`) are translated to garde syntax; unconstrained fields get `garde(skip)`; Option-wrapped Update DTO fields validate the inner value via `inner(...)`. When both `validate` and `garde` are enabled, `validate` takes precedence.
+
+```rust
+#[field(create, update, response)]
+#[validate(length(min = 3, max = 8))]
+pub name: String,
+
+let dto: CreateUserRequest = serde_json::from_str(body)?;
+garde::Validate::validate(&dto)?;
+```
