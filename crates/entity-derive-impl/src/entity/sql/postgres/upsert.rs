@@ -116,7 +116,7 @@ impl Context<'_> {
     }
 
     /// Assemble the complete upsert SQL string at expansion time.
-    fn upsert_sql(&self) -> String {
+    pub(crate) fn upsert_sql(&self) -> String {
         let upsert = self
             .entity
             .upsert

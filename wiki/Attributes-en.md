@@ -797,3 +797,14 @@ Declare constraints the macro cannot infer — foreign keys over natural keys, c
     constraint(name = "orders_window_check", kind = "check"),
 )]
 ```
+
+### Transactional upsert
+
+With both `transactions` and `upsert(...)`, the `{Entity}TransactionRepo` adapter exposes `upsert` with the same SQL and action semantics as the pool method, executed on the transaction handle — for flows where the upsert must share atomicity with adjacent statements.
+
+```rust
+let mut tx = pool.begin().await?;
+sqlx::query("UPDATE users SET username = NULL WHERE ...").execute(&mut *tx).await?;
+let user = UserTransactionRepo::new(&mut tx).upsert(dto).await?;
+tx.commit().await?;
+```

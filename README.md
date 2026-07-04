@@ -590,7 +590,9 @@ persisted row. `action = "nothing"` keeps the existing row (`DO NOTHING`)
 and returns `Option<Entity>` — `None` when a conflicting row already
 existed. Requires `returning = "full"` (the default). With `streams`
 enabled, upsert publishes a `Created` notification for every row it
-returns.
+returns. With `transactions`, the `{Entity}TransactionRepo` adapter
+gains the same `upsert` so it can share atomicity with adjacent
+statements (release-then-upsert login flows and the like).
 
 ### Transactions
 
