@@ -413,3 +413,96 @@ mod tests {
         assert_eq!((OK, MISMATCH), (true, false));
     }
 }
+
+/// Serde helpers for generated DTOs.
+#[cfg(feature = "serde")]
+pub mod serde_helpers {
+    /// Double-`Option` (de)serialization for PATCH semantics.
+    ///
+    /// | JSON | Rust |
+    /// |------|------|
+    /// | field absent | `None` (leave unchanged) |
+    /// | `"field": null` | `Some(None)` (set column to NULL) |
+    /// | `"field": v` | `Some(Some(v))` (set column to v) |
+    pub mod double_option {
+        use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+        /// Deserialize a present-but-maybe-null field into `Some(inner)`.
+        ///
+        /// # Errors
+        ///
+        /// Propagates inner deserialization errors.
+        pub fn deserialize<'de, T, D>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
+        where
+            T: Deserialize<'de>,
+            D: Deserializer<'de>
+        {
+            Option::<T>::deserialize(deserializer).map(Some)
+        }
+
+        /// Serialize the inner `Option`, treating outer `None` as null.
+        ///
+        /// # Errors
+        ///
+        /// Propagates inner serialization errors.
+        pub fn serialize<T, S>(value: &Option<Option<T>>, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            T: Serialize,
+            S: Serializer
+        {
+            match value {
+                Some(inner) => inner.serialize(serializer),
+                None => serializer.serialize_none()
+            }
+        }
+    }
+
+    #[cfg(all(test, feature = "serde_json"))]
+    mod tests {
+        #[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq, Default)]
+        struct Patch {
+            #[serde(
+                default,
+                skip_serializing_if = "Option::is_none",
+                with = "super::double_option"
+            )]
+            nick: Option<Option<String>>
+        }
+
+        #[test]
+        fn absent_field_is_outer_none() {
+            let patch: Patch = serde_json::from_str("{}").unwrap();
+            assert_eq!(patch.nick, None);
+        }
+
+        #[test]
+        fn null_field_is_some_none() {
+            let patch: Patch = serde_json::from_str(r#"{"nick": null}"#).unwrap();
+            assert_eq!(patch.nick, Some(None));
+        }
+
+        #[test]
+        fn value_field_is_some_some() {
+            let patch: Patch = serde_json::from_str(r#"{"nick": "neo"}"#).unwrap();
+            assert_eq!(patch.nick, Some(Some("neo".to_string())));
+        }
+
+        #[test]
+        fn outer_none_skipped_on_serialize() {
+            let json = serde_json::to_string(&Patch {
+                nick: None
+            })
+            .unwrap();
+            assert_eq!(json, "{}");
+        }
+
+        #[test]
+        fn some_none_serializes_null() {
+            let json = serde_json::to_string(&Patch {
+                nick: Some(None)
+            })
+            .unwrap();
+            assert_eq!(json, r#"{"nick":null}"#);
+        }
+    }
+}

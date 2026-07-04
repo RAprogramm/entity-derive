@@ -20,7 +20,7 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 
-use super::{context::Context, helpers::update_bindings};
+use super::context::Context;
 use crate::utils::tracing::instrument;
 
 impl Context<'_> {
@@ -148,18 +148,10 @@ impl Context<'_> {
         let owner_name = owner.name();
         let owner_type = owner.ty();
 
-        let field_names: Vec<String> = update_fields.iter().map(|f| f.name_str()).collect();
-        let field_refs: Vec<&str> = field_names.iter().map(String::as_str).collect();
-        let set_clause = dialect.set_clause(&field_refs);
-        let id_placeholder = update_fields.len() + 1;
-        let owner_placeholder = update_fields.len() + 2;
-        let bindings = update_bindings(&update_fields);
-
-        let sql = format!(
-            "UPDATE {table} SET {set_clause} WHERE {id_name} = ${id_placeholder} \
-             AND {owner_col} = ${owner_placeholder} RETURNING *",
-            id_name = id_name
-        );
+        let set_stmts = super::helpers::dynamic_set_stmts(&update_fields);
+        let set_binds = super::helpers::dynamic_set_binds(&update_fields);
+        let _ = dialect;
+        let owner_col_str = owner_col.to_string();
 
         let span = instrument(&entity_name.to_string(), "update_scoped");
 
@@ -171,11 +163,18 @@ impl Context<'_> {
                 #owner_name: #owner_type,
                 dto: #update_dto,
             ) -> Result<Option<#entity_name>, Self::Error> {
-                let row: Option<#row_name> = sqlx::query_as(#sql)
-                    #(#bindings)*
-                    .bind(&id)
-                    .bind(&#owner_name)
-                    .fetch_optional(self).await?;
+                #set_stmts
+                if __sets.is_empty() {
+                    return self.find_by_id_scoped(id, #owner_name).await;
+                }
+                let mut q = sqlx::query_as::<_, #row_name>(::sqlx::AssertSqlSafe(format!(
+                    "UPDATE {} SET {} WHERE {} = ${} AND {} = ${} RETURNING *",
+                    #table, __sets.join(", "), stringify!(#id_name), __idx, #owner_col_str, __idx + 1
+                )));
+                #set_binds
+                q = q.bind(&id);
+                q = q.bind(&#owner_name);
+                let row: Option<#row_name> = q.fetch_optional(self).await?;
                 Ok(row.map(#entity_name::from))
             }
         }
@@ -243,10 +242,12 @@ mod tests {
     }
 
     #[test]
-    fn update_scoped_places_owner_after_id() {
+    fn update_scoped_builds_dynamic_set() {
         let entity = owned_entity(quote!());
         let code = Context::new(&entity).scoped_methods().to_string();
-        assert!(code.contains("id = $2 AND user_id = $3 RETURNING *"));
+        assert!(code.contains("__sets"));
+        assert!(code.contains("\"user_id\""));
+        assert!(code.contains("find_by_id_scoped (id , user_id)"));
     }
 }
 

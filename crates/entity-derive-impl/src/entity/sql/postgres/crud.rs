@@ -28,10 +28,7 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 
-use super::{
-    context::Context,
-    helpers::{insert_bindings, update_bindings}
-};
+use super::{context::Context, helpers::insert_bindings};
 use crate::{entity::parse::ReturningMode, utils::tracing::instrument};
 
 /// Return the `(open, close, executor)` token fragments that bracket
@@ -318,11 +315,9 @@ impl Context<'_> {
             ..
         } = self;
 
-        let field_names: Vec<String> = update_fields.iter().map(|f| f.name_str()).collect();
-        let field_refs: Vec<&str> = field_names.iter().map(String::as_str).collect();
-        let set_clause = dialect.set_clause(&field_refs);
-        let where_placeholder = dialect.placeholder(update_fields.len() + 1);
-        let bindings = update_bindings(&update_fields);
+        let set_stmts = super::helpers::dynamic_set_stmts(&update_fields);
+        let set_binds = super::helpers::dynamic_set_binds(&update_fields);
+        let _ = dialect;
 
         let span = instrument(&entity_name.to_string(), "update");
 
@@ -338,14 +333,18 @@ impl Context<'_> {
             return quote! {
                 #span
                 async fn update(&self, id: #id_type, dto: #update_dto) -> Result<#entity_name, Self::Error> {
+                    #set_stmts
+                    if __sets.is_empty() {
+                        return <Self as #trait_name>::find_by_id(self, id).await?.ok_or_else(|| sqlx::Error::RowNotFound.into());
+                    }
                     let mut tx = self.begin().await?;
                     #fetch_old
-                    let row: #row_name = sqlx::query_as(
-                        ::sqlx::AssertSqlSafe(format!("UPDATE {} SET {} WHERE {} = {} RETURNING *", #table, #set_clause, stringify!(#id_name), #where_placeholder))
-                    )
-                        #(#bindings)*
-                        .bind(&id)
-                        .fetch_one(&mut *tx).await?;
+                    let mut q = sqlx::query_as::<_, #row_name>(
+                        ::sqlx::AssertSqlSafe(format!("UPDATE {} SET {} WHERE {} = ${} RETURNING *", #table, __sets.join(", "), stringify!(#id_name), __idx))
+                    );
+                    #set_binds
+                    q = q.bind(&id);
+                    let row: #row_name = q.fetch_one(&mut *tx).await?;
                     let entity = #entity_name::from(row);
                     #outbox_updated
                     #notify
@@ -363,12 +362,16 @@ impl Context<'_> {
                 quote! {
                     #span
                     async fn update(&self, id: #id_type, dto: #update_dto) -> Result<#entity_name, Self::Error> {
-                        let row: #row_name = sqlx::query_as(
-                            ::sqlx::AssertSqlSafe(format!("UPDATE {} SET {} WHERE {} = {} RETURNING *", #table, #set_clause, stringify!(#id_name), #where_placeholder))
-                        )
-                            #(#bindings)*
-                            .bind(&id)
-                            .fetch_one(self).await?;
+                        #set_stmts
+                        if __sets.is_empty() {
+                            return <Self as #trait_name>::find_by_id(self, id).await?.ok_or_else(|| sqlx::Error::RowNotFound.into());
+                        }
+                        let mut q = sqlx::query_as::<_, #row_name>(
+                            ::sqlx::AssertSqlSafe(format!("UPDATE {} SET {} WHERE {} = ${} RETURNING *", #table, __sets.join(", "), stringify!(#id_name), __idx))
+                        );
+                        #set_binds
+                        q = q.bind(&id);
+                        let row: #row_name = q.fetch_one(self).await?;
                         Ok(#entity_name::from(row))
                     }
                 }
@@ -377,10 +380,13 @@ impl Context<'_> {
                 quote! {
                     #span
                     async fn update(&self, id: #id_type, dto: #update_dto) -> Result<#entity_name, Self::Error> {
-                        sqlx::query(::sqlx::AssertSqlSafe(format!("UPDATE {} SET {} WHERE {} = {}", #table, #set_clause, stringify!(#id_name), #where_placeholder)))
-                            #(#bindings)*
-                            .bind(&id)
-                            .execute(self).await?;
+                        #set_stmts
+                        if !__sets.is_empty() {
+                            let mut q = sqlx::query(::sqlx::AssertSqlSafe(format!("UPDATE {} SET {} WHERE {} = ${}", #table, __sets.join(", "), stringify!(#id_name), __idx)));
+                            #set_binds
+                            q = q.bind(&id);
+                            q.execute(self).await?;
+                        }
                         <Self as #trait_name>::find_by_id(self, id).await?.ok_or_else(|| sqlx::Error::RowNotFound)
                     }
                 }
@@ -390,10 +396,13 @@ impl Context<'_> {
                 quote! {
                     #span
                     async fn update(&self, id: #id_type, dto: #update_dto) -> Result<#entity_name, Self::Error> {
-                        sqlx::query(::sqlx::AssertSqlSafe(format!("UPDATE {} SET {} WHERE {} = {} RETURNING {}", #table, #set_clause, stringify!(#id_name), #where_placeholder, #returning_cols)))
-                            #(#bindings)*
-                            .bind(&id)
-                            .execute(self).await?;
+                        #set_stmts
+                        if !__sets.is_empty() {
+                            let mut q = sqlx::query(::sqlx::AssertSqlSafe(format!("UPDATE {} SET {} WHERE {} = ${} RETURNING {}", #table, __sets.join(", "), stringify!(#id_name), __idx, #returning_cols)));
+                            #set_binds
+                            q = q.bind(&id);
+                            q.execute(self).await?;
+                        }
                         <Self as #trait_name>::find_by_id(self, id).await?.ok_or_else(|| sqlx::Error::RowNotFound)
                     }
                 }

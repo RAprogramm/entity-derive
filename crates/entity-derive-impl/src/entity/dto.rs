@@ -91,7 +91,14 @@ fn generate_update_dto(entity: &EntityDef) -> TokenStream {
         let n = f.name();
         let t = f.ty();
         if f.is_option() {
-            quote! { pub #n: #t }
+            quote! {
+                #[serde(
+                    default,
+                    skip_serializing_if = "Option::is_none",
+                    with = "::entity_core::serde_helpers::double_option"
+                )]
+                pub #n: Option<#t>
+            }
         } else {
             quote! { pub #n: Option<#t> }
         }

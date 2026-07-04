@@ -78,7 +78,7 @@ pub struct User {
 
 ```toml
 [dependencies]
-entity-derive = { version = "0.16", features = ["postgres", "api"] }
+entity-derive = { version = "0.17", features = ["postgres", "api"] }
 ```
 
 ### Feature flags
@@ -106,7 +106,7 @@ Default features cover the full entity-attribute surface so existing projects wo
 ```toml
 [dependencies]
 # Just repositories — no events, hooks, commands, etc.
-entity-derive = { version = "0.16", default-features = false, features = ["postgres"] }
+entity-derive = { version = "0.17", default-features = false, features = ["postgres"] }
 ```
 
 If you use an entity attribute whose feature is disabled (e.g. `#[entity(commands)]` without `features = ["commands"]`), the macro emits a `compile_error!` at the attribute pointing to the missing feature.
@@ -115,7 +115,7 @@ Enable extras alongside the defaults:
 
 ```toml
 [dependencies]
-entity-derive = { version = "0.16", features = ["postgres", "api", "tracing", "streams"] }
+entity-derive = { version = "0.17", features = ["postgres", "api", "tracing", "streams"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
 ```
@@ -133,6 +133,7 @@ tracing-subscriber = "0.3"
 | **Query Filtering** | Type-safe `#[filter]`, `#[filter(like)]`, `#[filter(range)]` |
 | **Sorting & Keyset** | `#[sort]` whitelisted ORDER BY + `list_after` cursor pagination |
 | **Bulk Operations** | `find_by_ids`, atomic `create_many`, soft-delete-aware `delete_many` |
+| **PATCH Semantics** | Dynamic UPDATE SET; double-`Option` distinguishes "leave" from "set NULL" |
 | **Relations** | `#[belongs_to]`, `#[has_many]` and many-to-many via `through = "junction"` |
 | **Ownership Scoping** | `#[owner]` generates `find_by_id_scoped` / `list_by_owner` / `update_scoped` / `delete_scoped` |
 | **Upsert** | `upsert(conflict = "…")` generates `INSERT ... ON CONFLICT DO UPDATE / DO NOTHING` |
@@ -313,6 +314,24 @@ Per-operation overrides accept `create`, `get`, `update`, `delete`, `list`
 and `commands`; the literal `"none"` disables the guard for that operation.
 Commands listed in `public = [...]` never receive a guard.
 
+### PATCH Semantics
+
+Update DTOs are true partial patches. Fields absent from the payload are
+left untouched — the generated UPDATE only includes columns actually
+present. Nullable columns use double-`Option`, so "leave unchanged" and
+"set NULL" are finally distinguishable:
+
+```rust,ignore
+// {}                          → nothing changes (fetch-and-return)
+// {"nickname": null}          → nickname = NULL
+// {"nickname": "neo"}         → nickname = 'neo'
+let patch: UpdateProfileRequest = serde_json::from_str(body)?;
+let profile = pool.update(id, patch).await?;
+```
+
+In Rust code: `None` = leave, `Some(None)` = SET NULL,
+`Some(Some(v))` = SET v.
+
 ### Bulk Operations
 
 Every repository ships batch primitives — one round-trip reads and
@@ -471,7 +490,7 @@ projections, transaction adapters, stream subscribers) is wrapped in
 `#[tracing::instrument(skip_all, fields(entity, op), err(Debug))]`.
 
 ```toml
-entity-derive = { version = "0.16", features = ["postgres", "tracing"] }
+entity-derive = { version = "0.17", features = ["postgres", "tracing"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 ```
