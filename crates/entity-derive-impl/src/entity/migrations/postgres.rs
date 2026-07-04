@@ -74,6 +74,8 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
 
     let outbox_const = outbox_migration_const(entity);
     let junctions_const = junction_migration_const(entity);
+    let triggers_const = trigger_migration_const(entity);
+    let extensions_const = extension_migration_const(entity);
     let marker = marker::generated();
 
     quote! {
@@ -109,6 +111,10 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             #outbox_const
 
             #junctions_const
+
+            #triggers_const
+
+            #extensions_const
         }
 
         const _: () = {
@@ -202,6 +208,92 @@ fn junction_migration_const(entity: &EntityDef) -> TokenStream {
         ///
         /// Execute after [`Self::MIGRATION_UP`] of both related tables.
         #vis const MIGRATION_JUNCTIONS: &'static [&'static str] = &[#(#ddls),*];
+    }
+}
+
+/// Generate the `MIGRATION_TRIGGERS` constant.
+///
+/// Emitted when `migrations(touch_updated_at)` and/or
+/// `migrations(audit)` are set. All DDL is idempotent
+/// (`CREATE OR REPLACE` / `DROP TRIGGER IF EXISTS`).
+fn trigger_migration_const(entity: &EntityDef) -> TokenStream {
+    if !entity.touch_updated_at && !entity.audit {
+        return TokenStream::new();
+    }
+
+    let vis = &entity.vis;
+    let table = entity.full_table_name();
+    let trigger_base = entity.table_name();
+    let mut ddls: Vec<String> = Vec::new();
+
+    if entity.touch_updated_at {
+        ddls.push(
+            "CREATE OR REPLACE FUNCTION entity_touch_updated_at() RETURNS TRIGGER AS $$ \
+             BEGIN NEW.updated_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql;"
+                .to_string()
+        );
+        ddls.push(format!(
+            "DROP TRIGGER IF EXISTS trg_{trigger_base}_touch_updated_at ON {table}; \
+             CREATE TRIGGER trg_{trigger_base}_touch_updated_at BEFORE UPDATE ON {table} \
+             FOR EACH ROW EXECUTE FUNCTION entity_touch_updated_at();"
+        ));
+    }
+
+    if entity.audit {
+        ddls.push(
+            "CREATE TABLE IF NOT EXISTS entity_audit_log (\
+                 id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, \
+                 table_name TEXT NOT NULL, \
+                 operation TEXT NOT NULL, \
+                 old_row JSONB, \
+                 new_row JSONB, \
+                 recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()\
+             );"
+            .to_string()
+        );
+        ddls.push(
+            "CREATE OR REPLACE FUNCTION entity_audit() RETURNS TRIGGER AS $$ \
+             BEGIN \
+                 INSERT INTO entity_audit_log (table_name, operation, old_row, new_row) \
+                 VALUES (TG_TABLE_NAME, TG_OP, to_jsonb(OLD), to_jsonb(NEW)); \
+                 RETURN COALESCE(NEW, OLD); \
+             END; $$ LANGUAGE plpgsql;"
+                .to_string()
+        );
+        ddls.push(format!(
+            "DROP TRIGGER IF EXISTS trg_{trigger_base}_audit ON {table}; \
+             CREATE TRIGGER trg_{trigger_base}_audit AFTER INSERT OR UPDATE OR DELETE ON {table} \
+             FOR EACH ROW EXECUTE FUNCTION entity_audit();"
+        ));
+    }
+
+    quote! {
+        /// Idempotent trigger DDL for this table.
+        ///
+        /// Execute after [`Self::MIGRATION_UP`]. Includes the shared
+        /// trigger functions (safe to run once per entity).
+        #vis const MIGRATION_TRIGGERS: &'static [&'static str] = &[#(#ddls),*];
+    }
+}
+
+/// Generate the `MIGRATION_EXTENSIONS` constant.
+fn extension_migration_const(entity: &EntityDef) -> TokenStream {
+    if entity.extensions.is_empty() {
+        return TokenStream::new();
+    }
+
+    let vis = &entity.vis;
+    let ddls: Vec<String> = entity
+        .extensions
+        .iter()
+        .map(|ext| format!("CREATE EXTENSION IF NOT EXISTS \"{ext}\";"))
+        .collect();
+
+    quote! {
+        /// Idempotent `CREATE EXTENSION` statements this table relies on.
+        ///
+        /// Execute before [`Self::MIGRATION_UP`].
+        #vis const MIGRATION_EXTENSIONS: &'static [&'static str] = &[#(#ddls),*];
     }
 }
 
@@ -329,5 +421,115 @@ mod junction_tests {
         let entity = EntityDef::from_derive_input(&input).unwrap();
         let code = generate(&entity).to_string();
         assert!(!code.contains("MIGRATION_JUNCTIONS"));
+    }
+}
+
+#[cfg(test)]
+mod trigger_tests {
+    use quote::quote;
+    use syn::DeriveInput;
+
+    use super::*;
+
+    fn parse_entity(tokens: proc_macro2::TokenStream) -> EntityDef {
+        let input: DeriveInput = syn::parse2(tokens).expect("test entity must parse");
+        EntityDef::from_derive_input(&input).expect("test entity must be valid")
+    }
+
+    #[test]
+    fn touch_updated_at_emits_function_and_trigger() {
+        let entity = parse_entity(quote! {
+            #[entity(table = "users", migrations(touch_updated_at))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, update, response)]
+                pub name: String,
+                #[field(response)]
+                #[auto]
+                pub updated_at: chrono::DateTime<chrono::Utc>,
+            }
+        });
+        let code = generate(&entity).to_string();
+        assert!(code.contains("MIGRATION_TRIGGERS"));
+        assert!(code.contains("entity_touch_updated_at"));
+        assert!(code.contains("trg_users_touch_updated_at"));
+    }
+
+    #[test]
+    fn audit_emits_log_table_and_trigger() {
+        let entity = parse_entity(quote! {
+            #[entity(table = "users", migrations(audit))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, update, response)]
+                pub name: String,
+            }
+        });
+        let code = generate(&entity).to_string();
+        assert!(code.contains("entity_audit_log"));
+        assert!(code.contains("to_jsonb(OLD)"));
+        assert!(code.contains("trg_users_audit"));
+    }
+
+    #[test]
+    fn extensions_emitted_in_order() {
+        let entity = parse_entity(quote! {
+            #[entity(table = "users", migrations(extensions = "pg_trgm, pgcrypto"))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                pub name: String,
+            }
+        });
+        let code = generate(&entity).to_string();
+        assert!(code.contains("MIGRATION_EXTENSIONS"));
+        assert!(code.contains("CREATE EXTENSION IF NOT EXISTS \\\"pg_trgm\\\";"));
+        assert!(code.contains("CREATE EXTENSION IF NOT EXISTS \\\"pgcrypto\\\";"));
+    }
+
+    #[test]
+    fn plain_migrations_have_no_new_consts() {
+        let entity = parse_entity(quote! {
+            #[entity(table = "users", migrations)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                pub name: String,
+            }
+        });
+        let code = generate(&entity).to_string();
+        assert!(!code.contains("MIGRATION_TRIGGERS"));
+        assert!(!code.contains("MIGRATION_EXTENSIONS"));
+    }
+
+    #[test]
+    fn touch_without_updated_at_rejected() {
+        let input: DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", migrations(touch_updated_at))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                pub name: String,
+            }
+        };
+        let err = EntityDef::from_derive_input(&input).unwrap_err();
+        assert!(err.to_string().contains("requires an `updated_at` field"));
+    }
+
+    #[test]
+    fn unknown_migrations_option_rejected() {
+        let input: DeriveInput = syn::parse_quote! {
+            #[entity(table = "users", migrations(triggers))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        assert!(EntityDef::from_derive_input(&input).is_err());
     }
 }

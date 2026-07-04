@@ -3,7 +3,7 @@
 
 [package]
 name = "entity-derive"
-version = "0.17.0"
+version = "0.18.0"
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
@@ -75,7 +75,7 @@ tracing = ["entity-core/tracing"]
 
 [dependencies]
 entity-core = { path = "../entity-core", version = "0.9", features = ["serde"] }
-entity-derive-impl = { path = "../entity-derive-impl", version = "0.15", default-features = false }
+entity-derive-impl = { path = "../entity-derive-impl", version = "0.16", default-features = false }
 
 [dev-dependencies]
 trybuild = "1"

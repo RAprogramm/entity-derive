@@ -221,6 +221,15 @@ pub struct EntityDef {
     /// with SQL DDL statements for creating/dropping the table.
     pub migrations: bool,
 
+    /// Emit the shared `updated_at` trigger DDL.
+    pub touch_updated_at: bool,
+
+    /// Emit the audit-log table and trigger DDL.
+    pub audit: bool,
+
+    /// Extensions to create before the table DDL.
+    pub extensions: Vec<String>,
+
     /// Composite index definitions from `#[entity(index(...))]`.
     ///
     /// Each entry defines an index spanning multiple columns.
