@@ -120,7 +120,7 @@ pub enum CommandSource {
     /// No fields in payload.
     ///
     /// Combined with `requires_id` for id-only commands.
-    None
+    None,
 }
 
 /// Kind of command for categorization.
@@ -139,7 +139,7 @@ pub enum CommandKindHint {
     Delete,
 
     /// Custom business operation.
-    Custom
+    Custom,
 }
 
 /// A command definition parsed from `#[command(...)]`.
@@ -193,7 +193,7 @@ pub struct CommandDef {
     ///
     /// When set, overrides the entity-level default security.
     /// Use `"none"` to make a command public.
-    pub security: Option<String>
+    pub security: Option<String>,
 }
 
 impl CommandDef {
@@ -209,7 +209,7 @@ impl CommandDef {
             requires_id: false,
             result_type: None,
             kind: CommandKindHint::default(),
-            security: None
+            security: None,
         }
     }
 

@@ -37,7 +37,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
 
     match generate(&input) {
         Ok(tokens) => tokens.into(),
-        Err(err) => err.to_compile_error().into()
+        Err(err) => err.to_compile_error().into(),
     }
 }
 
@@ -52,7 +52,7 @@ fn generate(input: &DeriveInput) -> syn::Result<TokenStream2> {
         _ => {
             return Err(syn::Error::new_spanned(
                 input,
-                "EntityError can only be derived for enums"
+                "EntityError can only be derived for enums",
             ));
         }
     };
@@ -114,9 +114,9 @@ fn generate(input: &DeriveInput) -> syn::Result<TokenStream2> {
 /// Parsed error variant.
 struct ErrorVariant {
     /// HTTP status code from `#[status(code)]`.
-    status:      u16,
+    status: u16,
     /// Description from doc comment.
-    description: String
+    description: String,
 }
 
 /// Parse a single enum variant for error info.
@@ -127,7 +127,7 @@ fn parse_error_variant(variant: &syn::Variant) -> syn::Result<ErrorVariant> {
 
     Ok(ErrorVariant {
         status,
-        description
+        description,
     })
 }
 
@@ -142,7 +142,7 @@ fn parse_status_attr(attrs: &[Attribute]) -> syn::Result<u16> {
 
     Err(syn::Error::new(
         proc_macro2::Span::call_site(),
-        "Missing #[status(code)] attribute"
+        "Missing #[status(code)] attribute",
     ))
 }
 

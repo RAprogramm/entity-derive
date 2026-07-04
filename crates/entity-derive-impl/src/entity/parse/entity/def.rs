@@ -61,10 +61,10 @@ use syn::{Ident, Visibility};
 use super::{
     super::{
         api::ApiConfig, command::CommandDef, dialect::DatabaseDialect, field::FieldDef,
-        returning::ReturningMode, sql_level::SqlLevel, uuid_version::UuidVersion
+        returning::ReturningMode, sql_level::SqlLevel, uuid_version::UuidVersion,
     },
     CompositeIndexDef, ProjectionDef,
-    upsert::UpsertDef
+    upsert::UpsertDef,
 };
 
 /// Complete parsed entity definition.
@@ -230,5 +230,5 @@ pub struct EntityDef {
     /// When present, an `upsert` repository method is generated using
     /// `INSERT ... ON CONFLICT`. Conflict columns are validated at parse
     /// time against uniqueness guarantees.
-    pub upsert: Option<UpsertDef>
+    pub upsert: Option<UpsertDef>,
 }

@@ -63,7 +63,7 @@ use super::{
     CompositeIndexDef, EntityAttrs, EntityDef,
     helpers::{parse_api_attr, parse_has_many_attrs, parse_index_attrs},
     parse_projection_attrs,
-    upsert::{UpsertAction, UpsertDef}
+    upsert::{UpsertAction, UpsertDef},
 };
 use crate::utils::docs::extract_doc_comments;
 
@@ -122,7 +122,7 @@ impl EntityDef {
             _ => {
                 return Err(
                     darling::Error::custom("Entity can only be derived for structs")
-                        .with_span(&input.ident)
+                        .with_span(&input.ident),
                 );
             }
         };
@@ -149,7 +149,7 @@ impl EntityDef {
                 id_field_index,
                 &indexes,
                 &attrs.returning,
-                input
+                input,
             )?;
         }
 
@@ -180,7 +180,7 @@ impl EntityDef {
             migrations: attrs.migrations,
             indexes,
             aggregate_root: attrs.aggregate_root,
-            upsert: attrs.upsert
+            upsert: attrs.upsert,
         })
     }
 }
@@ -203,14 +203,14 @@ fn validate_upsert(
     id_field_index: usize,
     indexes: &[CompositeIndexDef],
     returning: &ReturningMode,
-    input: &DeriveInput
+    input: &DeriveInput,
 ) -> darling::Result<()> {
     let span = &input.ident;
     let conflict = upsert.conflict_columns();
 
     if conflict.is_empty() {
         return Err(darling::Error::custom(
-            "upsert requires at least one conflict column, e.g. upsert(conflict = \"email\")"
+            "upsert requires at least one conflict column, e.g. upsert(conflict = \"email\")",
         )
         .with_span(span));
     }
@@ -248,7 +248,7 @@ fn validate_upsert(
                     .any(|f| f.name_str() == *single && f.column.unique)
                 || unique_index_matches(indexes, &conflict)
         }
-        _ => unique_index_matches(indexes, &conflict)
+        _ => unique_index_matches(indexes, &conflict),
     };
 
     if !guaranteed_unique {

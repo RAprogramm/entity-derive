@@ -259,7 +259,7 @@ fn axum_method_for_command(cmd: &CommandDef) -> syn::Ident {
         CommandKindHint::Create => format_ident!("post"),
         CommandKindHint::Update => format_ident!("put"),
         CommandKindHint::Delete => format_ident!("delete"),
-        CommandKindHint::Custom => format_ident!("post")
+        CommandKindHint::Custom => format_ident!("post"),
     }
 }
 
@@ -278,7 +278,7 @@ mod tests {
             requires_id,
             result_type: None,
             kind,
-            security: None
+            security: None,
         }
     }
 

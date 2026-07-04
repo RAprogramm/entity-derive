@@ -29,7 +29,7 @@ use quote::{format_ident, quote};
 use super::struct_gen::{command_struct_name, custom_payload_type, uses_custom_payload};
 use crate::{
     entity::parse::{CommandDef, CommandKindHint, EntityDef},
-    utils::marker
+    utils::marker,
 };
 
 /// Generate the command enum and its implementations.
@@ -113,7 +113,7 @@ fn generate_kind_arms(commands: &[CommandDef]) -> TokenStream {
                 CommandKindHint::Create => quote! { entity_core::CommandKind::Create },
                 CommandKindHint::Update => quote! { entity_core::CommandKind::Update },
                 CommandKindHint::Delete => quote! { entity_core::CommandKind::Delete },
-                CommandKindHint::Custom => quote! { entity_core::CommandKind::Custom }
+                CommandKindHint::Custom => quote! { entity_core::CommandKind::Custom },
             };
 
             quote! {

@@ -44,7 +44,7 @@ pub struct CompositeIndexDef {
     /// WHERE clause for partial index (raw SQL).
     ///
     /// Example: `"active = true"`, `"deleted_at IS NULL"`
-    pub where_clause: Option<String>
+    pub where_clause: Option<String>,
 }
 
 impl CompositeIndexDef {
@@ -57,7 +57,7 @@ impl CompositeIndexDef {
             columns,
             index_type: IndexType::default(),
             unique: false,
-            where_clause: None
+            where_clause: None,
         }
     }
 
@@ -70,7 +70,7 @@ impl CompositeIndexDef {
             columns,
             index_type: IndexType::default(),
             unique: true,
-            where_clause: None
+            where_clause: None,
         }
     }
 

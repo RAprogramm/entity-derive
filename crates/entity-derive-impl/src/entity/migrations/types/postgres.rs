@@ -49,9 +49,9 @@ impl TypeMapper for PostgresTypeMapper {
         // Handle explicit SQL type override
         if let Some(ref explicit) = column.sql_type {
             return SqlType {
-                name:      explicit.clone(),
-                nullable:  is_option(ty) || column.nullable,
-                array_dim: 0
+                name: explicit.clone(),
+                nullable: is_option(ty) || column.nullable,
+                array_dim: 0,
             };
         }
 
@@ -75,7 +75,7 @@ impl TypeMapper for PostgresTypeMapper {
         SqlType {
             name,
             nullable: column.nullable,
-            array_dim: 0
+            array_dim: 0,
         }
     }
 }
@@ -136,7 +136,7 @@ fn map_type_name(ty: &Type, column: &ColumnConfig) -> String {
         "Vec<u8>" | "bytes::Bytes" => "BYTEA".to_string(),
 
         // Fallback to TEXT for unknown types
-        _ => "TEXT".to_string()
+        _ => "TEXT".to_string(),
     }
 }
 

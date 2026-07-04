@@ -41,7 +41,7 @@ pub enum UuidVersion {
     /// UUID version 4 - random.
     ///
     /// Uses `Uuid::new_v4()`. Classic random UUID, widely supported.
-    V4
+    V4,
 }
 
 impl FromMeta for UuidVersion {
@@ -61,7 +61,7 @@ impl FromMeta for UuidVersion {
         match value.to_lowercase().as_str() {
             "v7" | "7" => Ok(Self::V7),
             "v4" | "4" => Ok(Self::V4),
-            _ => Err(darling::Error::unknown_value(value))
+            _ => Err(darling::Error::unknown_value(value)),
         }
     }
 }

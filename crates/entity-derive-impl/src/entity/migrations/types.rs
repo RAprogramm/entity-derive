@@ -42,7 +42,7 @@ pub struct SqlType {
     pub nullable: bool,
 
     /// Array dimension (0 = scalar, 1 = T[], 2 = T[][], etc.).
-    pub array_dim: usize
+    pub array_dim: usize,
 }
 
 impl SqlType {
@@ -51,9 +51,9 @@ impl SqlType {
     #[must_use]
     pub fn new(name: impl Into<String>) -> Self {
         Self {
-            name:      name.into(),
-            nullable:  false,
-            array_dim: 0
+            name: name.into(),
+            nullable: false,
+            array_dim: 0,
         }
     }
 
@@ -62,9 +62,9 @@ impl SqlType {
     #[must_use]
     pub fn nullable(name: impl Into<String>) -> Self {
         Self {
-            name:      name.into(),
-            nullable:  true,
-            array_dim: 0
+            name: name.into(),
+            nullable: true,
+            array_dim: 0,
         }
     }
 
@@ -123,9 +123,9 @@ mod tests {
     #[test]
     fn sql_type_to_sql_string_array() {
         let ty = SqlType {
-            name:      "TEXT".to_string(),
-            nullable:  false,
-            array_dim: 1
+            name: "TEXT".to_string(),
+            nullable: false,
+            array_dim: 1,
         };
         assert_eq!(ty.to_sql_string(), "TEXT[]");
     }
@@ -133,9 +133,9 @@ mod tests {
     #[test]
     fn sql_type_to_sql_string_2d_array() {
         let ty = SqlType {
-            name:      "INTEGER".to_string(),
-            nullable:  false,
-            array_dim: 2
+            name: "INTEGER".to_string(),
+            nullable: false,
+            array_dim: 2,
         };
         assert_eq!(ty.to_sql_string(), "INTEGER[][]");
     }

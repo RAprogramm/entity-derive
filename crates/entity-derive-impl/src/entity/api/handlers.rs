@@ -146,7 +146,7 @@ fn generate_handler(entity: &EntityDef, cmd: &CommandDef) -> TokenStream {
             &command_struct,
             &handler_trait,
             &response_type,
-            &utoipa_attr
+            &utoipa_attr,
         )
     } else {
         generate_handler_without_id(
@@ -157,7 +157,7 @@ fn generate_handler(entity: &EntityDef, cmd: &CommandDef) -> TokenStream {
             &command_struct,
             &handler_trait,
             &response_type,
-            &utoipa_attr
+            &utoipa_attr,
         )
     }
 }
@@ -172,7 +172,7 @@ fn generate_handler_without_id(
     command_struct: &syn::Ident,
     handler_trait: &syn::Ident,
     response_type: &TokenStream,
-    utoipa_attr: &TokenStream
+    utoipa_attr: &TokenStream,
 ) -> TokenStream {
     let vis = &entity.vis;
     let doc = format!(
@@ -211,7 +211,7 @@ fn generate_handler_with_id(
     command_struct: &syn::Ident,
     handler_trait: &syn::Ident,
     response_type: &TokenStream,
-    utoipa_attr: &TokenStream
+    utoipa_attr: &TokenStream,
 ) -> TokenStream {
     let vis = &entity.vis;
     let id_field = entity.id_field();
@@ -273,7 +273,7 @@ const fn http_method_for_command(cmd: &CommandDef) -> &'static str {
         CommandKindHint::Create => "post",
         CommandKindHint::Update => "put",
         CommandKindHint::Delete => "delete",
-        CommandKindHint::Custom => "post"
+        CommandKindHint::Custom => "post",
     }
 }
 
@@ -284,7 +284,7 @@ fn security_scheme_name(scheme: &str) -> &'static str {
         "api_key" => "api_key",
         "admin" => "admin_auth",
         "oauth2" => "oauth2",
-        _ => "bearer_auth"
+        _ => "bearer_auth",
     }
 }
 
@@ -297,7 +297,7 @@ fn response_type_for_command(entity: &EntityDef, cmd: &CommandDef) -> (TokenStre
     } else {
         match cmd.kind {
             CommandKindHint::Delete => (quote! { () }, quote! { () }),
-            _ => (quote! { #entity_name }, quote! { #entity_name })
+            _ => (quote! { #entity_name }, quote! { #entity_name }),
         }
     }
 }
@@ -317,7 +317,7 @@ mod tests {
             requires_id,
             result_type: None,
             kind,
-            security: None
+            security: None,
         }
     }
 
@@ -325,7 +325,7 @@ mod tests {
         name: &str,
         requires_id: bool,
         kind: CommandKindHint,
-        security: Option<String>
+        security: Option<String>,
     ) -> CommandDef {
         CommandDef {
             name: Ident::new(name, Span::call_site()),
@@ -333,14 +333,14 @@ mod tests {
             requires_id,
             result_type: None,
             kind,
-            security
+            security,
         }
     }
 
     fn create_command_with_result(
         name: &str,
         kind: CommandKindHint,
-        result_type: syn::Type
+        result_type: syn::Type,
     ) -> CommandDef {
         CommandDef {
             name: Ident::new(name, Span::call_site()),
@@ -348,7 +348,7 @@ mod tests {
             requires_id: false,
             result_type: Some(result_type),
             kind,
-            security: None
+            security: None,
         }
     }
 
@@ -614,7 +614,7 @@ mod tests {
             "Register",
             false,
             CommandKindHint::Create,
-            Some("none".to_string())
+            Some("none".to_string()),
         );
         let output = generate_handler(&entity, &cmd);
         let output_str = output.to_string();
@@ -636,7 +636,7 @@ mod tests {
             "AdminDelete",
             true,
             CommandKindHint::Delete,
-            Some("admin".to_string())
+            Some("admin".to_string()),
         );
         let output = generate_handler(&entity, &cmd);
         let output_str = output.to_string();

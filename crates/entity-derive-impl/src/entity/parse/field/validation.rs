@@ -63,7 +63,7 @@ pub struct ValidationConfig {
     pub pattern: Option<String>,
 
     /// Raw validate attributes to pass through.
-    pub raw_attrs: Vec<TokenStream>
+    pub raw_attrs: Vec<TokenStream>,
 }
 
 impl ValidationConfig {
@@ -218,7 +218,7 @@ mod tests {
                 #[validate(length(min = 1, max = 255))]
                 name: String,
             }
-        "#
+        "#,
         );
         let config = parse_validation_attrs(&attrs);
         assert_eq!(config.min_length, Some(1));
@@ -233,7 +233,7 @@ mod tests {
                 #[validate(email)]
                 email: String,
             }
-        "#
+        "#,
         );
         let config = parse_validation_attrs(&attrs);
         assert!(config.email);
@@ -247,7 +247,7 @@ mod tests {
                 #[validate(url)]
                 website: String,
             }
-        "#
+        "#,
         );
         let config = parse_validation_attrs(&attrs);
         assert!(config.url);
@@ -261,7 +261,7 @@ mod tests {
                 #[validate(range(min = 0, max = 100))]
                 score: i32,
             }
-        "#
+        "#,
         );
         let config = parse_validation_attrs(&attrs);
         assert_eq!(config.minimum, Some(0));
@@ -277,7 +277,7 @@ mod tests {
                 #[validate(email)]
                 email: String,
             }
-        "#
+        "#,
         );
         let config = parse_validation_attrs(&attrs);
         assert_eq!(config.min_length, Some(5));
@@ -292,7 +292,7 @@ mod tests {
                 #[field(create)]
                 name: String,
             }
-        "#
+        "#,
         );
         let config = parse_validation_attrs(&attrs);
         assert!(!config.has_validation());
@@ -306,7 +306,7 @@ mod tests {
                 #[validate(email)]
                 email: String,
             }
-        "#
+        "#,
         );
         let config = parse_validation_attrs(&attrs);
         assert!(config.has_validation());
@@ -337,7 +337,7 @@ mod tests {
                 #[validate(regex = "^[a-zA-Z]+$")]
                 name: String,
             }
-        "#
+        "#,
         );
         let config = parse_validation_attrs(&attrs);
         assert_eq!(config.pattern, Some("^[a-zA-Z]+$".to_string()));
@@ -460,7 +460,7 @@ mod tests {
                 #[validate(length(min = 1))]
                 name: String,
             }
-        "#
+        "#,
         );
         let config = parse_validation_attrs(&attrs);
         assert!(!config.raw_attrs.is_empty());

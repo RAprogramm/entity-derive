@@ -138,7 +138,7 @@ pub use self::{
     info::generate_info_code,
     paths::generate_paths_code,
     schemas::{generate_all_schema_types, generate_common_schemas_code},
-    security::generate_security_code
+    security::generate_security_code,
 };
 use crate::entity::parse::EntityDef;
 

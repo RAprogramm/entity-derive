@@ -17,5 +17,5 @@ pub use crate::{
     CommandKind, EntityCommand, EntityEvent, EventKind, Pagination, Repository, SortDirection,
     async_trait,
     policy::{PolicyError, PolicyOperation},
-    transaction::{Transaction, TransactionError}
+    transaction::{Transaction, TransactionError},
 };

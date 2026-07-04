@@ -10,7 +10,7 @@ use quote::{format_ident, quote};
 
 use crate::{
     entity::parse::EntityDef,
-    utils::{marker, tracing::instrument}
+    utils::{marker, tracing::instrument},
 };
 
 /// Generate the subscriber struct and implementation.

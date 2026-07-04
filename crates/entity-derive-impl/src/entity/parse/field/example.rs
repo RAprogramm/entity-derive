@@ -45,7 +45,7 @@ pub enum ExampleValue {
     Float(f64),
 
     /// Boolean example: `#[example = true]`.
-    Bool(bool)
+    Bool(bool),
 }
 
 #[allow(dead_code)] // Will be used for OpenAPI schema examples (#80)
@@ -57,7 +57,7 @@ impl ExampleValue {
             Self::String(s) => quote! { #s },
             Self::Int(i) => quote! { #i },
             Self::Float(f) => quote! { #f },
-            Self::Bool(b) => quote! { #b }
+            Self::Bool(b) => quote! { #b },
         }
     }
 
@@ -105,13 +105,13 @@ fn parse_example_expr(expr: &syn::Expr) -> Option<ExampleValue> {
                         let value: f64 = lit.base10_parse().ok()?;
                         Some(ExampleValue::Float(-value))
                     }
-                    _ => None
+                    _ => None,
                 }
             } else {
                 None
             }
         }
-        _ => None
+        _ => None,
     }
 }
 
@@ -128,7 +128,7 @@ fn parse_example_lit(lit: &syn::Lit) -> Option<ExampleValue> {
             Some(ExampleValue::Float(value))
         }
         syn::Lit::Bool(b) => Some(ExampleValue::Bool(b.value())),
-        _ => None
+        _ => None,
     }
 }
 
@@ -153,7 +153,7 @@ mod tests {
                 #[example = "user@example.com"]
                 email: String,
             }
-        "#
+        "#,
         );
         let example = parse_example_attr(&attrs);
         assert!(matches!(example, Some(ExampleValue::String(s)) if s == "user@example.com"));
@@ -167,7 +167,7 @@ mod tests {
                 #[example = 42]
                 age: i32,
             }
-        "#
+        "#,
         );
         let example = parse_example_attr(&attrs);
         assert!(matches!(example, Some(ExampleValue::Int(42))));
@@ -181,7 +181,7 @@ mod tests {
                 #[example = -10]
                 temperature: i32,
             }
-        "#
+        "#,
         );
         let example = parse_example_attr(&attrs);
         assert!(matches!(example, Some(ExampleValue::Int(-10))));
@@ -195,7 +195,7 @@ mod tests {
                 #[example = 99.99]
                 price: f64,
             }
-        "#
+        "#,
         );
         let example = parse_example_attr(&attrs);
         assert!(matches!(example, Some(ExampleValue::Float(f)) if (f - 99.99).abs() < 0.001));
@@ -209,7 +209,7 @@ mod tests {
                 #[example = true]
                 active: bool,
             }
-        "#
+        "#,
         );
         let example = parse_example_attr(&attrs);
         assert!(matches!(example, Some(ExampleValue::Bool(true))));
@@ -223,7 +223,7 @@ mod tests {
                 #[field(create)]
                 name: String,
             }
-        "#
+        "#,
         );
         let example = parse_example_attr(&attrs);
         assert!(example.is_none());
@@ -296,7 +296,7 @@ mod tests {
                 #[example = -0.5]
                 temp: f64,
             }
-        "#
+        "#,
         );
         let example = parse_example_attr(&attrs);
         assert!(matches!(example, Some(ExampleValue::Float(f)) if (f - (-0.5)).abs() < 0.001));

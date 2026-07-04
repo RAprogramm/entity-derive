@@ -61,9 +61,9 @@ use syn::{Attribute, Ident};
 use super::{
     super::{
         api::{ApiConfig, parse_api_config},
-        field::IndexType
+        field::IndexType,
     },
-    CompositeIndexDef
+    CompositeIndexDef,
 };
 
 /// Parse `#[has_many(Entity)]` attributes from struct attributes.
@@ -129,7 +129,7 @@ pub fn parse_api_attr(attrs: &[Attribute]) -> ApiConfig {
                         let meta_list = syn::Meta::List(syn::MetaList {
                             path: syn::parse_quote!(api),
                             delimiter: syn::MacroDelimiter::Paren(syn::token::Paren::default()),
-                            tokens
+                            tokens,
                         });
 
                         if let Ok(config) = parse_api_config(&meta_list) {
@@ -214,7 +214,7 @@ pub fn parse_index_attrs(attrs: &[Attribute]) -> Vec<CompositeIndexDef> {
 /// Parse the content of an index(...) or `unique_index`(...) attribute.
 fn parse_index_content(
     meta: &syn::meta::ParseNestedMeta<'_>,
-    unique: bool
+    unique: bool,
 ) -> syn::Result<CompositeIndexDef> {
     let mut columns = Vec::new();
     let mut name = None;
@@ -253,7 +253,7 @@ fn parse_index_content(
         columns,
         index_type,
         unique,
-        where_clause
+        where_clause,
     })
 }
 

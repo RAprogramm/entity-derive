@@ -23,7 +23,7 @@ use quote::{format_ident, quote};
 
 use crate::{
     entity::parse::{CommandDef, CommandKindHint, CommandSource, EntityDef},
-    utils::marker
+    utils::marker,
 };
 
 /// Generate the command result enum.

@@ -41,7 +41,7 @@ pub enum UpsertAction {
     /// Keeps the existing row untouched. The generated method returns
     /// `Option<Entity>` — `None` signals that a conflicting row already
     /// existed and nothing was inserted.
-    Nothing
+    Nothing,
 }
 
 impl FromMeta for UpsertAction {
@@ -51,7 +51,7 @@ impl FromMeta for UpsertAction {
             "nothing" => Ok(Self::Nothing),
             other => Err(darling::Error::custom(format!(
                 "unknown upsert action `{other}`; expected \"update\" or \"nothing\""
-            )))
+            ))),
         }
     }
 }
@@ -64,7 +64,7 @@ pub struct UpsertDef {
 
     /// Conflict resolution action.
     #[darling(default)]
-    pub action: UpsertAction
+    pub action: UpsertAction,
 }
 
 impl UpsertDef {

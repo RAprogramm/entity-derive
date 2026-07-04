@@ -130,7 +130,7 @@ pub fn generate_where_conditions(fields: &[&FieldDef], soft_delete: bool) -> Tok
                 }
                 // Skip: filter_fields() should only return fields with filters,
                 // but handle gracefully if None slips through
-                FilterType::None => vec![]
+                FilterType::None => vec![],
             }
         })
         .collect();
@@ -202,7 +202,7 @@ pub fn generate_query_bindings(fields: &[&FieldDef]) -> TokenStream {
                 }
                 // Skip: filter_fields() should only return fields with filters,
                 // but handle gracefully if None slips through
-                FilterType::None => vec![]
+                FilterType::None => vec![],
             }
         })
         .collect();
@@ -284,7 +284,7 @@ mod tests {
     fn update_bindings_generates_bind_calls() {
         let fields = [
             parse_field(quote! { pub name: String }),
-            parse_field(quote! { pub email: String })
+            parse_field(quote! { pub email: String }),
         ];
         let refs: Vec<&FieldDef> = fields.iter().collect();
         let bindings = update_bindings(&refs);
@@ -432,7 +432,7 @@ mod tests {
             parse_field(quote! {
                 #[filter(like)]
                 pub name: String
-            })
+            }),
         ];
         let refs: Vec<&FieldDef> = fields.iter().collect();
         let result = generate_where_conditions(&refs, false);

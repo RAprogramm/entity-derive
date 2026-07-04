@@ -99,7 +99,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
 
     match EntityDef::from_derive_input(&input) {
         Ok(entity) => generate(entity),
-        Err(err) => err.write_errors().into()
+        Err(err) => err.write_errors().into(),
     }
 }
 
@@ -194,7 +194,7 @@ fn generate(entity: EntityDef) -> TokenStream {
 fn guard_disabled_attribute(
     entity: &EntityDef,
     feature_name: &str,
-    is_requested: bool
+    is_requested: bool,
 ) -> proc_macro2::TokenStream {
     if !is_requested {
         return proc_macro2::TokenStream::new();
@@ -274,7 +274,7 @@ mod tests {
             "transactions",
             "aggregate_root",
             "migrations",
-            "projections"
+            "projections",
         ] {
             let tokens = guard_disabled_attribute(&entity, feature, true).to_string();
             assert!(

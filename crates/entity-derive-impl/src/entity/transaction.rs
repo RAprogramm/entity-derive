@@ -365,7 +365,7 @@ fn irregular_plural(word: &str) -> Option<String> {
         ("man", "men"),
         ("woman", "women"),
         ("datum", "data"),
-        ("criterion", "criteria")
+        ("criterion", "criteria"),
     ];
 
     let lower = word.to_ascii_lowercase();

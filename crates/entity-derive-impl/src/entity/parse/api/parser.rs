@@ -156,13 +156,13 @@ pub fn parse_api_config(meta: &syn::Meta) -> syn::Result<ApiConfig> {
         syn::Meta::Path(_) => {
             return Err(syn::Error::new_spanned(
                 meta,
-                "api attribute requires parameters: api(tag = \"...\")"
+                "api attribute requires parameters: api(tag = \"...\")",
             ));
         }
         syn::Meta::NameValue(_) => {
             return Err(syn::Error::new_spanned(
                 meta,
-                "api attribute must use parentheses: api(tag = \"...\")"
+                "api attribute must use parentheses: api(tag = \"...\")",
             ));
         }
     };

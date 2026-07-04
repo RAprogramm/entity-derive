@@ -49,7 +49,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     match entity.dialect {
         DatabaseDialect::Postgres => postgres::generate(entity),
         DatabaseDialect::ClickHouse => TokenStream::new(), // TODO: future
-        DatabaseDialect::MongoDB => TokenStream::new()     // N/A for document DB
+        DatabaseDialect::MongoDB => TokenStream::new(),    // N/A for document DB
     }
 }
 

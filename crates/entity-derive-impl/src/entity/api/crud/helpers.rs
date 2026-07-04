@@ -216,7 +216,7 @@ pub fn build_security_attr(entity: &EntityDef) -> TokenStream {
             let security_name = match security.as_str() {
                 "bearer" => "bearerAuth",
                 "api_key" => "apiKey",
-                _ => "cookieAuth"
+                _ => "cookieAuth",
             };
             quote! { security((#security_name = [])) }
         })

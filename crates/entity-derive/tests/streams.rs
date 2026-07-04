@@ -17,7 +17,7 @@ pub struct Order {
     pub id: Uuid,
 
     #[field(create, update, response)]
-    pub status: String
+    pub status: String,
 }
 
 #[test]
@@ -29,7 +29,7 @@ fn channel_constant_exists() {
 fn subscriber_type_exists() {
     // Compile-time check that OrderSubscriber exists
     fn _check_subscriber_new(
-        pool: &sqlx::PgPool
+        pool: &sqlx::PgPool,
     ) -> impl std::future::Future<Output = Result<OrderSubscriber, sqlx::Error>> {
         OrderSubscriber::new(pool)
     }
@@ -38,8 +38,8 @@ fn subscriber_type_exists() {
 #[test]
 fn event_serialization() {
     let order = Order {
-        id:     Uuid::nil(),
-        status: "pending".to_string()
+        id: Uuid::nil(),
+        status: "pending".to_string(),
     };
 
     let event = OrderEvent::created(order);
@@ -53,12 +53,12 @@ fn event_serialization() {
 #[test]
 fn event_updated_serialization() {
     let old_order = Order {
-        id:     Uuid::nil(),
-        status: "pending".to_string()
+        id: Uuid::nil(),
+        status: "pending".to_string(),
     };
     let new_order = Order {
-        id:     Uuid::nil(),
-        status: "completed".to_string()
+        id: Uuid::nil(),
+        status: "completed".to_string(),
     };
 
     let event = OrderEvent::updated(old_order, new_order);
@@ -89,7 +89,7 @@ pub struct Document {
     pub title: String,
 
     #[field(skip)]
-    pub deleted_at: Option<chrono::DateTime<chrono::Utc>>
+    pub deleted_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 #[test]
@@ -100,7 +100,7 @@ fn soft_delete_channel_exists() {
 #[test]
 fn soft_delete_subscriber_exists() {
     fn _check(
-        pool: &sqlx::PgPool
+        pool: &sqlx::PgPool,
     ) -> impl std::future::Future<Output = Result<DocumentSubscriber, sqlx::Error>> {
         DocumentSubscriber::new(pool)
     }
@@ -108,9 +108,7 @@ fn soft_delete_subscriber_exists() {
 
 #[test]
 fn soft_delete_event_serialization() {
-    let event = DocumentEvent::SoftDeleted {
-        id: Uuid::nil()
-    };
+    let event = DocumentEvent::SoftDeleted { id: Uuid::nil() };
     let json = serde_json::to_string(&event).expect("serialize");
     let parsed: DocumentEvent = serde_json::from_str(&json).expect("deserialize");
 
@@ -119,9 +117,7 @@ fn soft_delete_event_serialization() {
 
 #[test]
 fn restored_event_serialization() {
-    let event = DocumentEvent::Restored {
-        id: Uuid::nil()
-    };
+    let event = DocumentEvent::Restored { id: Uuid::nil() };
     let json = serde_json::to_string(&event).expect("serialize");
     let parsed: DocumentEvent = serde_json::from_str(&json).expect("deserialize");
 

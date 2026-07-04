@@ -117,7 +117,7 @@ mod tests {
         // Leak the parsed entity so the borrowed-against `Context` outlives
         // the test scope. Acceptable in test code; saves shuffling lifetimes.
         let entity: &'static EntityDef = Box::leak(Box::new(
-            EntityDef::from_derive_input(&input).expect("parse ok")
+            EntityDef::from_derive_input(&input).expect("parse ok"),
         ));
         Context::new(entity)
     }

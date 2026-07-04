@@ -71,7 +71,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
 
     match generate(&input) {
         Ok(tokens) => tokens.into(),
-        Err(err) => err.to_compile_error().into()
+        Err(err) => err.to_compile_error().into(),
     }
 }
 
@@ -93,7 +93,7 @@ fn generate(input: &DeriveInput) -> syn::Result<TokenStream2> {
         _ => {
             return Err(syn::Error::new_spanned(
                 input,
-                "ValueObject can only be derived for enums"
+                "ValueObject can only be derived for enums",
             ));
         }
     };
@@ -213,7 +213,7 @@ fn extract_pg_type(attrs: &[syn::Attribute]) -> syn::Result<String> {
     pg_type.ok_or_else(|| {
         syn::Error::new(
             proc_macro2::Span::call_site(),
-            "missing #[value_object(pg_type = \"...\")] attribute"
+            "missing #[value_object(pg_type = \"...\")] attribute",
         )
     })
 }
@@ -272,7 +272,7 @@ mod tests {
                 Confirmed,
                 Cancelled,
             }
-            "#
+            "#,
         );
 
         let result = generate(&input).unwrap();
@@ -293,7 +293,7 @@ mod tests {
                 Pending,
                 Confirmed,
             }
-            "#
+            "#,
         );
 
         let result = generate(&input).unwrap();
@@ -311,7 +311,7 @@ mod tests {
             enum Status {
                 InProgress,
             }
-            "#
+            "#,
         );
 
         let result = generate(&input).unwrap();
@@ -330,7 +330,7 @@ mod tests {
                 Active,
                 Inactive,
             }
-            "#
+            "#,
         );
 
         let result = generate(&input).unwrap();
@@ -347,7 +347,7 @@ mod tests {
             r#"
             #[value_object(pg_type = "status")]
             enum Status { Active }
-            "#
+            "#,
         );
 
         let result = generate(&input).unwrap();
@@ -364,7 +364,7 @@ mod tests {
             enum Status {
                 Pending,
             }
-            "#
+            "#,
         );
 
         let result = generate(&input).unwrap();
@@ -379,7 +379,7 @@ mod tests {
             r#"
             #[value_object(pg_type = "status")]
             enum Status { Active }
-            "#
+            "#,
         );
 
         let result = generate(&input).unwrap();
@@ -396,7 +396,7 @@ mod tests {
             struct NotAnEnum {
                 field: String,
             }
-            "#
+            "#,
         );
 
         let _result = generate(&input);
@@ -413,7 +413,7 @@ mod tests {
                 Confirmed,
                 Cancelled,
             }
-            "#
+            "#,
         );
 
         let result = generate(&input).unwrap();
@@ -439,7 +439,7 @@ mod tests {
                 V2Active,
                 V3Inactive,
             }
-            "#
+            "#,
         );
 
         let result = generate(&input).unwrap();
@@ -456,7 +456,7 @@ mod tests {
             r#"
             #[value_object(pg_type = "status")]
             enum Status { Only }
-            "#
+            "#,
         );
 
         let result = generate(&input).unwrap();
@@ -488,7 +488,7 @@ mod tests {
             r#"
             #[value_object(pg_type = "status")]
             enum Status { Active }
-            "#
+            "#,
         );
 
         let result = generate(&input).unwrap();
@@ -503,7 +503,7 @@ mod tests {
             r#"
             #[value_object(pg_type = "status")]
             enum Status { Active }
-            "#
+            "#,
         );
 
         let result = generate(&input).unwrap();
@@ -518,7 +518,7 @@ mod tests {
             r#"
             #[value_object(pg_type = "status")]
             enum Status { Active, Inactive }
-            "#
+            "#,
         );
 
         let result = generate(&input).unwrap();

@@ -30,7 +30,7 @@ use quote::quote;
 
 use super::{
     context::Context,
-    helpers::{insert_bindings, update_bindings}
+    helpers::{insert_bindings, update_bindings},
 };
 use crate::{entity::parse::ReturningMode, utils::tracing::instrument};
 
@@ -50,7 +50,7 @@ pub(super) fn tx_wrapping(streams: bool) -> (TokenStream, TokenStream, TokenStre
         (
             quote! { let mut tx = self.begin().await?; },
             quote! { tx.commit().await?; },
-            quote! { &mut *tx }
+            quote! { &mut *tx },
         )
     } else {
         (TokenStream::new(), TokenStream::new(), quote! { self })

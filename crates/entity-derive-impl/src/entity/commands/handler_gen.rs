@@ -34,11 +34,11 @@ use quote::{format_ident, quote};
 
 use super::{
     result_gen::command_result_type,
-    struct_gen::{command_struct_name, custom_payload_type, uses_custom_payload}
+    struct_gen::{command_struct_name, custom_payload_type, uses_custom_payload},
 };
 use crate::{
     entity::parse::{CommandDef, EntityDef},
-    utils::marker
+    utils::marker,
 };
 
 /// Generate the command handler trait.

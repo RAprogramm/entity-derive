@@ -138,8 +138,8 @@ pub fn parse_command_attrs(attrs: &[Attribute]) -> syn::Result<Vec<CommandDef>> 
             Ok(cmd) => commands.push(cmd),
             Err(err) => match combined.as_mut() {
                 Some(existing) => existing.combine(err),
-                None => combined = Some(err)
-            }
+                None => combined = Some(err),
+            },
         }
     }
 
