@@ -784,3 +784,16 @@ pub name: String,
 let dto: CreateUserRequest = serde_json::from_str(body)?;
 garde::Validate::validate(&dto)?;
 ```
+
+### `constraint(...)` (optional, with `typed_constraints`)
+
+Declare constraints the macro cannot infer — foreign keys over natural keys, custom-named CHECK constraints, indexes from hand-written migrations — so violations resolve to `ConstraintError` with the declared field. Kinds: `unique`, `foreign_key`, `check`. Custom entries take precedence over derived entries with the same name. Requires `typed_constraints`.
+
+```rust
+#[entity(
+    table = "orders",
+    typed_constraints,
+    constraint(name = "orders_currency_fkey", kind = "foreign_key", field = "currency"),
+    constraint(name = "orders_window_check", kind = "check"),
+)]
+```

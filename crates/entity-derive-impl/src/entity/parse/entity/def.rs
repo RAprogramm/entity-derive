@@ -250,5 +250,11 @@ pub struct EntityDef {
     pub upsert: Option<UpsertDef>,
 
     /// Whether typed constraint-violation errors are enabled.
-    pub typed_constraints: bool
+    pub typed_constraints: bool,
+
+    /// Custom constraint declarations from `#[entity(constraint(...))]`.
+    ///
+    /// Merged into the `typed_constraints` registry, taking precedence
+    /// over auto-derived entries with the same name.
+    pub custom_constraints: Vec<super::CustomConstraintDef>
 }

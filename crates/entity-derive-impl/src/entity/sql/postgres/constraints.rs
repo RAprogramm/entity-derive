@@ -46,35 +46,61 @@ impl Context<'_> {
 
         let table = self.entity.table_name();
         let mut arms: Vec<TokenStream> = Vec::new();
+        let mut covered: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+        for custom in &self.entity.custom_constraints {
+            let name = custom.name.clone();
+            let kind = match custom.kind.as_str() {
+                "unique" => quote! { ::entity_core::ConstraintKind::Unique },
+                "foreign_key" => quote! { ::entity_core::ConstraintKind::ForeignKey },
+                _ => quote! { ::entity_core::ConstraintKind::Check }
+            };
+            let field = match &custom.field {
+                Some(f) => quote! { Some(#f) },
+                None => quote! { None }
+            };
+            covered.insert(name.clone());
+            arms.push(quote! {
+                #name => Some((#kind, #field)),
+            });
+        }
 
         for field in self.entity.all_fields() {
             let column = field.name_str();
             if field.column.unique {
                 let name = format!("{table}_{column}_key");
-                arms.push(quote! {
-                    #name => Some((::entity_core::ConstraintKind::Unique, Some(#column))),
-                });
+                if covered.insert(name.clone()) {
+                    arms.push(quote! {
+                        #name => Some((::entity_core::ConstraintKind::Unique, Some(#column))),
+                    });
+                }
             }
             if field.belongs_to().is_some() {
                 let name = format!("{table}_{column}_fkey");
-                arms.push(quote! {
-                    #name => Some((::entity_core::ConstraintKind::ForeignKey, Some(#column))),
-                });
+                if covered.insert(name.clone()) {
+                    arms.push(quote! {
+                        #name => Some((::entity_core::ConstraintKind::ForeignKey, Some(#column))),
+                    });
+                }
             }
             if field.column.check.is_some() {
                 let name = format!("{table}_{column}_check");
-                arms.push(quote! {
-                    #name => Some((::entity_core::ConstraintKind::Check, Some(#column))),
-                });
+                if covered.insert(name.clone()) {
+                    arms.push(quote! {
+                        #name => Some((::entity_core::ConstraintKind::Check, Some(#column))),
+                    });
+                }
             }
         }
 
         for index in &self.entity.indexes {
             if index.unique {
                 let name = index.name_or_default(table);
-                arms.push(quote! {
-                    #name => Some((::entity_core::ConstraintKind::Unique, None)),
-                });
+                if covered.insert(name.clone()) {
+                    arms.push(quote! {
+                        #name => Some((::entity_core::ConstraintKind::Unique, None)),
+                    });
+                }
             }
         }
 
@@ -174,5 +200,118 @@ mod tests {
         let ctx = Context::new(&entity);
         assert!(ctx.constraint_mapper().is_empty());
         assert!(ctx.constraint_map_err().is_empty());
+    }
+}
+
+#[cfg(test)]
+mod custom_constraint_tests {
+    use quote::quote;
+    use syn::DeriveInput;
+
+    use super::super::context::Context;
+    use crate::entity::parse::EntityDef;
+
+    fn parse_entity(tokens: proc_macro2::TokenStream) -> EntityDef {
+        let input: DeriveInput = syn::parse2(tokens).expect("test entity must parse");
+        EntityDef::from_derive_input(&input).expect("test entity must be valid")
+    }
+
+    #[test]
+    fn custom_constraints_join_the_registry() {
+        let entity = parse_entity(quote! {
+            #[entity(
+                table = "orders",
+                typed_constraints,
+                error = "MyError",
+                constraint(name = "orders_currency_fkey", kind = "foreign_key", field = "currency"),
+                constraint(name = "orders_window_check", kind = "check")
+            )]
+            pub struct Order {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                pub currency: String,
+            }
+        });
+        let code = Context::new(&entity).constraint_mapper().to_string();
+        assert!(code.contains("orders_currency_fkey"));
+        assert!(code.contains("ForeignKey , Some (\"currency\")"));
+        assert!(code.contains("orders_window_check"));
+        assert!(code.contains("Check , None"));
+    }
+
+    #[test]
+    fn custom_entry_overrides_derived_name() {
+        let entity = parse_entity(quote! {
+            #[entity(
+                table = "users",
+                typed_constraints,
+                error = "MyError",
+                constraint(name = "users_email_key", kind = "unique", field = "primary_email")
+            )]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                #[column(unique)]
+                pub email: String,
+            }
+        });
+        let code = Context::new(&entity).constraint_mapper().to_string();
+        assert_eq!(code.matches("users_email_key").count(), 1);
+        assert!(code.contains("Some (\"primary_email\")"));
+    }
+
+    #[test]
+    fn constraint_without_typed_constraints_rejected() {
+        let input: DeriveInput = syn::parse_quote! {
+            #[entity(table = "orders", constraint(name = "x", kind = "check"))]
+            pub struct Order {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        let err = EntityDef::from_derive_input(&input).unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("requires #[entity(typed_constraints)]")
+        );
+    }
+
+    #[test]
+    fn unknown_kind_rejected() {
+        let input: DeriveInput = syn::parse_quote! {
+            #[entity(table = "orders", typed_constraints, constraint(name = "x", kind = "exclusion"))]
+            pub struct Order {
+                #[id]
+                pub id: uuid::Uuid,
+            }
+        };
+        assert!(EntityDef::from_derive_input(&input).is_err());
+    }
+}
+
+#[cfg(all(test, not(feature = "postgres")))]
+mod feature_gating_tests {
+    use quote::quote;
+    use syn::DeriveInput;
+
+    use crate::entity::parse::EntityDef;
+
+    #[test]
+    fn repository_impl_omitted_without_postgres_feature() {
+        let input: DeriveInput = syn::parse_quote! {
+            #[entity(table = "users")]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                pub name: String,
+            }
+        };
+        let entity = EntityDef::from_derive_input(&input).unwrap();
+        let code = crate::entity::sql::generate(&entity).to_string();
+        assert!(code.is_empty());
+        let _ = quote!();
     }
 }

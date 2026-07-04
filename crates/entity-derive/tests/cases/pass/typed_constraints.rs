@@ -35,7 +35,12 @@ impl From<ConstraintError> for AppError {
 }
 
 #[derive(Debug, Clone, Entity)]
-#[entity(table = "users", typed_constraints, error = "AppError")]
+#[entity(
+    table = "users",
+    typed_constraints,
+    error = "AppError",
+    constraint(name = "users_referral_fkey", kind = "foreign_key", field = "referral_code")
+)]
 pub struct User {
     #[id]
     pub id: Uuid,
@@ -46,6 +51,9 @@ pub struct User {
 
     #[field(create, update, response)]
     pub name: String,
+
+    #[field(create, response)]
+    pub referral_code: Option<String>,
 }
 
 async fn exercise(pool: sqlx::PgPool) -> Result<(), AppError> {
@@ -53,6 +61,7 @@ async fn exercise(pool: sqlx::PgPool) -> Result<(), AppError> {
         .create(CreateUserRequest {
             email: "a@b.c".into(),
             name: "A".into(),
+            referral_code: None,
         })
         .await;
     if let Err(AppError::Constraint(violation)) = &result {
