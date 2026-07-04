@@ -25,7 +25,7 @@ pub fn generate_up(entity: &EntityDef) -> String {
     sql.push_str(&generate_create_table(entity));
 
     // Single-column indexes
-    for field in entity.all_fields() {
+    for field in entity.column_fields() {
         if field.column().has_index() {
             sql.push_str(&generate_single_index(entity, field));
         }
@@ -53,8 +53,8 @@ fn generate_create_table(entity: &EntityDef) -> String {
     let full_table = entity.full_table_name();
 
     let columns: Vec<String> = entity
-        .all_fields()
-        .iter()
+        .column_fields()
+        .into_iter()
         .map(|f| generate_column_def(f, &mapper, entity))
         .collect();
 

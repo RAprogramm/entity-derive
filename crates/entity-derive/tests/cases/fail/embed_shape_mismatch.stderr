@@ -1,0 +1,17 @@
+error: pattern requires `..` due to inaccessible fields
+  --> tests/cases/fail/embed_shape_mismatch.rs:14:24
+   |
+14 | #[derive(Debug, Clone, Entity)]
+   |                        ^^^^^^
+   |
+   = note: this error originates in the derive macro `Entity` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: ignore the inaccessible and unused fields
+   |
+21 |     #[embed(prefix = "price_", fields(amount_cents: i64, currency, ..: String))]
+   |                                                                  ++++
+
+error[E0063]: missing field `precision` in initializer of `Money`
+  --> tests/cases/fail/embed_shape_mismatch.rs:22:16
+   |
+22 |     pub price: Money,
+   |                ^^^^^ missing `precision`

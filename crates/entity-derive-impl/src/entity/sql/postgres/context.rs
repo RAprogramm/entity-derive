@@ -87,7 +87,7 @@ impl<'a> Context<'a> {
     /// Create a new generation context from an entity definition.
     pub fn new(entity: &'a EntityDef) -> Self {
         let id_field = entity.id_field();
-        let fields = entity.all_fields();
+        let fields = entity.column_fields();
         let dialect = entity.dialect;
 
         Self {
@@ -102,7 +102,7 @@ impl<'a> Context<'a> {
             table: entity.full_table_name(),
             id_name: id_field.name(),
             id_type: id_field.ty(),
-            columns_str: join_columns(fields),
+            columns_str: join_columns(&fields),
             placeholders_str: dialect.placeholders(fields.len()),
             soft_delete: entity.is_soft_delete(),
             returning: entity.returning.clone(),

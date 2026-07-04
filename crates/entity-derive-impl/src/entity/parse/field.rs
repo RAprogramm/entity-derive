@@ -94,6 +94,67 @@ fn parse_belongs_to(attr: &Attribute) -> (Option<Ident>, Option<ReferentialActio
 /// #[column(unique, index)]           // ColumnConfig
 /// pub email: String,
 /// ```
+/// Embedded value-object declaration parsed from
+/// `#[embed(prefix = "price_", fields(amount_cents: i64, currency: String))]`.
+#[derive(Debug, Clone)]
+pub struct EmbedConfig {
+    /// Column-name prefix for the flattened subfields.
+    pub prefix: String,
+
+    /// Declared subfields of the embedded struct.
+    pub subfields: Vec<(Ident, Type)>
+}
+
+impl EmbedConfig {
+    /// Parse an `#[embed(...)]` attribute.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when `fields(...)` is missing/empty, an option
+    /// is unknown, or the syntax does not match `name: Type` pairs.
+    pub fn from_attr(attr: &syn::Attribute) -> darling::Result<Self> {
+        let mut prefix: Option<String> = None;
+        let mut subfields: Vec<(Ident, Type)> = Vec::new();
+
+        attr.parse_nested_meta(|meta| {
+            if meta.path.is_ident("prefix") {
+                let value: syn::LitStr = meta.value()?.parse()?;
+                prefix = Some(value.value());
+            } else if meta.path.is_ident("fields") {
+                let content;
+                syn::parenthesized!(content in meta.input);
+                while !content.is_empty() {
+                    let name: Ident = content.parse()?;
+                    let _: syn::Token![:] = content.parse()?;
+                    let ty: Type = content.parse()?;
+                    subfields.push((name, ty));
+                    if content.peek(syn::Token![,]) {
+                        let _: syn::Token![,] = content.parse()?;
+                    }
+                }
+            } else {
+                return Err(meta.error(
+                    "unknown embed option; expected prefix = \"...\" and fields(name: Type, ...)"
+                ));
+            }
+            Ok(())
+        })
+        .map_err(darling::Error::from)?;
+
+        if subfields.is_empty() {
+            return Err(darling::Error::custom(
+                "embed requires fields(name: Type, ...) with at least one subfield"
+            )
+            .with_span(attr));
+        }
+
+        Ok(Self {
+            prefix: prefix.unwrap_or_default(),
+            subfields
+        })
+    }
+}
+
 #[derive(Debug)]
 pub struct FieldDef {
     /// Field identifier (e.g., `id`, `name`, `created_at`).
@@ -102,10 +163,22 @@ pub struct FieldDef {
     /// Field type (e.g., `Uuid`, `Option<String>`, `DateTime<Utc>`).
     pub ty: Type,
 
-    /// DTO exposure configuration.
     /// Whether the field is marked `#[sort]` (dynamic ORDER BY).
     pub sortable: bool,
 
+    /// Embedded value-object configuration from `#[embed(...)]`.
+    ///
+    /// `Some` marks an embed parent: the field lives on the entity as
+    /// a struct but maps to several prefixed columns.
+    pub embed: Option<EmbedConfig>,
+
+    /// Synthetic embed column origin.
+    ///
+    /// `Some((parent, subfield))` marks a generated column field that
+    /// flattens `parent.subfield`. Such fields never appear in DTOs.
+    pub embed_origin: Option<(Ident, Ident)>,
+
+    /// DTO exposure configuration.
     pub expose: ExposeConfig,
 
     /// Database storage configuration.
@@ -163,6 +236,7 @@ impl FieldDef {
         let example = example::parse_example_attr(&field.attrs);
 
         let mut sortable = false;
+        let mut embed: Option<EmbedConfig> = None;
         let mut expose = ExposeConfig::default();
         let mut storage = StorageConfig::default();
         let mut filter = FilterConfig::default();
@@ -180,6 +254,8 @@ impl FieldDef {
                 sortable = true;
             } else if attr.path().is_ident("version") {
                 storage.is_version = true;
+            } else if attr.path().is_ident("embed") {
+                embed = Some(EmbedConfig::from_attr(attr)?);
             } else if attr.path().is_ident("field") {
                 expose = ExposeConfig::from_attr(attr);
             } else if attr.path().is_ident("belongs_to") {
@@ -201,6 +277,8 @@ impl FieldDef {
             ident,
             ty,
             sortable,
+            embed,
+            embed_origin: None,
             expose,
             storage,
             filter,

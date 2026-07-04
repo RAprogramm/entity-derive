@@ -24,9 +24,10 @@ use crate::entity::parse::{FieldDef, FilterType};
 /// ```text
 /// ["id", "name", "email"] -> "id, name, email"
 /// ```
-pub fn join_columns(fields: &[FieldDef]) -> String {
+pub fn join_columns(fields: &[&FieldDef]) -> String {
     fields
         .iter()
+        .copied()
         .map(crate::entity::parse::FieldDef::name_str)
         .collect::<Vec<_>>()
         .join(", ")
@@ -44,6 +45,7 @@ pub fn join_columns(fields: &[FieldDef]) -> String {
 pub fn insert_bindings(fields: &[FieldDef]) -> Vec<TokenStream> {
     fields
         .iter()
+        .filter(|f| f.embed.is_none())
         .map(|f| {
             let name = f.name();
             quote! { .bind(insertable.#name) }
@@ -220,6 +222,24 @@ pub fn dynamic_set_stmts(fields: &[&FieldDef]) -> TokenStream {
             let column = f.name_str();
             let assignment = format!("{column} = ${{}}");
             let null_assignment = format!("{column} = NULL");
+            if let Some(embed) = &f.embed {
+                let pushes: Vec<TokenStream> = embed
+                    .subfields
+                    .iter()
+                    .map(|(sub, _)| {
+                        let col = format!("{}{} = ${{}}", embed.prefix, sub);
+                        quote! {
+                            __sets.push(format!(#col, __idx));
+                            __idx += 1;
+                        }
+                    })
+                    .collect();
+                return quote! {
+                    if dto.#name.is_some() {
+                        #(#pushes)*
+                    }
+                };
+            }
             if f.is_option() {
                 quote! {
                     match &dto.#name {
@@ -289,6 +309,18 @@ pub fn dynamic_set_binds(fields: &[&FieldDef]) -> TokenStream {
         .iter()
         .map(|f| {
             let name = f.name();
+            if let Some(embed) = &f.embed {
+                let binds: Vec<TokenStream> = embed
+                    .subfields
+                    .iter()
+                    .map(|(sub, _)| quote! { q = q.bind(__v.#sub.clone()); })
+                    .collect();
+                return quote! {
+                    if let Some(__v) = dto.#name {
+                        #(#binds)*
+                    }
+                };
+            }
             if f.is_option() {
                 quote! {
                     if let Some(Some(__v)) = dto.#name {
@@ -323,7 +355,7 @@ mod tests {
     #[test]
     fn join_columns_single() {
         let field = parse_field(quote! { pub name: String });
-        let result = join_columns(&[field]);
+        let result = join_columns(&[&field]);
         assert_eq!(result, "name");
     }
 
@@ -334,7 +366,8 @@ mod tests {
             parse_field(quote! { pub name: String }),
             parse_field(quote! { pub email: String }),
         ];
-        let result = join_columns(&fields);
+        let refs: Vec<&FieldDef> = fields.iter().collect();
+        let result = join_columns(&refs);
         assert_eq!(result, "id, name, email");
     }
 
