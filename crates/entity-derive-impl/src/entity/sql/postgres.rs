@@ -109,6 +109,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     let update_impl = ctx.update_method();
     let delete_impl = ctx.delete_method();
     let list_impl = ctx.list_method();
+    let list_after_impl = ctx.list_after_method();
     let query_impl = ctx.query_method();
     let stream_impl = ctx.stream_filtered_method();
     let relation_impls = ctx.relation_methods();
@@ -137,6 +138,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             #update_impl
             #delete_impl
             #list_impl
+            #list_after_impl
             #query_impl
             #stream_impl
             #lookup_impls

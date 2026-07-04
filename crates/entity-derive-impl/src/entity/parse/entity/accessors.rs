@@ -144,6 +144,18 @@ impl EntityDef {
     }
 
     /// Check if this entity has any filterable fields.
+    /// Get all fields marked `#[sort]`.
+    #[must_use]
+    pub fn sort_fields(&self) -> Vec<&FieldDef> {
+        self.fields.iter().filter(|f| f.sortable).collect()
+    }
+
+    /// Check if the entity has any `#[sort]` fields.
+    #[must_use]
+    pub fn has_sort_fields(&self) -> bool {
+        self.fields.iter().any(|f| f.sortable)
+    }
+
     pub fn has_filters(&self) -> bool {
         self.fields
             .iter()

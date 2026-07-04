@@ -78,7 +78,7 @@ pub struct User {
 
 ```toml
 [dependencies]
-entity-derive = { version = "0.14", features = ["postgres", "api"] }
+entity-derive = { version = "0.15", features = ["postgres", "api"] }
 ```
 
 ### Feature flags
@@ -106,7 +106,7 @@ Default features cover the full entity-attribute surface so existing projects wo
 ```toml
 [dependencies]
 # Just repositories — no events, hooks, commands, etc.
-entity-derive = { version = "0.14", default-features = false, features = ["postgres"] }
+entity-derive = { version = "0.15", default-features = false, features = ["postgres"] }
 ```
 
 If you use an entity attribute whose feature is disabled (e.g. `#[entity(commands)]` without `features = ["commands"]`), the macro emits a `compile_error!` at the attribute pointing to the missing feature.
@@ -115,7 +115,7 @@ Enable extras alongside the defaults:
 
 ```toml
 [dependencies]
-entity-derive = { version = "0.14", features = ["postgres", "api", "tracing", "streams"] }
+entity-derive = { version = "0.15", features = ["postgres", "api", "tracing", "streams"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
 ```
@@ -131,6 +131,7 @@ tracing-subscriber = "0.3"
 | **Auto HTTP Handlers** | `api(handlers)` generates CRUD endpoints + router |
 | **`OpenAPI` Docs** | Auto-generated Swagger/OpenAPI documentation |
 | **Query Filtering** | Type-safe `#[filter]`, `#[filter(like)]`, `#[filter(range)]` |
+| **Sorting & Keyset** | `#[sort]` whitelisted ORDER BY + `list_after` cursor pagination |
 | **Relations** | `#[belongs_to]`, `#[has_many]` and many-to-many via `through = "junction"` |
 | **Ownership Scoping** | `#[owner]` generates `find_by_id_scoped` / `list_by_owner` / `update_scoped` / `delete_scoped` |
 | **Upsert** | `upsert(conflict = "…")` generates `INSERT ... ON CONFLICT DO UPDATE / DO NOTHING` |
@@ -213,6 +214,7 @@ tracing-subscriber = "0.3"
 #[filter]                      // Exact match filter
 #[filter(like)]                // ILIKE pattern filter
 #[filter(range)]               // Range filter (from/to)
+#[sort]                        // Whitelisted dynamic ORDER BY
 #[belongs_to(Entity)]          // Foreign key relation
 #[has_many(Entity)]            // One-to-many relation
 #[has_many(E, through = "t")]  // Many-to-many via junction table
@@ -309,6 +311,29 @@ pub struct User { /* ... */ }
 Per-operation overrides accept `create`, `get`, `update`, `delete`, `list`
 and `commands`; the literal `"none"` disables the guard for that operation.
 Commands listed in `public = [...]` never receive a guard.
+
+### Sorting & Keyset Pagination
+
+Mark sortable columns with `#[sort]` — the Query struct gains a
+whitelisted sort selector (`{Entity}SortField`, one `Asc`/`Desc` variant
+per column, JSON-friendly), so user input can never inject SQL. Every
+repository also gets `list_after` keyset pagination that stays fast on
+deep pages, unlike OFFSET:
+
+```rust,ignore
+let query = PostQuery {
+    sort: Some(PostSortField::ViewsDesc),
+    limit: Some(20),
+    ..Default::default()
+};
+let top: Vec<Post> = pool.query(query).await?;
+
+let page: Vec<Post> = pool.list_after(None, 20).await?;
+let next: Vec<Post> = pool.list_after(page.last().map(|p| p.id), 20).await?;
+```
+
+With the default UUIDv7 ids, the id-ordered keyset walk is
+chronologically stable.
 
 ### Many-to-Many Relations
 
@@ -429,7 +454,7 @@ projections, transaction adapters, stream subscribers) is wrapped in
 `#[tracing::instrument(skip_all, fields(entity, op), err(Debug))]`.
 
 ```toml
-entity-derive = { version = "0.14", features = ["postgres", "tracing"] }
+entity-derive = { version = "0.15", features = ["postgres", "tracing"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 ```

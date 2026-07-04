@@ -469,7 +469,7 @@ use proc_macro::TokenStream;
 #[proc_macro_derive(
     Entity,
     attributes(
-        entity, field, id, auto, owner, validate, belongs_to, has_many, projection, filter,
+        entity, field, id, auto, owner, sort, validate, belongs_to, has_many, projection, filter,
         command, example, column, map
     )
 )]

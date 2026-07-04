@@ -58,6 +58,71 @@ pub(super) fn tx_wrapping(streams: bool) -> (TokenStream, TokenStream, TokenStre
 }
 
 impl Context<'_> {
+    /// Generate the `list_after` keyset-pagination method.
+    ///
+    /// # SQL Pattern
+    ///
+    /// ```sql
+    /// SELECT cols FROM table [WHERE id < $1] [AND deleted_at IS NULL]
+    /// ORDER BY id DESC LIMIT $n
+    /// ```
+    pub fn list_after_method(&self) -> TokenStream {
+        let Self {
+            entity_name,
+            row_name,
+            table,
+            columns_str,
+            id_name,
+            id_type,
+            soft_delete,
+            ..
+        } = self;
+
+        let deleted_and = if *soft_delete {
+            " AND deleted_at IS NULL"
+        } else {
+            ""
+        };
+        let deleted_where = if *soft_delete {
+            " WHERE deleted_at IS NULL"
+        } else {
+            ""
+        };
+        let cursor_sql = format!(
+            "SELECT {columns_str} FROM {table} WHERE {id_name} < $1{deleted_and} \
+             ORDER BY {id_name} DESC LIMIT $2"
+        );
+        let head_sql = format!(
+            "SELECT {columns_str} FROM {table}{deleted_where} ORDER BY {id_name} DESC LIMIT $1"
+        );
+
+        let span = instrument(&entity_name.to_string(), "list_after");
+
+        quote! {
+            #span
+            async fn list_after(
+                &self,
+                cursor: Option<#id_type>,
+                limit: i64,
+            ) -> Result<Vec<#entity_name>, Self::Error> {
+                let rows: Vec<#row_name> = match cursor {
+                    Some(after) => {
+                        sqlx::query_as(#cursor_sql)
+                            .bind(&after)
+                            .bind(limit)
+                            .fetch_all(self).await?
+                    }
+                    None => {
+                        sqlx::query_as(#head_sql)
+                            .bind(limit)
+                            .fetch_all(self).await?
+                    }
+                };
+                Ok(rows.into_iter().map(#entity_name::from).collect())
+            }
+        }
+    }
+
     /// Generate the `create` method implementation.
     ///
     /// # SQL Pattern
@@ -450,5 +515,53 @@ impl Context<'_> {
                 Ok(rows.into_iter().map(#entity_name::from).collect())
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod list_after_tests {
+    use quote::quote;
+    use syn::DeriveInput;
+
+    use super::super::context::Context;
+    use crate::entity::parse::EntityDef;
+
+    fn parse_entity(tokens: proc_macro2::TokenStream) -> EntityDef {
+        let input: DeriveInput = syn::parse2(tokens).expect("test entity must parse");
+        EntityDef::from_derive_input(&input).expect("test entity must be valid")
+    }
+
+    #[test]
+    fn list_after_generates_keyset_sql() {
+        let entity = parse_entity(quote! {
+            #[entity(table = "posts")]
+            pub struct Post {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                pub title: String,
+            }
+        });
+        let code = Context::new(&entity).list_after_method().to_string();
+        assert!(code.contains("id < $1"));
+        assert!(code.contains("ORDER BY id DESC LIMIT $2"));
+        assert!(code.contains("ORDER BY id DESC LIMIT $1"));
+    }
+
+    #[test]
+    fn list_after_respects_soft_delete() {
+        let entity = parse_entity(quote! {
+            #[entity(table = "posts", soft_delete)]
+            pub struct Post {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                pub title: String,
+                pub deleted_at: Option<chrono::DateTime<chrono::Utc>>,
+            }
+        });
+        let code = Context::new(&entity).list_after_method().to_string();
+        assert!(code.contains("AND deleted_at IS NULL"));
+        assert!(code.contains("WHERE deleted_at IS NULL"));
     }
 }

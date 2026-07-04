@@ -69,8 +69,25 @@ impl Context<'_> {
     ///     Ok(rows.into_iter().map(User::from).collect())
     /// }
     /// ```
+    /// Expression yielding the runtime `ORDER BY` fragment.
+    ///
+    /// With `#[sort]` fields the fragment comes from the whitelisted
+    /// `{Entity}SortField::order_by`; otherwise the historical
+    /// `{id} DESC` default is kept.
+    fn order_by_expr(&self) -> TokenStream {
+        let id_name = self.id_name;
+        let default = format!("{id_name} DESC");
+        if self.entity.has_sort_fields() {
+            quote! {
+                query.sort.map(|s| s.order_by()).unwrap_or(#default)
+            }
+        } else {
+            quote! { #default }
+        }
+    }
+
     pub fn query_method(&self) -> TokenStream {
-        if !self.entity.has_filters() {
+        if !self.entity.has_filters() && !self.entity.has_sort_fields() {
             return TokenStream::new();
         }
 
@@ -79,7 +96,6 @@ impl Context<'_> {
             row_name,
             table,
             columns_str,
-            id_name,
             soft_delete,
             ..
         } = self;
@@ -89,6 +105,8 @@ impl Context<'_> {
 
         let where_conditions = generate_where_conditions(&filter_fields, *soft_delete);
         let bindings = generate_query_bindings(&filter_fields);
+
+        let order_by_expr = self.order_by_expr();
 
         quote! {
             async fn query(&self, query: #query_type) -> Result<Vec<#entity_name>, Self::Error> {
@@ -107,9 +125,10 @@ impl Context<'_> {
                 param_idx += 1;
                 let offset_idx = param_idx;
 
+                let __order_by = #order_by_expr;
                 let sql = format!(
-                    "SELECT {} FROM {} {} ORDER BY {} DESC LIMIT ${} OFFSET ${}",
-                    #columns_str, #table, where_clause, stringify!(#id_name), limit_idx, offset_idx
+                    "SELECT {} FROM {} {} ORDER BY {} LIMIT ${} OFFSET ${}",
+                    #columns_str, #table, where_clause, __order_by, limit_idx, offset_idx
                 );
 
                 let mut q = sqlx::query_as::<_, #row_name>(::sqlx::AssertSqlSafe(sql));
@@ -137,7 +156,6 @@ impl Context<'_> {
             row_name,
             table,
             columns_str,
-            id_name,
             soft_delete,
             ..
         } = self;
@@ -150,6 +168,8 @@ impl Context<'_> {
 
         // For now, generate a simple implementation that fetches all and converts to
         // stream True streaming would require more complex lifetime handling
+        let order_by_expr = self.order_by_expr();
+
         quote! {
             async fn stream_filtered(
                 &self,
@@ -174,9 +194,10 @@ impl Context<'_> {
                 param_idx += 1;
                 let offset_idx = param_idx;
 
+                let __order_by = #order_by_expr;
                 let sql = format!(
-                    "SELECT {} FROM {} {} ORDER BY {} DESC LIMIT ${} OFFSET ${}",
-                    #columns_str, #table, where_clause, stringify!(#id_name), limit_idx, offset_idx
+                    "SELECT {} FROM {} {} ORDER BY {} LIMIT ${} OFFSET ${}",
+                    #columns_str, #table, where_clause, __order_by, limit_idx, offset_idx
                 );
 
                 let mut q = sqlx::query_as::<_, #row_name>(::sqlx::AssertSqlSafe(sql));
