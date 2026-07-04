@@ -11,6 +11,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.13.0...HEAD)
+
+### ✨ Features
+
+- Many-to-many relations via has_many through junction tables (#165) ([8bb800b](https://github.com/RAprogramm/entity-derive/commit/8bb800b234cf4124a468d45f844d3c26782e667a)) by [@RAprogramm](https://github.com/RAprogramm) in [#165](https://github.com/RAprogramm/entity-derive/pull/165)
+
 ## [0.8.6](https://github.com/RAprogramm/entity-derive/releases/tag/v0.8.6) — 2026-05-11
 
 ### 🐛 Bug Fixes
