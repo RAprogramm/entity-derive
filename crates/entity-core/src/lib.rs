@@ -40,6 +40,28 @@ pub mod transaction;
 /// Re-export `async_trait` for generated code.
 pub use async_trait::async_trait;
 
+/// Compare two strings in const context.
+///
+/// Used by generated code to verify at compile time that
+/// `#[column(pg_enum = "...")]` matches the `ValueObject`'s
+/// `#[value_object(pg_type = "...")]` declaration.
+#[must_use]
+pub const fn const_str_eq(a: &str, b: &str) -> bool {
+    let a = a.as_bytes();
+    let b = b.as_bytes();
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut i = 0;
+    while i < a.len() {
+        if a[i] != b[i] {
+            return false;
+        }
+        i += 1;
+    }
+    true
+}
+
 /// Base repository trait.
 ///
 /// All generated `{Entity}Repository` traits include these associated types
@@ -362,5 +384,30 @@ mod tests {
         assert!(CommandKind::Update.is_mutation());
         assert!(CommandKind::Delete.is_mutation());
         assert!(!CommandKind::Custom.is_mutation());
+    }
+
+    #[test]
+    fn const_str_eq_equal_strings() {
+        assert!(const_str_eq("order_status", "order_status"));
+        assert!(const_str_eq("", ""));
+    }
+
+    #[test]
+    fn const_str_eq_different_lengths() {
+        assert!(!const_str_eq("order", "order_status"));
+        assert!(!const_str_eq("order_status", ""));
+    }
+
+    #[test]
+    fn const_str_eq_same_length_different_content() {
+        assert!(!const_str_eq("order_status", "order_states"));
+        assert!(!const_str_eq("abc", "abd"));
+    }
+
+    #[test]
+    fn const_str_eq_in_const_context() {
+        const OK: bool = const_str_eq("user_role", "user_role");
+        const MISMATCH: bool = const_str_eq("user_role", "user_rank");
+        assert_eq!((OK, MISMATCH), (true, false));
     }
 }
