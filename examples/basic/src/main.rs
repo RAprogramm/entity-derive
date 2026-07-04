@@ -38,10 +38,15 @@ use uuid::Uuid;
 /// - `list_user()` - GET /users (requires auth)
 /// - `user_router()` - axum Router with all routes
 /// - `UserApi` - OpenAPI documentation with security scheme
+///
+/// The `upsert(conflict = "email")` attribute additionally generates
+/// `pool.upsert(dto)` backed by `INSERT ... ON CONFLICT (email) DO UPDATE`,
+/// so repeated submissions with the same email update the row in place.
 #[derive(Debug, Clone, Entity)]
 #[entity(
     table = "users",
     schema = "public",
+    upsert(conflict = "email"),
     api(
         tag = "Users",
         security = "cookie",
@@ -65,6 +70,7 @@ pub struct User {
 
     /// User's email address.
     #[field(create, update, response)]
+    #[column(unique)]
     pub email: String,
 
     /// Hashed password (never exposed in API).

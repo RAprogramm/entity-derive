@@ -45,7 +45,7 @@ use crate::{entity::parse::ReturningMode, utils::tracing::instrument};
 /// - When `streams` is `false`, the wrapping fragments are empty and the
 ///   executor is `self`, keeping the generated method a single SQL round-trip
 ///   with no behavior change vs. earlier releases.
-fn tx_wrapping(streams: bool) -> (TokenStream, TokenStream, TokenStream) {
+pub(super) fn tx_wrapping(streams: bool) -> (TokenStream, TokenStream, TokenStream) {
     if streams {
         (
             quote! { let mut tx = self.begin().await?; },

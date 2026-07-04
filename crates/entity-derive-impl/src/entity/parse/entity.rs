@@ -144,11 +144,13 @@ mod def;
 mod helpers;
 mod index;
 mod projection;
+mod upsert;
 
 pub use attrs::EntityAttrs;
 pub use def::EntityDef;
 pub use index::CompositeIndexDef;
 pub use projection::{ProjectionDef, parse_projection_attrs};
+pub use upsert::UpsertAction;
 
 #[cfg(test)]
 mod tests;

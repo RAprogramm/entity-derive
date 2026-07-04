@@ -52,7 +52,7 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::parse_quote;
 
-use super::parse::{EntityDef, FieldDef, SqlLevel};
+use super::parse::{EntityDef, FieldDef, SqlLevel, UpsertAction};
 use crate::utils::marker;
 
 /// Lookup method definition with all generated code.
@@ -97,6 +97,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
         quote! { async fn update(&self, id: #id_type, dto: #update_dto) -> Result<#entity_name, Self::Error>; }
     };
 
+    let upsert_method = generate_upsert_method(entity);
     let relation_methods = generate_relation_methods(entity, id_type);
     let projection_methods = generate_projection_methods(entity, id_type);
     let soft_delete_methods = generate_soft_delete_methods(entity, id_type);
@@ -128,6 +129,8 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             fn pool(&self) -> &Self::Pool;
 
             #create_method
+
+            #upsert_method
 
             async fn find_by_id(&self, id: #id_type) -> Result<Option<#entity_name>, Self::Error>;
 
@@ -433,6 +436,41 @@ fn generate_trait_method(def: &LookupMethodDef) -> TokenStream {
     quote! {
         #doc_comment
         async fn #method_name(&self, #param_name: #param_type) -> Result<#return_type, Self::Error>;
+    }
+}
+
+/// Generate `upsert` method when `#[entity(upsert(...))]` is configured.
+///
+/// The return type depends on the conflict action:
+///
+/// | Action | Signature |
+/// |--------|-----------|
+/// | `update` | `async fn upsert(&self, dto: Create{E}Request) -> Result<{E}, Self::Error>` |
+/// | `nothing` | `async fn upsert(&self, dto: Create{E}Request) -> Result<Option<{E}>, Self::Error>` |
+fn generate_upsert_method(entity: &EntityDef) -> TokenStream {
+    let Some(upsert) = &entity.upsert else {
+        return TokenStream::new();
+    };
+
+    let entity_name = entity.name();
+    let create_dto = entity.ident_with("Create", "Request");
+
+    match upsert.action {
+        UpsertAction::Update => quote! {
+            /// Insert the entity, or update the conflicting row in place.
+            ///
+            /// Uses `INSERT ... ON CONFLICT ... DO UPDATE` and returns the
+            /// persisted row (the pre-existing one on the update path).
+            async fn upsert(&self, dto: #create_dto) -> Result<#entity_name, Self::Error>;
+        },
+        UpsertAction::Nothing => quote! {
+            /// Insert the entity, or keep the conflicting row untouched.
+            ///
+            /// Uses `INSERT ... ON CONFLICT ... DO NOTHING`. Returns `None`
+            /// when a conflicting row already existed and nothing was
+            /// inserted.
+            async fn upsert(&self, dto: #create_dto) -> Result<Option<#entity_name>, Self::Error>;
+        }
     }
 }
 

@@ -63,7 +63,8 @@ use super::{
         api::ApiConfig, command::CommandDef, dialect::DatabaseDialect, field::FieldDef,
         returning::ReturningMode, sql_level::SqlLevel, uuid_version::UuidVersion
     },
-    CompositeIndexDef, ProjectionDef
+    CompositeIndexDef, ProjectionDef,
+    upsert::UpsertDef
 };
 
 /// Complete parsed entity definition.
@@ -222,5 +223,12 @@ pub struct EntityDef {
     /// When `true`, generates `New{Name}` structs for create-only DTOs,
     /// `From<New{Name}>` impls with UUID generation, and a transactional
     /// `save` method on the repository trait.
-    pub aggregate_root: bool
+    pub aggregate_root: bool,
+
+    /// Upsert configuration from `#[entity(upsert(...))]`.
+    ///
+    /// When present, an `upsert` repository method is generated using
+    /// `INSERT ... ON CONFLICT`. Conflict columns are validated at parse
+    /// time against uniqueness guarantees.
+    pub upsert: Option<UpsertDef>
 }

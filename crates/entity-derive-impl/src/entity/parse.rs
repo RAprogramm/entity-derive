@@ -120,7 +120,7 @@ mod uuid_version;
 pub use api::ApiConfig;
 pub use command::{CommandDef, CommandKindHint, CommandSource};
 pub use dialect::DatabaseDialect;
-pub use entity::{CompositeIndexDef, EntityDef, ProjectionDef};
+pub use entity::{CompositeIndexDef, EntityDef, ProjectionDef, UpsertAction};
 #[allow(unused_imports)] // Will be used for OpenAPI schema examples (#80)
 pub use field::ExampleValue;
 #[allow(unused_imports)] // Re-exported for migration generation tests

@@ -28,6 +28,7 @@
 use darling::FromDeriveInput;
 use syn::{Ident, Visibility};
 
+use super::upsert::UpsertDef;
 use crate::entity::parse::{DatabaseDialect, ReturningMode, SqlLevel, UuidVersion};
 
 /// Default error type path for SQL implementations.
@@ -270,5 +271,20 @@ pub struct EntityAttrs {
     /// When enabled, the entity is treated as an aggregate root in DDD.
     /// Generates `New{Name}` structs and a transactional `save` method.
     #[darling(default)]
-    pub aggregate_root: bool
+    pub aggregate_root: bool,
+
+    /// Upsert configuration.
+    ///
+    /// When present, generates an `upsert` repository method using
+    /// `INSERT ... ON CONFLICT`. Conflict columns must carry a uniqueness
+    /// guarantee (`#[id]`, `#[column(unique)]` or a `unique_index(...)`).
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// #[entity(table = "users", upsert(conflict = "email"))]
+    /// #[entity(table = "members", unique_index(tenant_id, email), upsert(conflict = "tenant_id, email", action = "nothing"))]
+    /// ```
+    #[darling(default)]
+    pub upsert: Option<UpsertDef>
 }

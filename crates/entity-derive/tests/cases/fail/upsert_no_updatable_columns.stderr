@@ -1,0 +1,5 @@
+error: upsert action = "update" needs at least one non-conflict column to update; use action = "nothing" instead
+ --> tests/cases/fail/upsert_no_updatable_columns.rs:9:12
+  |
+9 | pub struct Subscription {
+  |            ^^^^^^^^^^^^
