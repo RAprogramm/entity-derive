@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.6](https://github.com/RAprogramm/entity-derive/compare/entity-derive-impl-v0.20.5...entity-derive-impl-v0.20.6) - 2026-07-04
+
+### ✨ Features
+
+- expose upsert on the transaction adapter ([#192](https://github.com/RAprogramm/entity-derive/issues/192))
+
 ## [0.20.5](https://github.com/RAprogramm/entity-derive/compare/entity-derive-impl-v0.20.4...entity-derive-impl-v0.20.5) - 2026-07-04
 
 ### ✨ Features
