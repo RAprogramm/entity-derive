@@ -131,6 +131,7 @@ tracing-subscriber = "0.3"
 | **`OpenAPI` Docs** | Auto-generated Swagger/OpenAPI documentation |
 | **Query Filtering** | Type-safe `#[filter]`, `#[filter(like)]`, `#[filter(range)]` |
 | **Relations** | `#[belongs_to]` and `#[has_many]` |
+| **Upsert** | `upsert(conflict = "…")` generates `INSERT ... ON CONFLICT DO UPDATE / DO NOTHING` |
 | **Aggregate Roots** | `#[entity(aggregate_root)]` with `New{T}` DTOs and transactional `save` |
 | **Transactions** | Multi-entity atomic operations |
 | **Lifecycle Events** | `Created`, `Updated`, `Deleted` events |
