@@ -71,6 +71,31 @@ impl DatabaseDialect {
             .collect::<Vec<_>>()
             .join(", ")
     }
+}
+
+impl FromMeta for DatabaseDialect {
+    fn from_string(value: &str) -> darling::Result<Self> {
+        match value.to_lowercase().as_str() {
+            "postgres" | "postgresql" | "pg" => Ok(Self::Postgres),
+            "clickhouse" | "ch" => Ok(Self::ClickHouse),
+            "mongodb" | "mongo" => Ok(Self::MongoDB),
+            _ => Err(darling::Error::unknown_value(value))
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn postgres_placeholders() {
+        let d = DatabaseDialect::Postgres;
+        assert_eq!(d.placeholder(1), "$1");
+        assert_eq!(d.placeholder(5), "$5");
+        assert_eq!(d.placeholders(3), "$1, $2, $3");
+        assert_eq!(d.placeholders(0), "");
+    }
 
     #[test]
     fn clickhouse_placeholders() {
