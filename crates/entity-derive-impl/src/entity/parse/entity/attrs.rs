@@ -418,5 +418,15 @@ pub struct EntityAttrs {
     /// #[entity(table = "members", unique_index(tenant_id, email), upsert(conflict = "tenant_id, email", action = "nothing"))]
     /// ```
     #[darling(default)]
-    pub upsert: Option<UpsertDef>
+    pub upsert: Option<UpsertDef>,
+
+    /// Map database constraint violations to typed errors.
+    ///
+    /// When enabled, generated write methods resolve violated
+    /// constraint names against the entity's known constraints and
+    /// surface `entity_core::ConstraintError` through the repository
+    /// `Error` type, which must additionally implement
+    /// `From<entity_core::ConstraintError>`.
+    #[darling(default)]
+    pub typed_constraints: bool
 }

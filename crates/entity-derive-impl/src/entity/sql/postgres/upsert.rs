@@ -64,6 +64,7 @@ impl Context<'_> {
         let (tx_open, tx_close, executor) = tx_wrapping(*streams || self.outbox);
         let outbox_created = self.outbox_created();
         let notify = self.notify_created();
+        let constraint_map_err = self.constraint_map_err();
         let sql = self.upsert_sql();
 
         match upsert.action {
@@ -76,7 +77,7 @@ impl Context<'_> {
                         let insertable = #insertable_name::from(&entity);
                         let row: #row_name = sqlx::query_as(#sql)
                             #(#bindings)*
-                            .fetch_one(#executor).await?;
+                            .fetch_one(#executor).await #constraint_map_err?;
                         let entity = #entity_name::from(row);
                         #outbox_created
                         #notify
@@ -94,7 +95,7 @@ impl Context<'_> {
                         let insertable = #insertable_name::from(&entity);
                         let row: Option<#row_name> = sqlx::query_as(#sql)
                             #(#bindings)*
-                            .fetch_optional(#executor).await?;
+                            .fetch_optional(#executor).await #constraint_map_err?;
                         match row {
                             Some(row) => {
                                 let entity = #entity_name::from(row);

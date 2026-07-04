@@ -323,6 +323,42 @@ mod tests {
     use super::*;
 
     #[test]
+    fn constraint_error_display_unique_field() {
+        let err = ConstraintError {
+            kind:       ConstraintKind::Unique,
+            constraint: "users_email_key".to_string(),
+            field:      Some("email")
+        };
+        assert_eq!(err.to_string(), "duplicate value for unique field `email`");
+    }
+
+    #[test]
+    fn constraint_error_display_fk_field() {
+        let err = ConstraintError {
+            kind:       ConstraintKind::ForeignKey,
+            constraint: "orders_user_id_fkey".to_string(),
+            field:      Some("user_id")
+        };
+        assert_eq!(
+            err.to_string(),
+            "referenced row missing for field `user_id`"
+        );
+    }
+
+    #[test]
+    fn constraint_error_display_unknown_field() {
+        let err = ConstraintError {
+            kind:       ConstraintKind::Check,
+            constraint: "orders_amount_check".to_string(),
+            field:      None
+        };
+        assert_eq!(
+            err.to_string(),
+            "Check constraint `orders_amount_check` violated"
+        );
+    }
+
+    #[test]
     fn pagination_new() {
         let p = Pagination::new(50, 100);
         assert_eq!(p.limit, 50);
@@ -506,3 +542,54 @@ pub mod serde_helpers {
         }
     }
 }
+
+/// Kind of database constraint that was violated.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ConstraintKind {
+    /// UNIQUE constraint or unique index.
+    Unique,
+
+    /// FOREIGN KEY constraint.
+    ForeignKey,
+
+    /// CHECK constraint.
+    Check
+}
+
+/// A database constraint violation resolved to entity metadata.
+///
+/// Produced by repositories generated with
+/// `#[entity(typed_constraints)]`: the generated code matches the
+/// violated constraint name against the set of constraints it created
+/// (unique columns, foreign keys, unique indexes) and hands callers a
+/// structured error instead of a raw driver error.
+///
+/// The repository `Error` type must implement
+/// `From<ConstraintError>` in addition to `From<sqlx::Error>`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ConstraintError {
+    /// What kind of constraint was violated.
+    pub kind: ConstraintKind,
+
+    /// Constraint name as reported by the database.
+    pub constraint: String,
+
+    /// Entity field the constraint maps to, when known.
+    pub field: Option<&'static str>
+}
+
+impl std::fmt::Display for ConstraintError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match (self.kind, self.field) {
+            (ConstraintKind::Unique, Some(field)) => {
+                write!(f, "duplicate value for unique field `{field}`")
+            }
+            (ConstraintKind::ForeignKey, Some(field)) => {
+                write!(f, "referenced row missing for field `{field}`")
+            }
+            (kind, _) => write!(f, "{kind:?} constraint `{}` violated", self.constraint)
+        }
+    }
+}
+
+impl std::error::Error for ConstraintError {}
