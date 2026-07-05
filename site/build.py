@@ -103,6 +103,9 @@ def book_toml(lang):
         'site-url = "/entity-derive/' + lang + '/"\n'
         'git-repository-url = "' + REPO_URL + '"\n'
         'edit-url-template = "' + REPO_URL + '/edit/main/wiki/{path}"\n'
+        "\n"
+        "[output.html.playground]\n"
+        "runnable = false\n"
     )
 
 
