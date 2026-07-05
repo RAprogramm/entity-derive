@@ -3,7 +3,7 @@
 
 [package]
 name = "entity-derive-impl"
-version = "0.20.11"
+version = "0.20.12"
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
