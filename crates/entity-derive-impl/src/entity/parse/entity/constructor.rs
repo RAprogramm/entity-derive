@@ -132,6 +132,7 @@ impl EntityDef {
         let command_defs = parse_command_attrs(&input.attrs).map_err(darling::Error::from)?;
         let api_config = parse_api_attr(&input.attrs);
         let indexes = parse_index_attrs(&input.attrs);
+        let joins = super::join::parse_join_attrs(&input.attrs).map_err(darling::Error::from)?;
         let field_names: Vec<String> = fields
             .iter()
             .map(super::super::field::FieldDef::name_str)
@@ -144,6 +145,15 @@ impl EntityDef {
                     ))
                     .with_span(&input.ident));
                 }
+            }
+        }
+        for join in &joins {
+            if !field_names.iter().any(|c| c == &join.local_column) {
+                return Err(darling::Error::custom(format!(
+                    "join column `{}` does not match any entity column",
+                    join.local_column
+                ))
+                .with_span(&input.ident));
             }
         }
         let custom_constraints =
@@ -283,6 +293,7 @@ impl EntityDef {
             audit: attrs.migrations.audit,
             extensions: attrs.migrations.extensions,
             indexes,
+            joins,
             aggregate_root: attrs.aggregate_root,
             upsert: attrs.upsert,
             typed_constraints: attrs.typed_constraints,

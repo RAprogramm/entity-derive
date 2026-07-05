@@ -86,6 +86,7 @@ mod sql;
 mod streams;
 #[cfg(feature = "transactions")]
 mod transaction;
+mod view;
 
 use proc_macro::TokenStream;
 use quote::quote;
@@ -114,6 +115,7 @@ fn generate(entity: EntityDef) -> TokenStream {
     let insertable = insertable::generate(&entity);
     let mappers = mappers::generate(&entity);
     let sql = sql::generate(&entity);
+    let view = view::generate(&entity);
 
     // Opt-out generators. Each entity-attribute group is gated behind a
     // Cargo feature so users can shrink their build by switching them
@@ -173,6 +175,7 @@ fn generate(entity: EntityDef) -> TokenStream {
         #api
         #repository
         #row
+        #view
         #insertable
         #mappers
         #new_entity
