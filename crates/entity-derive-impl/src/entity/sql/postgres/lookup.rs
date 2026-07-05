@@ -64,6 +64,22 @@ fn composite_suffix(fields: &[&FieldDef]) -> String {
         .join("_and_")
 }
 
+/// Lookup parameter type and WHERE fragment for a single-column lookup.
+///
+/// Case-insensitive columns compare via `LOWER(col) = LOWER($n)` and
+/// unwrap `Option<T>` parameters to `T`.
+fn lookup_comparison<'f>(field: &'f FieldDef, placeholder: &str) -> (&'f syn::Type, String) {
+    let column = field.name_str();
+    if field.column.ci {
+        (
+            field.option_inner_type(),
+            format!("LOWER({column}) = LOWER({placeholder})")
+        )
+    } else {
+        (field.ty(), format!("{column} = {placeholder}"))
+    }
+}
+
 /// `a = $1 AND b = $2` WHERE fragment for a composite lookup.
 fn composite_where_clause(fields: &[&FieldDef], dialect: &DatabaseDialect) -> String {
     fields
@@ -246,17 +262,17 @@ impl Context<'_> {
 
         let field_name = field.name();
         let field_name_str = field.name_str();
-        let field_type = field.ty();
         let method_name = format_ident!("find_by_{}", field_name_str);
         let placeholder = dialect.placeholder(1);
         let op = format!("find_by_{field_name_str}");
         let span = instrument(&entity_name.to_string(), &op);
+        let (field_type, where_clause) = lookup_comparison(field, &placeholder);
 
         quote! {
             #span
             async fn #method_name(&self, #field_name: #field_type) -> Result<Option<#entity_name>, Self::Error> {
                 let row: Option<#row_name> = sqlx::query_as(
-                    ::sqlx::AssertSqlSafe(format!("SELECT * FROM {} WHERE {} = {}", #table, stringify!(#field_name), #placeholder))
+                    ::sqlx::AssertSqlSafe(format!("SELECT * FROM {} WHERE {}", #table, #where_clause))
                 ).bind(&#field_name).fetch_optional(self).await?;
                 Ok(row.map(#entity_name::from))
             }
@@ -280,17 +296,17 @@ impl Context<'_> {
 
         let field_name = field.name();
         let field_name_str = field.name_str();
-        let field_type = field.ty();
         let method_name = format_ident!("exists_by_{}", field_name_str);
         let placeholder = dialect.placeholder(1);
         let op = format!("exists_by_{field_name_str}");
         let span = instrument(&entity_name.to_string(), &op);
+        let (field_type, where_clause) = lookup_comparison(field, &placeholder);
 
         quote! {
             #span
             async fn #method_name(&self, #field_name: #field_type) -> Result<bool, Self::Error> {
                 let exists: bool = sqlx::query_scalar(
-                    ::sqlx::AssertSqlSafe(format!("SELECT EXISTS(SELECT 1 FROM {} WHERE {} = {})", #table, stringify!(#field_name), #placeholder))
+                    ::sqlx::AssertSqlSafe(format!("SELECT EXISTS(SELECT 1 FROM {} WHERE {})", #table, #where_clause))
                 ).bind(&#field_name).fetch_one(self).await?;
                 Ok(exists)
             }
@@ -329,6 +345,48 @@ mod tests {
         assert!(code.contains("async fn exists_by_email"));
         assert!(code.contains("fetch_optional"));
         assert!(code.contains("fetch_one"));
+    }
+
+    #[test]
+    fn ci_lookup_compares_via_lower_and_unwraps_option() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "users")]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, update, response)]
+                #[column(unique, ci)]
+                pub username: Option<String>,
+            }
+        });
+
+        let ctx = Context::new(&entity);
+        let code = ctx.lookup_methods().to_string();
+
+        assert!(code.contains("async fn find_by_username"));
+        assert!(code.contains("LOWER(username) = LOWER($1)"));
+        assert!(code.contains("username : String"));
+        assert!(!code.contains("username : Option < String >"));
+    }
+
+    #[test]
+    fn plain_lookup_keeps_exact_comparison() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "users")]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                #[column(unique)]
+                pub email: String,
+            }
+        });
+
+        let ctx = Context::new(&entity);
+        let code = ctx.lookup_methods().to_string();
+
+        assert!(code.contains("email = $1"));
+        assert!(!code.contains("LOWER"));
     }
 
     #[test]

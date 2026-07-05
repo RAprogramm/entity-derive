@@ -68,7 +68,11 @@ impl Context<'_> {
         for field in self.entity.all_fields() {
             let column = field.name_str();
             if field.column.unique {
-                let name = format!("{table}_{column}_key");
+                let name = if field.column.ci {
+                    format!("{table}_{column}_lower_key")
+                } else {
+                    format!("{table}_{column}_key")
+                };
                 if covered.insert(name.clone()) {
                     arms.push(quote! {
                         #name => Some((::entity_core::ConstraintKind::Unique, Some(#column))),

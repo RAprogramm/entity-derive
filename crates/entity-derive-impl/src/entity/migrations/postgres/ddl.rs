@@ -29,6 +29,9 @@ pub fn generate_up(entity: &EntityDef) -> String {
         if field.column().has_index() {
             sql.push_str(&generate_single_index(entity, field));
         }
+        if field.is_unique() && field.column().ci {
+            sql.push_str(&generate_ci_unique_index(entity, field));
+        }
     }
 
     // Composite indexes
@@ -87,8 +90,9 @@ fn generate_column_def(
         parts.push("NOT NULL".to_string());
     }
 
-    // UNIQUE constraint
-    if field.is_unique() {
+    // UNIQUE constraint; ci-unique columns get a functional
+    // LOWER(...) index in generate_up instead of an inline constraint.
+    if field.is_unique() && !field.column().ci {
         parts.push("UNIQUE".to_string());
     }
 
@@ -131,6 +135,19 @@ fn generate_single_index(entity: &EntityDef, field: &FieldDef) -> String {
     let qualified_table = entity.full_table_name_for(&table);
 
     format!("CREATE INDEX IF NOT EXISTS {index_name} ON {qualified_table}{using} ({column});\n")
+}
+
+/// Generate the functional unique index for a `#[column(unique, ci)]`
+/// column: uniqueness is enforced on `LOWER(column)`.
+fn generate_ci_unique_index(entity: &EntityDef, field: &FieldDef) -> String {
+    let table = entity.table.clone();
+    let column = field.column_name();
+    let index_name = format!("{table}_{column}_lower_key");
+    let qualified_table = entity.full_table_name_for(&table);
+
+    format!(
+        "CREATE UNIQUE INDEX IF NOT EXISTS {index_name} ON {qualified_table} (LOWER({column}));\n"
+    )
 }
 
 /// Generate CREATE INDEX for a composite index.
@@ -416,6 +433,25 @@ mod tests {
         let sql = generate_composite_index(&entity, &idx);
         assert!(sql.contains("CREATE INDEX IF NOT EXISTS idx_users_name_email"));
         assert!(sql.contains("(name, email)"));
+    }
+
+    #[test]
+    fn generate_up_ci_unique_uses_functional_index() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "users", migrations)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                #[column(unique, ci)]
+                pub username: String,
+            }
+        });
+        let sql = generate_up(&entity);
+        assert!(!sql.contains("username TEXT NOT NULL UNIQUE"));
+        assert!(sql.contains(
+            "CREATE UNIQUE INDEX IF NOT EXISTS users_username_lower_key ON users (LOWER(username));"
+        ));
     }
 
     #[test]
