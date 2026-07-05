@@ -27,6 +27,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.22.0...HEAD)
 
+## [0.22.5](https://github.com/RAprogramm/entity-derive/compare/v0.22.4...v0.22.5) - 2026-07-05
+
+### ✨ Features
+
+- documentation site generated from wiki ([#206](https://github.com/RAprogramm/entity-derive/issues/206))
+
+### 🐛 Bug Fixes
+
+- upsert overwrites only update-marked columns on conflict ([#209](https://github.com/RAprogramm/entity-derive/issues/209))
+
 ## [0.22.4](https://github.com/RAprogramm/entity-derive/compare/v0.22.3...v0.22.4) - 2026-07-04
 
 ### ✨ Features
