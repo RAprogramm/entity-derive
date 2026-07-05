@@ -200,13 +200,13 @@ pub struct User {
 | `action` | No | `"update"` | `"update"` (DO UPDATE) or `"nothing"` (DO NOTHING) |
 
 **Generated:**
-- `action = "update"` → `async fn upsert(&self, dto: CreateUserRequest) -> Result<User, Error>` — overwrites all non-conflict columns (`DO UPDATE SET col = EXCLUDED.col`) and returns the persisted row
+- `action = "update"` → `async fn upsert(&self, dto: CreateUserRequest) -> Result<User, Error>` — overwrites the non-conflict `#[field(update)]` columns (`DO UPDATE SET col = EXCLUDED.col`) and returns the persisted row; columns not marked updatable keep their stored values on conflict
 - `action = "nothing"` → `async fn upsert(&self, dto: CreateUserRequest) -> Result<Option<User>, Error>` — keeps the existing row untouched; `None` means a conflicting row already existed
 
 **Compile-time validation:**
 - conflict columns must exist and carry a uniqueness guarantee (`#[id]`, `#[column(unique)]` or a matching `unique_index(...)`)
 - requires `returning = "full"` (the default)
-- `action = "update"` needs at least one non-conflict updatable column
+- `action = "update"` needs at least one non-conflict `#[field(update)]` column
 
 With `streams` enabled, upsert publishes a `Created` notification for every row it returns.
 

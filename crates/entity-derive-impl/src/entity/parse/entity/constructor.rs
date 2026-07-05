@@ -438,11 +438,11 @@ fn validate_upsert(
     if upsert.action == UpsertAction::Update {
         let has_updatable_column = fields.iter().any(|f| {
             let col = f.name_str();
-            !f.is_id() && !conflict.contains(&col)
+            f.in_update() && !f.is_id() && !f.is_auto() && !conflict.contains(&col)
         });
         if !has_updatable_column {
             return Err(darling::Error::custom(
-                "upsert action = \"update\" needs at least one non-conflict column to update; use action = \"nothing\" instead"
+                "upsert action = \"update\" needs at least one non-conflict #[field(update)] column: only updatable columns are overwritten on conflict; use action = \"nothing\" instead"
             )
             .with_span(span));
         }
