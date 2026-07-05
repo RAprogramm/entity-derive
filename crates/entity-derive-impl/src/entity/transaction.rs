@@ -185,7 +185,7 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
             ) -> Result<#entity_name, #error_type> {
                 #set_stmts
                 if __sets.is_empty() {
-                    return Ok(self.find_by_id(id).await?.ok_or(sqlx::Error::RowNotFound)?);
+                    return self.find_by_id(id).await?.ok_or_else(|| sqlx::Error::RowNotFound.into());
                 }
                 #version_stmts
                 let mut q = sqlx::query_as::<_, #row_name>(
@@ -697,6 +697,22 @@ mod tx_upsert_tests {
         let trait_code = generate(&trait_only).to_string();
         assert!(!full_code.contains("fn __parcel_map_constraint_err"));
         assert!(trait_code.contains("fn __parcel_map_constraint_err"));
+    }
+
+    #[test]
+    fn empty_patch_fallback_avoids_needless_question_mark() {
+        let entity = parse_entity(quote! {
+            #[entity(table = "users", transactions)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, update, response)]
+                pub name: String,
+            }
+        });
+        let code = generate(&entity).to_string();
+        assert!(code.contains("ok_or_else (|| sqlx :: Error :: RowNotFound . into ())"));
+        assert!(!code.contains("ok_or (sqlx :: Error :: RowNotFound) ?"));
     }
 
     #[test]
