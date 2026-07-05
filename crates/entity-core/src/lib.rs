@@ -35,6 +35,8 @@
 pub mod outbox;
 pub mod policy;
 pub mod prelude;
+#[cfg(feature = "postgres")]
+pub mod schema;
 #[cfg(feature = "streams")]
 pub mod stream;
 pub mod transaction;

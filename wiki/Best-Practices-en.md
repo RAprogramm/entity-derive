@@ -259,6 +259,21 @@ fn test_update_request_is_partial() {
 }
 ```
 
+## Schema Assertion
+
+Generated SQL is correct by construction, but the *table* can drift (missed migration, manual ALTER, renamed column) — that surfaces as runtime decode errors. Every Postgres entity gets `{Entity}::SCHEMA` (declared columns: name, DDL type, nullability) and `{Entity}::assert_schema(pool)`, which compares the declaration against `information_schema.columns` and reports **all** drifts at once. Run one integration test per entity:
+
+```rust
+#[tokio::test]
+async fn entities_match_database_schema() {
+    let pool = test_pool().await;
+    User::assert_schema(&pool).await.expect("users drifted");
+    Order::assert_schema(&pool).await.expect("orders drifted");
+}
+```
+
+Type comparison is family-based (`TEXT`/`VARCHAR`/`CHAR` fold together, arrays compare as arrays); Postgres enums (`USER-DEFINED`) skip the type check but keep presence + nullability guarantees.
+
 ## Project Organization
 
 ### Recommended Structure
