@@ -133,6 +133,8 @@ impl EntityDef {
         let api_config = parse_api_attr(&input.attrs);
         let indexes = parse_index_attrs(&input.attrs);
         let joins = super::join::parse_join_attrs(&input.attrs).map_err(darling::Error::from)?;
+        let transitions = super::transition::parse_transition_attrs(&input.attrs)
+            .map_err(darling::Error::from)?;
         let field_names: Vec<String> = fields
             .iter()
             .map(super::super::field::FieldDef::name_str)
@@ -154,6 +156,44 @@ impl EntityDef {
                     join.local_column
                 ))
                 .with_span(&input.ident));
+            }
+        }
+        if !transitions.is_empty() {
+            if !attrs.transactions {
+                return Err(darling::Error::custom(
+                    "transition(...) requires #[entity(transactions)]: transitions run on the transaction adapter"
+                )
+                .with_span(&input.ident));
+            }
+            let status_updatable = fields
+                .iter()
+                .any(|f| f.name_str() == "status" && f.in_update() && !f.is_auto());
+            if !status_updatable {
+                return Err(darling::Error::custom(
+                    "transition(...) requires a `status` field marked #[field(update)]"
+                )
+                .with_span(&input.ident));
+            }
+            let default_error =
+                quote::ToTokens::to_token_stream(&attrs.error).to_string() == "sqlx :: Error";
+            if default_error {
+                return Err(darling::Error::custom(
+                    "transition(...) requires a custom error type implementing From<entity_core::TransitionError>"
+                )
+                .with_span(&input.ident));
+            }
+            for t in &transitions {
+                for col in &t.sets {
+                    let updatable = fields
+                        .iter()
+                        .any(|f| f.name_str() == *col && f.in_update() && !f.is_auto());
+                    if !updatable {
+                        return Err(darling::Error::custom(format!(
+                            "transition sets column `{col}` must be a #[field(update)] entity column"
+                        ))
+                        .with_span(&input.ident));
+                    }
+                }
             }
         }
         let custom_constraints =
@@ -294,6 +334,7 @@ impl EntityDef {
             extensions: attrs.migrations.extensions,
             indexes,
             joins,
+            transitions,
             aggregate_root: attrs.aggregate_root,
             upsert: attrs.upsert,
             typed_constraints: attrs.typed_constraints,

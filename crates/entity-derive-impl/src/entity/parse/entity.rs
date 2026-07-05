@@ -145,6 +145,7 @@ mod helpers;
 mod index;
 mod join;
 mod projection;
+mod transition;
 mod upsert;
 
 pub use attrs::EntityAttrs;
@@ -152,6 +153,7 @@ pub use def::EntityDef;
 pub use helpers::{CustomConstraintDef, HasManyDef};
 pub use index::CompositeIndexDef;
 pub use projection::{ProjectionDef, parse_projection_attrs};
+pub use transition::TransitionDef;
 pub use upsert::UpsertAction;
 
 #[cfg(test)]

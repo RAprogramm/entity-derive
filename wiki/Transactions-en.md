@@ -84,6 +84,33 @@ Inside a transaction, you have access to these methods:
 
 `Error` above is the entity's configured `error = "..."` type (default `sqlx::Error`) — the same type the pool-backed repository returns. With `typed_constraints`, the adapter's write methods (`create`, `upsert`, `update`, `delete`) resolve violated constraint names to `entity_core::ConstraintError` exactly like the pool implementation, so an operation keeps its typed error behaviour when it moves inside a transaction.
 
+## State-machine transitions
+
+`#[transition(...)]` declarations generate locking transition methods on the adapter:
+
+```rust
+#[derive(Entity)]
+#[entity(table = "parcels", transactions, error = "AppError")]
+#[transition(created -> accepted, sets(courier_id, ticket_id))]
+#[transition(accepted -> in_transit)]
+#[transition(created | accepted -> cancelled)]
+pub struct Parcel {
+    #[id] pub id: Uuid,
+    #[field(update)] pub status: ParcelStatus,
+    #[field(update)] pub courier_id: Option<Uuid>,
+    #[field(update)] pub ticket_id: Option<Uuid>,
+}
+
+let mut tx = pool.begin().await?;
+let parcel = ParcelTransactionRepo::new(&mut tx)
+    .transition_to_accepted(id, courier_id, ticket_id)
+    .await?
+    .ok_or(NotFound)?;
+tx.commit().await?;
+```
+
+Each `transition_to_{target}(id, sets...)` locks the row with `SELECT ... FOR UPDATE`, verifies the current status is one of the declared sources, patches `status` plus the `sets(...)` columns in one UPDATE and returns the persisted row. `Ok(None)` means the row does not exist; a disallowed transition returns a typed `entity_core::TransitionError` (your error type must implement `From<TransitionError>` — map it to HTTP 409). `sets` parameters take the unwrapped inner type of `Option` columns. Requires `transactions`, a `status` field marked `#[field(update)]` and a custom `error` type — all checked at compile time.
+
 ## Basic Example
 
 ```rust
