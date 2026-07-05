@@ -132,6 +132,18 @@ impl EntityDef {
         let command_defs = parse_command_attrs(&input.attrs).map_err(darling::Error::from)?;
         let api_config = parse_api_attr(&input.attrs);
         let indexes = parse_index_attrs(&input.attrs);
+        let field_names: Vec<String> =
+            fields.iter().map(super::super::field::FieldDef::name_str).collect();
+        for index in &indexes {
+            for col in &index.columns {
+                if !field_names.iter().any(|c| c == col) {
+                    return Err(darling::Error::custom(format!(
+                        "index column `{col}` does not match any entity column"
+                    ))
+                    .with_span(&input.ident));
+                }
+            }
+        }
         let custom_constraints =
             parse_constraint_attrs(&input.attrs).map_err(darling::Error::from)?;
         if !custom_constraints.is_empty() && !attrs.typed_constraints {
