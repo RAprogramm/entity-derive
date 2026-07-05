@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.12](https://github.com/RAprogramm/entity-derive/compare/entity-derive-impl-v0.20.11...entity-derive-impl-v0.20.12) - 2026-07-05
+
+### ✨ Features
+
+- joined read models generated from join declarations ([#221](https://github.com/RAprogramm/entity-derive/issues/221))
+
 ## [0.20.11](https://github.com/RAprogramm/entity-derive/compare/entity-derive-impl-v0.20.10...entity-derive-impl-v0.20.11) - 2026-07-05
 
 ### ✨ Features
