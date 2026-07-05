@@ -16,8 +16,12 @@
 //!
 //! | Action | SQL | Return type |
 //! |--------|-----|-------------|
-//! | `update` | `DO UPDATE SET` all non-conflict, non-id columns | `Entity` |
+//! | `update` | `DO UPDATE SET` non-conflict `#[field(update)]` columns | `Entity` |
 //! | `nothing` | `DO NOTHING` | `Option<Entity>` (`None` = row already existed) |
+//!
+//! Columns not marked `#[field(update)]` keep their stored values on
+//! conflict: the insert path binds them from the Create DTO defaults, so
+//! overwriting them would clobber real data with `Default::default()`.
 //!
 //! The SQL string is assembled entirely at macro expansion time from
 //! entity metadata, so the generated code carries a `'static` literal.
@@ -33,10 +37,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 
 use super::{context::Context, crud::tx_wrapping, helpers::insert_bindings};
-use crate::{
-    entity::parse::{FieldDef, UpsertAction},
-    utils::tracing::instrument
-};
+use crate::{entity::parse::UpsertAction, utils::tracing::instrument};
 
 impl Context<'_> {
     /// Generate the `upsert` method implementation.
@@ -129,11 +130,11 @@ impl Context<'_> {
             UpsertAction::Update => {
                 let assignments: Vec<String> = self
                     .entity
-                    .column_fields()
+                    .update_fields()
                     .into_iter()
                     .filter(|f| {
                         let col = f.name_str();
-                        !FieldDef::is_id(f) && !f.storage.is_auto && !conflict.contains(&col)
+                        f.embed.is_none() && !conflict.contains(&col)
                     })
                     .map(|f| {
                         let col = f.name_str();
@@ -212,12 +213,55 @@ mod tests {
                 #[field(create, response)]
                 #[column(unique)]
                 pub email: String,
-                #[field(create, response)]
+                #[field(create, update, response)]
                 pub name: String,
             }
         });
         let ctx = Context::new(&entity);
         assert!(ctx.upsert_sql().starts_with("INSERT INTO core.users "));
+    }
+
+    #[test]
+    fn upsert_sql_skips_non_updatable_columns() {
+        let entity = parse_entity(quote! {
+            #[entity(table = "users", upsert(conflict = "telegram_id"))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                #[column(unique)]
+                pub telegram_id: i64,
+                #[field(create, update, response)]
+                pub username: String,
+                pub passport_verified: bool,
+            }
+        });
+        let ctx = Context::new(&entity);
+        assert_eq!(
+            ctx.upsert_sql(),
+            "INSERT INTO users (id, telegram_id, username, passport_verified) \
+             VALUES ($1, $2, $3, $4) \
+             ON CONFLICT (telegram_id) DO UPDATE SET username = EXCLUDED.username RETURNING *"
+        );
+    }
+
+    #[test]
+    fn upsert_update_without_updatable_columns_fails_parse() {
+        let input: DeriveInput = syn::parse2(quote! {
+            #[entity(table = "users", upsert(conflict = "email"))]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                #[column(unique)]
+                pub email: String,
+                #[field(create, response)]
+                pub name: String,
+            }
+        })
+        .expect("test entity must parse");
+        let err = EntityDef::from_derive_input(&input).unwrap_err();
+        assert!(err.to_string().contains("#[field(update)]"));
     }
 
     #[test]
