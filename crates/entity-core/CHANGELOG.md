@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.2](https://github.com/RAprogramm/entity-derive/compare/entity-core-v0.10.1...entity-core-v0.10.2) - 2026-07-05
+
+### ✨ Features
+
+- runtime schema assertion for entities ([#225](https://github.com/RAprogramm/entity-derive/issues/225))
+
 ## [0.10.1](https://github.com/RAprogramm/entity-derive/compare/entity-core-v0.10.0...entity-core-v0.10.1) - 2026-07-05
 
 ### ✨ Features
