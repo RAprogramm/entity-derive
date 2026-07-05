@@ -176,6 +176,14 @@ pub struct ColumnConfig {
     /// Explicitly allow NULL even for non-Option types.
     pub nullable: bool,
 
+    /// Case-insensitive text column.
+    ///
+    /// Generated lookups compare via `LOWER(col) = LOWER($n)`; with
+    /// `unique` + `migrations` the DDL emits a functional
+    /// `CREATE UNIQUE INDEX ... (LOWER(col))` instead of a plain
+    /// `UNIQUE` constraint.
+    pub ci: bool,
+
     /// Custom column name. Defaults to field name.
     pub name: Option<String>
 }
@@ -193,6 +201,7 @@ impl ColumnConfig {
     /// - `varchar = N` — Use VARCHAR(N) instead of TEXT
     /// - `sql_type = "TYPE"` — Override SQL type
     /// - `nullable` — Allow NULL
+    /// - `ci` — Case-insensitive text lookups (`LOWER(col)` comparison)
     /// - `name = "col"` — Custom column name
     pub fn from_attr(attr: &Attribute) -> Self {
         let mut config = Self::default();
@@ -232,6 +241,8 @@ impl ColumnConfig {
                     config.pg_enum = Some(value.value());
                 } else if meta.path.is_ident("nullable") {
                     config.nullable = true;
+                } else if meta.path.is_ident("ci") {
+                    config.ci = true;
                 } else if meta.path.is_ident("name") {
                     let _: syn::Token![=] = meta.input.parse()?;
                     let value: syn::LitStr = meta.input.parse()?;

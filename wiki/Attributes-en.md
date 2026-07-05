@@ -509,6 +509,22 @@ sqlx::query(Order::MIGRATION_UP).execute(&pool).await?;
 - The declared name is checked against the enum's `PG_TYPE` constant at compile time; a mismatch fails the build
 - The `ValueObject`'s opt-in `sqlx` flag emits `sqlx::Type` / `Encode` / `Decode` impls; omit it if you already derive `sqlx::Type`
 
+### `#[column(ci)]`
+
+Case-insensitive text column. Generated `find_by_{field}` / `exists_by_{field}` compare via `LOWER(col) = LOWER($1)`, and `Option<T>` fields unwrap to `T` in the lookup signature (a NULL column never matches a probe).
+
+```rust
+#[field(create, update, response)]
+#[column(unique, ci)]
+pub username: Option<String>,
+
+let user = pool.find_by_username(handle).await?;   // handle: String
+let taken = pool.exists_by_username(handle).await?;
+```
+
+- With `migrations`, `unique + ci` emits `CREATE UNIQUE INDEX {table}_{column}_lower_key ON {table} (LOWER({column}))` instead of an inline `UNIQUE` constraint
+- With `typed_constraints`, violations of that index resolve to the field like any other unique constraint
+
 ### `#[owner]`
 
 Row-level ownership scoping. Marks the column carrying the owning principal's id; the repository gains scoped methods that never reveal whether a row exists for another owner and respect `soft_delete`.

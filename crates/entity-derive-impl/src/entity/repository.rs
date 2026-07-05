@@ -503,7 +503,11 @@ fn generate_lookup_method_defs(
 ) -> Vec<LookupMethodDef> {
     let field_name = field.name();
     let field_name_str = field.name_str();
-    let field_type = field.ty();
+    let field_type = if field.column.ci {
+        field.option_inner_type()
+    } else {
+        field.ty()
+    };
     let find_name = format_ident!("find_by_{}", field_name_str);
     let exists_name = format_ident!("exists_by_{}", field_name_str);
 

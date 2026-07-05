@@ -310,6 +310,24 @@ impl FieldDef {
         &self.ty
     }
 
+    /// Inner type of `Option<T>`, or the type itself when not optional.
+    ///
+    /// Case-insensitive lookups take the unwrapped value: a NULL column
+    /// never matches a `LOWER(...)` probe, so an `Option` parameter adds
+    /// nothing but ceremony.
+    #[must_use]
+    pub fn option_inner_type(&self) -> &Type {
+        if let Type::Path(type_path) = &self.ty
+            && let Some(segment) = type_path.path.segments.last()
+            && segment.ident == "Option"
+            && let syn::PathArguments::AngleBracketed(args) = &segment.arguments
+            && let Some(syn::GenericArgument::Type(inner)) = args.args.first()
+        {
+            return inner;
+        }
+        &self.ty
+    }
+
     /// Check if the field type is `Option<T>`.
     ///
     /// Used to determine whether to wrap update fields in `Option`.
