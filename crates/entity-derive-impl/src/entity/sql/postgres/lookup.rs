@@ -51,9 +51,28 @@ use quote::{format_ident, quote};
 
 use super::context::Context;
 use crate::{
-    entity::parse::{FieldDef, SqlLevel},
+    entity::parse::{DatabaseDialect, FieldDef, SqlLevel},
     utils::tracing::instrument
 };
+
+/// `a_and_b` method-name suffix for a composite lookup.
+fn composite_suffix(fields: &[&FieldDef]) -> String {
+    fields
+        .iter()
+        .map(|f| f.name_str())
+        .collect::<Vec<_>>()
+        .join("_and_")
+}
+
+/// `a = $1 AND b = $2` WHERE fragment for a composite lookup.
+fn composite_where_clause(fields: &[&FieldDef], dialect: &DatabaseDialect) -> String {
+    fields
+        .iter()
+        .enumerate()
+        .map(|(i, f)| format!("{} = {}", f.name_str(), dialect.placeholder(i + 1)))
+        .collect::<Vec<_>>()
+        .join(" AND ")
+}
 
 impl Context<'_> {
     /// Generate all lookup method implementations.
@@ -77,7 +96,118 @@ impl Context<'_> {
             .flat_map(|field| self.lookup_method_impls(field))
             .collect();
 
-        quote! { #(#methods)* }
+        let composite: Vec<TokenStream> = self
+            .entity
+            .indexes
+            .iter()
+            .filter(|index| index.unique && index.columns.len() > 1)
+            .flat_map(|index| self.composite_lookup_impls(index))
+            .collect();
+
+        quote! { #(#methods)* #(#composite)* }
+    }
+
+    /// Generate `find_by_...` / `exists_by_...` implementations for a
+    /// composite unique index.
+    ///
+    /// Column names resolve to entity fields (validated at parse time),
+    /// the method name joins them with `_and_`.
+    fn composite_lookup_impls(
+        &self,
+        index: &crate::entity::parse::CompositeIndexDef
+    ) -> Vec<TokenStream> {
+        let fields: Vec<&FieldDef> = index
+            .columns
+            .iter()
+            .filter_map(|col| {
+                self.entity
+                    .all_fields()
+                    .iter()
+                    .find(|f| f.name_str() == *col)
+            })
+            .collect();
+        if fields.len() != index.columns.len() {
+            return Vec::new();
+        }
+        vec![
+            self.composite_find_impl(&fields),
+            self.composite_exists_impl(&fields),
+        ]
+    }
+
+    /// Generate the `find_by_{a}_and_{b}` implementation for a composite
+    /// unique index.
+    fn composite_find_impl(&self, fields: &[&FieldDef]) -> TokenStream {
+        let Self {
+            entity_name,
+            row_name,
+            table,
+            dialect,
+            ..
+        } = self;
+
+        let suffix = composite_suffix(fields);
+        let method_name = format_ident!("find_by_{}", suffix);
+        let op = format!("find_by_{suffix}");
+        let span = instrument(&entity_name.to_string(), &op);
+        let params = fields.iter().map(|f| {
+            let name = f.name();
+            let ty = f.ty();
+            quote! { #name: #ty }
+        });
+        let binds = fields.iter().map(|f| {
+            let name = f.name();
+            quote! { .bind(&#name) }
+        });
+        let where_clause = composite_where_clause(fields, dialect);
+        let sql = format!("SELECT * FROM {table} WHERE {where_clause}");
+
+        quote! {
+            #span
+            async fn #method_name(&self, #(#params),*) -> Result<Option<#entity_name>, Self::Error> {
+                let row: Option<#row_name> = sqlx::query_as(#sql)
+                    #(#binds)*
+                    .fetch_optional(self).await?;
+                Ok(row.map(#entity_name::from))
+            }
+        }
+    }
+
+    /// Generate the `exists_by_{a}_and_{b}` implementation for a composite
+    /// unique index.
+    fn composite_exists_impl(&self, fields: &[&FieldDef]) -> TokenStream {
+        let Self {
+            entity_name,
+            table,
+            dialect,
+            ..
+        } = self;
+
+        let suffix = composite_suffix(fields);
+        let method_name = format_ident!("exists_by_{}", suffix);
+        let op = format!("exists_by_{suffix}");
+        let span = instrument(&entity_name.to_string(), &op);
+        let params = fields.iter().map(|f| {
+            let name = f.name();
+            let ty = f.ty();
+            quote! { #name: #ty }
+        });
+        let binds = fields.iter().map(|f| {
+            let name = f.name();
+            quote! { .bind(&#name) }
+        });
+        let where_clause = composite_where_clause(fields, dialect);
+        let sql = format!("SELECT EXISTS(SELECT 1 FROM {table} WHERE {where_clause})");
+
+        quote! {
+            #span
+            async fn #method_name(&self, #(#params),*) -> Result<bool, Self::Error> {
+                let exists: bool = sqlx::query_scalar(#sql)
+                    #(#binds)*
+                    .fetch_one(self).await?;
+                Ok(exists)
+            }
+        }
     }
 
     /// Generate implementation blocks for a single lookup field.
@@ -199,6 +329,63 @@ mod tests {
         assert!(code.contains("async fn exists_by_email"));
         assert!(code.contains("fetch_optional"));
         assert!(code.contains("fetch_one"));
+    }
+
+    #[test]
+    fn composite_unique_index_generates_lookup_pair() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "kyc_sessions", unique_index(provider, external_id))]
+            pub struct KycSession {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                pub provider: String,
+                #[field(create, response)]
+                pub external_id: String,
+            }
+        });
+
+        let ctx = Context::new(&entity);
+        let code = ctx.lookup_methods().to_string();
+
+        assert!(code.contains("async fn find_by_provider_and_external_id"));
+        assert!(code.contains("async fn exists_by_provider_and_external_id"));
+        assert!(code.contains("provider = $1 AND external_id = $2"));
+    }
+
+    #[test]
+    fn non_unique_composite_index_generates_no_lookup() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "events", index(user_id, created_at))]
+            pub struct Event {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                pub user_id: uuid::Uuid,
+                #[field(create, response)]
+                pub created_at: chrono::DateTime<chrono::Utc>,
+            }
+        });
+
+        let ctx = Context::new(&entity);
+        let code = ctx.lookup_methods().to_string();
+
+        assert!(!code.contains("find_by_user_id_and_created_at"));
+    }
+
+    #[test]
+    fn index_with_unknown_column_fails_parse() {
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[entity(table = "kyc_sessions", unique_index(provider, nonexistent))]
+            pub struct KycSession {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                pub provider: String,
+            }
+        };
+        let err = EntityDef::from_derive_input(&input).unwrap_err();
+        assert!(err.to_string().contains("does not match any entity column"));
     }
 
     #[test]

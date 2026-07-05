@@ -433,7 +433,63 @@ pub fn generate_lookup_methods(entity: &EntityDef, id_type: &syn::Type) -> Token
         .map(|d| generate_trait_method(&d))
         .collect();
 
-    quote! { #(#methods)* }
+    let composite: Vec<TokenStream> = entity
+        .indexes
+        .iter()
+        .filter(|index| index.unique && index.columns.len() > 1)
+        .filter_map(|index| generate_composite_trait_methods(entity, index))
+        .collect();
+
+    quote! { #(#methods)* #(#composite)* }
+}
+
+/// Generate trait declarations for a composite unique-index lookup pair.
+///
+/// Returns `None` when any index column does not resolve to an entity
+/// field (rejected at parse time, so this is a defensive no-op).
+fn generate_composite_trait_methods(
+    entity: &EntityDef,
+    index: &crate::entity::parse::CompositeIndexDef
+) -> Option<TokenStream> {
+    let entity_name = entity.name();
+    let fields: Vec<&FieldDef> = index
+        .columns
+        .iter()
+        .filter_map(|col| entity.all_fields().iter().find(|f| f.name_str() == *col))
+        .collect();
+    if fields.len() != index.columns.len() {
+        return None;
+    }
+
+    let suffix = fields
+        .iter()
+        .map(|f| f.name_str())
+        .collect::<Vec<_>>()
+        .join("_and_");
+    let find_name = format_ident!("find_by_{}", suffix);
+    let exists_name = format_ident!("exists_by_{}", suffix);
+    let find_params: Vec<TokenStream> = fields
+        .iter()
+        .map(|f| {
+            let name = f.name();
+            let ty = f.ty();
+            quote! { #name: #ty }
+        })
+        .collect();
+    let exists_params = find_params.clone();
+
+    Some(quote! {
+        /// Find a single entity by the composite unique-index columns.
+        ///
+        /// Returns `None` if no record matches; the unique index guarantees
+        /// at most one match.
+        async fn #find_name(&self, #(#find_params),*) -> Result<Option<#entity_name>, Self::Error>;
+
+        /// Check if a record exists for the composite unique-index columns.
+        ///
+        /// Uses `SELECT EXISTS(SELECT 1 FROM ... WHERE a = $1 AND b = $2)`.
+        async fn #exists_name(&self, #(#exists_params),*) -> Result<bool, Self::Error>;
+    })
 }
 
 /// Generate lookup method definitions for a single field.

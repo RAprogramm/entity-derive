@@ -798,6 +798,27 @@ Declare constraints the macro cannot infer — foreign keys over natural keys, c
 )]
 ```
 
+### Composite lookups from `unique_index(...)`
+
+Every multi-column `unique_index(a, b)` declaration generates a lookup pair on the repository:
+
+```rust
+#[derive(Entity)]
+#[entity(table = "kyc_sessions", unique_index(provider, external_id))]
+pub struct KycSession {
+    #[id] pub id: Uuid,
+    #[field(create, response)] pub provider: String,
+    #[field(create, response)] pub external_id: String,
+}
+
+let session = pool.find_by_provider_and_external_id(provider, external_id).await?;
+let taken = pool.exists_by_provider_and_external_id(provider, external_id).await?;
+```
+
+- `find_by_{a}_and_{b}(a, b) -> Option<Entity>` and `exists_by_{a}_and_{b}(a, b) -> bool`
+- Parameter types resolve from the matching entity fields; an index column that does not match any entity column fails the build (same rule as upsert conflict columns)
+- Non-unique `index(...)` declarations generate no lookups
+
 ### Transactional upsert
 
 With both `transactions` and `upsert(...)`, the `{Entity}TransactionRepo` adapter exposes `upsert` with the same SQL and action semantics as the pool method, executed on the transaction handle — for flows where the upsert must share atomicity with adjacent statements.
