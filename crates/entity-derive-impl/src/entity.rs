@@ -71,7 +71,6 @@ mod events;
 mod hooks;
 mod insertable;
 mod mappers;
-#[cfg(feature = "migrations")]
 mod migrations;
 #[cfg(feature = "aggregate_root")]
 pub mod new_entity;
@@ -82,6 +81,7 @@ mod projection;
 mod query;
 mod repository;
 mod row;
+mod schema_check;
 mod sql;
 mod streams;
 #[cfg(feature = "transactions")]
@@ -116,6 +116,7 @@ fn generate(entity: EntityDef) -> TokenStream {
     let mappers = mappers::generate(&entity);
     let sql = sql::generate(&entity);
     let view = view::generate(&entity);
+    let schema_check = schema_check::generate(&entity);
 
     // Opt-out generators. Each entity-attribute group is gated behind a
     // Cargo feature so users can shrink their build by switching them
@@ -176,6 +177,7 @@ fn generate(entity: EntityDef) -> TokenStream {
         #repository
         #row
         #view
+        #schema_check
         #insertable
         #mappers
         #new_entity
