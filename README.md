@@ -36,6 +36,9 @@
   <a href="https://github.com/RAprogramm/entity-derive/wiki">
     <img src="https://img.shields.io/badge/Wiki-Documentation-green?style=for-the-badge&logo=github" alt="Wiki"/>
   </a>
+  <a href="https://raprogramm.github.io/entity-derive/">
+    <img src="https://img.shields.io/badge/Docs-Website-blue?style=for-the-badge&logo=mdbook" alt="Documentation Site"/>
+  </a>
 </p>
 
 ---
