@@ -77,6 +77,7 @@ Inside a transaction, you have access to these methods:
 |--------|-----------|-------------|
 | `create` | `create(dto) -> Result<Entity, Error>` | Insert a new record |
 | `find_by_id` | `find_by_id(id) -> Result<Option<Entity>, Error>` | Find by primary key |
+| `find_by_id_for_update` | `find_by_id_for_update(id) -> Result<Option<Entity>, Error>` | Find by primary key and lock the row (`SELECT ... FOR UPDATE`) until the transaction ends — guards read-validate-write state transitions |
 | `update` | `update(id, dto) -> Result<Entity, Error>` | Update existing record |
 | `delete` | `delete(id) -> Result<bool, Error>` | Delete record (or soft-delete) |
 | `list` | `list(limit, offset) -> Result<Vec<Entity>, Error>` | Paginated list |
