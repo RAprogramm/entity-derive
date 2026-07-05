@@ -5,10 +5,10 @@
 > Una macro para gobernarlos a todos
 
 [![English](https://img.shields.io/badge/🇬🇧_English-gray?style=for-the-badge)](Home-en)
-[![Русский](https://img.shields.io/badge/🇷🇺_Русский-gray?style=for-the-badge)](Home-ru)
-[![한국어](https://img.shields.io/badge/🇰🇷_한국어-gray?style=for-the-badge)](Home-ko)
+[![Русский](https://img.shields.io/badge/🇷🇺_Русский-gray?style=for-the-badge)](Главная)
+[![한국어](https://img.shields.io/badge/🇰🇷_한국어-gray?style=for-the-badge)](홈)
 [![Español](https://img.shields.io/badge/🇪🇸_Español-blue?style=for-the-badge)](#)
-[![中文](https://img.shields.io/badge/🇨🇳_中文-gray?style=for-the-badge)](Home-zh)
+[![中文](https://img.shields.io/badge/🇨🇳_中文-gray?style=for-the-badge)](首页)
 
 </div>
 
