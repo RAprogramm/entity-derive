@@ -573,6 +573,39 @@ pub user_id: Uuid,
 
 **Generated:** `find_user()` method in repository.
 
+### `#[join(...)]` — joined read models
+
+Declares an `INNER JOIN` contributing columns to a generated `{Entity}View` read model. Repeatable; the joined columns' Rust types are part of the declaration (the macro cannot see the foreign table's schema).
+
+```rust
+#[derive(Entity)]
+#[entity(table = "tickets")]
+#[join(airports as origin, on = origin_iata = iata, fields(
+    lat as origin_lat: f64,
+    lon as origin_lon: f64,
+    city as origin_city: String
+))]
+#[join(airports as dest, on = destination_iata = iata, fields(
+    lat as destination_lat: f64,
+    lon as destination_lon: f64,
+    city as destination_city: String
+))]
+pub struct Ticket { /* ... */ }
+```
+
+**Generated:**
+- `TicketView` — flat struct with every entity column plus the joined columns; derives `sqlx::FromRow` and `serde::Serialize`
+- `TicketView::SELECT` — the canonical `SELECT ... FROM ... JOIN ...` fragment (no WHERE) for custom filters:
+  ```rust
+  let rows: Vec<TicketView> = sqlx::query_as(::sqlx::AssertSqlSafe(format!(
+      "{} WHERE tickets.verified = true ORDER BY tickets.departs_at ASC",
+      TicketView::SELECT
+  ))).fetch_all(&pool).await?;
+  ```
+- `TicketView::find_by_id(pool, id)` and `TicketView::list(pool, limit, offset)`
+
+Base-table columns are qualified with the table name; a `join` column that does not match an entity column fails the build.
+
 ### `#[has_many(Entity)]`
 
 One-to-many relation (entity-level). See [[Relations]] for details.

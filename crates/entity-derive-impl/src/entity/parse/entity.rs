@@ -143,6 +143,7 @@ mod constructor;
 mod def;
 mod helpers;
 mod index;
+mod join;
 mod projection;
 mod upsert;
 

@@ -65,6 +65,7 @@ use super::{
     },
     CompositeIndexDef, ProjectionDef,
     helpers::HasManyDef,
+    join::JoinDef,
     upsert::UpsertDef
 };
 
@@ -234,6 +235,11 @@ pub struct EntityDef {
     ///
     /// Each entry defines an index spanning multiple columns.
     pub indexes: Vec<CompositeIndexDef>,
+
+    /// Joined read-model declarations from `#[join(...)]`.
+    ///
+    /// Non-empty when the entity generates a `{Entity}View`.
+    pub joins: Vec<JoinDef>,
 
     /// Enable aggregate root pattern.
     ///
