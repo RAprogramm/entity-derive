@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.7](https://github.com/RAprogramm/entity-derive/compare/entity-derive-impl-v0.20.6...entity-derive-impl-v0.20.7) - 2026-07-05
+
+### ✨ Features
+
+- row-locking find_by_id_for_update on the transaction adapter ([#197](https://github.com/RAprogramm/entity-derive/issues/197))
+
+### 🐛 Bug Fixes
+
+- honour error type and typed_constraints in the transaction adapter ([#196](https://github.com/RAprogramm/entity-derive/issues/196))
+
 ## [0.20.6](https://github.com/RAprogramm/entity-derive/compare/entity-derive-impl-v0.20.5...entity-derive-impl-v0.20.6) - 2026-07-04
 
 ### ✨ Features
