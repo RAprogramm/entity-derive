@@ -66,6 +66,7 @@ use super::{
     CompositeIndexDef, ProjectionDef,
     helpers::HasManyDef,
     join::JoinDef,
+    transition::TransitionDef,
     upsert::UpsertDef
 };
 
@@ -240,6 +241,12 @@ pub struct EntityDef {
     ///
     /// Non-empty when the entity generates a `{Entity}View`.
     pub joins: Vec<JoinDef>,
+
+    /// State-machine transitions from `#[transition(...)]`.
+    ///
+    /// Each entry generates a locking `transition_to_{target}` method
+    /// on the transaction adapter.
+    pub transitions: Vec<TransitionDef>,
 
     /// Enable aggregate root pattern.
     ///

@@ -31,7 +31,7 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
 use super::{
-    parse::{EntityDef, SqlLevel},
+    parse::{EntityDef, SqlLevel, TransitionDef},
     sql::postgres::Context
 };
 use crate::utils::{marker, tracing::instrument};
@@ -221,6 +221,8 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
         }
     };
 
+    let transition_methods = transition_methods(entity, &ctx, error_type);
+
     let find_span = instrument(&entity_name_str, "tx.find_by_id");
     let find_for_update_span = instrument(&entity_name_str, "tx.find_by_id_for_update");
     let delete_op = if soft_delete {
@@ -292,6 +294,8 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
 
             #update_method
 
+            #(#transition_methods)*
+
             /// Delete an entity within the transaction.
             #delete_span
             pub async fn delete(
@@ -317,6 +321,130 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
             }
         }
     }
+}
+
+/// Generate `transition_to_{target}` methods from `#[transition(...)]`
+/// declarations.
+///
+/// Each method locks the row with `find_by_id_for_update`, verifies the
+/// current status is one of the declared sources (typed
+/// `entity_core::TransitionError` otherwise), patches `status` plus the
+/// declared `sets(...)` columns in one UPDATE and returns the persisted
+/// row. `Ok(None)` means the row does not exist.
+fn transition_methods(
+    entity: &EntityDef,
+    ctx: &Context<'_>,
+    error_type: &syn::Path
+) -> Vec<TokenStream> {
+    if entity.transitions.is_empty() {
+        return Vec::new();
+    }
+
+    let entity_name = ctx.entity_name;
+    let entity_name_str = entity_name.to_string();
+    let row_name = &ctx.row_name;
+    let table = &ctx.table;
+    let id_type = ctx.id_type;
+    let id_name = ctx.id_name;
+    let status_field = entity
+        .all_fields()
+        .iter()
+        .find(|f| f.name_str() == "status")
+        .expect("validated at parse time: transitions require a status field");
+    let status_type = status_field.ty();
+
+    entity
+        .transitions
+        .iter()
+        .map(|t| {
+            let method_name = format_ident!("{}", t.method_name());
+            let target_variant = format_ident!("{}", TransitionDef::variant(&t.target));
+            let target_str = TransitionDef::variant(&t.target);
+            let source_variants = t
+                .sources
+                .iter()
+                .map(|s| format_ident!("{}", TransitionDef::variant(s)));
+            let span = instrument(&entity_name_str, &t.method_name());
+
+            let set_fields: Vec<_> = t
+                .sets
+                .iter()
+                .map(|col| {
+                    entity
+                        .all_fields()
+                        .iter()
+                        .find(|f| f.name_str() == *col)
+                        .expect("validated at parse time: sets columns are entity fields")
+                })
+                .collect();
+            let params = set_fields.iter().map(|f| {
+                let name = f.name();
+                let ty = f.option_inner_type();
+                quote! { #name: #ty }
+            });
+            let set_clause: String = std::iter::once("status = $1".to_string())
+                .chain(
+                    t.sets
+                        .iter()
+                        .enumerate()
+                        .map(|(i, col)| format!("{col} = ${}", i + 2))
+                )
+                .collect::<Vec<_>>()
+                .join(", ");
+            let id_placeholder = t.sets.len() + 2;
+            let sql = format!(
+                "UPDATE {table} SET {set_clause} WHERE {id_name} = ${id_placeholder} RETURNING *"
+            );
+            let binds = set_fields.iter().map(|f| {
+                let name = f.name();
+                quote! { .bind(&#name) }
+            });
+            let doc = format!(
+                "Transition the row to `{target_str}` from {}, patching {}.\n\n\
+                 Locks the row for the duration of the transaction; returns\n\
+                 `Ok(None)` when the row does not exist and a typed\n\
+                 [`entity_core::TransitionError`] when the current status does\n\
+                 not allow this transition.",
+                t.sources.join("/"),
+                if t.sets.is_empty() {
+                    "nothing else".to_string()
+                } else {
+                    t.sets.join(", ")
+                }
+            );
+
+            quote! {
+                #[doc = #doc]
+                #span
+                pub async fn #method_name(
+                    &mut self,
+                    id: #id_type,
+                    #(#params,)*
+                ) -> Result<Option<#entity_name>, #error_type> {
+                    let Some(current) = self.find_by_id_for_update(id).await? else {
+                        return Ok(None);
+                    };
+                    #[allow(unreachable_patterns)]
+                    let allowed = matches!(current.status, #(<#status_type>::#source_variants)|*);
+                    if !allowed {
+                        return Err(::entity_core::TransitionError {
+                            entity: #entity_name_str,
+                            from: format!("{:?}", current.status),
+                            to: #target_str
+                        }
+                        .into());
+                    }
+                    let row: #row_name = sqlx::query_as(#sql)
+                        .bind(<#status_type>::#target_variant)
+                        #(#binds)*
+                        .bind(&id)
+                        .fetch_one(&mut **self.tx)
+                        .await?;
+                    Ok(Some(#entity_name::from(row)))
+                }
+            }
+        })
+        .collect()
 }
 
 /// Generate the builder extension trait.
@@ -713,6 +841,33 @@ mod tx_upsert_tests {
         let code = generate(&entity).to_string();
         assert!(code.contains("ok_or_else (|| sqlx :: Error :: RowNotFound . into ())"));
         assert!(!code.contains("ok_or (sqlx :: Error :: RowNotFound) ?"));
+    }
+
+    #[test]
+    fn transitions_generate_locking_methods() {
+        let entity = parse_entity(quote! {
+            #[entity(table = "parcels", transactions, error = "crate::AppError")]
+            #[transition(created -> accepted, sets(courier_id))]
+            #[transition(created | accepted -> cancelled)]
+            pub struct Parcel {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(update)]
+                pub status: ParcelStatus,
+                #[field(update)]
+                pub courier_id: Option<uuid::Uuid>,
+            }
+        });
+        let code = generate(&entity).to_string();
+        assert!(code.contains("pub async fn transition_to_accepted"));
+        assert!(code.contains("pub async fn transition_to_cancelled"));
+        assert!(code.contains("find_by_id_for_update"));
+        assert!(code.contains("TransitionError"));
+        assert!(code.contains(
+            "UPDATE parcels SET status = $1, courier_id = $2 WHERE id = $3 RETURNING *"
+        ));
+        assert!(code.contains("< ParcelStatus > :: Created | < ParcelStatus > :: Accepted"));
+        assert!(code.contains("courier_id : uuid :: Uuid"));
     }
 
     #[test]

@@ -593,3 +593,33 @@ impl std::fmt::Display for ConstraintError {
 }
 
 impl std::error::Error for ConstraintError {}
+
+/// A state-machine transition was attempted from a status it is not
+/// declared for.
+///
+/// Produced by repository methods generated from `#[transition(...)]`
+/// declarations. The consumer's error type must implement
+/// `From<TransitionError>`; map it to an HTTP 409 or a domain conflict.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TransitionError {
+    /// Entity name the transition belongs to.
+    pub entity: &'static str,
+
+    /// Current status of the row, `Debug`-formatted.
+    pub from: String,
+
+    /// Target status of the attempted transition.
+    pub to: &'static str
+}
+
+impl std::fmt::Display for TransitionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{} cannot transition from `{}` to `{}`",
+            self.entity, self.from, self.to
+        )
+    }
+}
+
+impl std::error::Error for TransitionError {}
