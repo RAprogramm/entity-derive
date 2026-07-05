@@ -6,7 +6,8 @@
 //! For an entity with at least one `#[join(...)]`, generates:
 //!
 //! - `{Entity}View` — a flat struct with every entity column plus the declared
-//!   joined columns, deriving `sqlx::FromRow` and `serde::Serialize`
+//!   joined columns, deriving `sqlx::FromRow` and `serde::Serialize` (plus
+//!   `utoipa::ToSchema` when the `api` feature is enabled)
 //! - `{Entity}View::SELECT` — the canonical `SELECT ... FROM ... JOIN ...`
 //!   fragment (no WHERE), for custom filters via `format!("{} WHERE ...",
 //!   TicketView::SELECT)`
@@ -68,6 +69,11 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     let doc = format!(
         "Joined read model for [`{entity_name}`], generated from its `#[join(...)]` declarations."
     );
+    let api_derive = if cfg!(feature = "api") {
+        quote! { #[derive(utoipa::ToSchema)] }
+    } else {
+        TokenStream::new()
+    };
     let select_doc = format!(
         "Canonical `SELECT ... FROM ... JOIN ...` fragment (no WHERE clause).\n\n\
          Compose custom filters with\n\
@@ -78,6 +84,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
         #marker
         #[doc = #doc]
         #[derive(Debug, Clone, serde::Serialize, sqlx::FromRow)]
+        #api_derive
         #vis struct #view_name {
             #(#entity_fields,)*
             #(#join_fields,)*
@@ -180,6 +187,12 @@ mod tests {
         assert!(code.contains("pub const SELECT"));
         assert!(code.contains("pub async fn find_by_id"));
         assert!(code.contains("pub async fn list"));
+    }
+
+    #[test]
+    fn view_struct_derives_to_schema_only_with_api_feature() {
+        let code = generate(&ticket_entity()).to_string();
+        assert_eq!(code.contains("utoipa :: ToSchema"), cfg!(feature = "api"));
     }
 
     #[test]
