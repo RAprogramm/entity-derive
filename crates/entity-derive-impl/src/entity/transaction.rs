@@ -222,6 +222,7 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
     };
 
     let find_span = instrument(&entity_name_str, "tx.find_by_id");
+    let find_for_update_span = instrument(&entity_name_str, "tx.find_by_id_for_update");
     let delete_op = if soft_delete {
         "tx.soft_delete"
     } else {
@@ -265,6 +266,25 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
             ) -> Result<Option<#entity_name>, #error_type> {
                 let row: Option<#row_name> = sqlx::query_as(
                     ::sqlx::AssertSqlSafe(format!("SELECT {} FROM {} WHERE {} = $1{}",
+                        #columns_str, #table, stringify!(#id_name), #deleted_filter))
+                ).bind(&id).fetch_optional(&mut **self.tx).await?;
+                Ok(row.map(#entity_name::from))
+            }
+
+            /// Find an entity by ID and lock its row with `FOR UPDATE`.
+            ///
+            /// Same lookup as `find_by_id` (including the soft-delete
+            /// filter), but the returned row stays locked until the
+            /// transaction commits or rolls back — use it to guard
+            /// read-validate-write state transitions against concurrent
+            /// writers.
+            #find_for_update_span
+            pub async fn find_by_id_for_update(
+                &mut self,
+                id: #id_type
+            ) -> Result<Option<#entity_name>, #error_type> {
+                let row: Option<#row_name> = sqlx::query_as(
+                    ::sqlx::AssertSqlSafe(format!("SELECT {} FROM {} WHERE {} = $1{} FOR UPDATE",
                         #columns_str, #table, stringify!(#id_name), #deleted_filter))
                 ).bind(&id).fetch_optional(&mut **self.tx).await?;
                 Ok(row.map(#entity_name::from))
@@ -677,6 +697,41 @@ mod tx_upsert_tests {
         let trait_code = generate(&trait_only).to_string();
         assert!(!full_code.contains("fn __parcel_map_constraint_err"));
         assert!(trait_code.contains("fn __parcel_map_constraint_err"));
+    }
+
+    #[test]
+    fn adapter_gains_locking_lookup() {
+        let entity = parse_entity(quote! {
+            #[entity(table = "parcels", transactions)]
+            pub struct Parcel {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, update, response)]
+                pub title: String,
+            }
+        });
+        let code = generate(&entity).to_string();
+        assert!(code.contains("pub async fn find_by_id_for_update"));
+        assert!(code.contains("FOR UPDATE"));
+    }
+
+    #[test]
+    fn locking_lookup_respects_soft_delete() {
+        let entity = parse_entity(quote! {
+            #[entity(table = "docs", transactions, soft_delete)]
+            pub struct Doc {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, update, response)]
+                pub title: String,
+                #[field(skip)]
+                pub deleted_at: Option<chrono::DateTime<chrono::Utc>>,
+            }
+        });
+        let code = generate(&entity).to_string();
+        assert!(code.contains("find_by_id_for_update"));
+        assert!(code.contains("$1{} FOR UPDATE"));
+        assert!(code.contains("AND deleted_at IS NULL"));
     }
 
     #[test]
