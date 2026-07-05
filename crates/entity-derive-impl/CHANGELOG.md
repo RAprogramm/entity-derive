@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.8](https://github.com/RAprogramm/entity-derive/compare/entity-derive-impl-v0.20.7...entity-derive-impl-v0.20.8) - 2026-07-05
+
+### 🐛 Bug Fixes
+
+- avoid needless_question_mark in generated transaction update ([#200](https://github.com/RAprogramm/entity-derive/issues/200))
+
 ## [0.20.7](https://github.com/RAprogramm/entity-derive/compare/entity-derive-impl-v0.20.6...entity-derive-impl-v0.20.7) - 2026-07-05
 
 ### ✨ Features
