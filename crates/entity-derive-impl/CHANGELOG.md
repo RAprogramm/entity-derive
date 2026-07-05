@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.13](https://github.com/RAprogramm/entity-derive/compare/entity-derive-impl-v0.20.12...entity-derive-impl-v0.20.13) - 2026-07-05
+
+### ✨ Features
+
+- declarative state-machine transitions on the transaction adapter ([#223](https://github.com/RAprogramm/entity-derive/issues/223))
+
 ## [0.20.12](https://github.com/RAprogramm/entity-derive/compare/entity-derive-impl-v0.20.11...entity-derive-impl-v0.20.12) - 2026-07-05
 
 ### ✨ Features
