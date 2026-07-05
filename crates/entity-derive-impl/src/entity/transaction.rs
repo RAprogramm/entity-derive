@@ -30,7 +30,10 @@ use convert_case::{Case, Casing};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
-use super::{parse::EntityDef, sql::postgres::Context};
+use super::{
+    parse::{EntityDef, SqlLevel},
+    sql::postgres::Context
+};
 use crate::utils::{marker, tracing::instrument};
 
 /// Generate all transaction-related code for an entity.
@@ -73,6 +76,13 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
     let soft_delete = ctx.soft_delete;
     let repo_name = format_ident!("{}TransactionRepo", entity_name);
     let marker = marker::generated();
+    let error_type = entity.error_type();
+    let constraint_map_err = ctx.constraint_map_err();
+    let constraint_mapper = if entity.sql == SqlLevel::Full {
+        TokenStream::new()
+    } else {
+        ctx.constraint_mapper()
+    };
 
     let bindings = super::sql::postgres::helpers::insert_bindings(entity.all_fields());
     let deleted_filter = if soft_delete {
@@ -92,14 +102,14 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
             pub async fn create(
                 &mut self,
                 dto: #create_dto
-            ) -> Result<#entity_name, sqlx::Error> {
+            ) -> Result<#entity_name, #error_type> {
                 let entity = #entity_name::from(dto);
                 let insertable = #insertable_name::from(&entity);
                 let row: #row_name = sqlx::query_as(
                     concat!("INSERT INTO ", #table, " (", #insert_columns_str, ") VALUES (", #placeholders_str, ") RETURNING *")
                 )
                     #(#bindings)*
-                    .fetch_one(&mut **self.tx).await?;
+                    .fetch_one(&mut **self.tx).await #constraint_map_err?;
                 Ok(#entity_name::from(row))
             }
         }
@@ -120,12 +130,12 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
                     pub async fn upsert(
                         &mut self,
                         dto: #create_dto
-                    ) -> Result<#entity_name, sqlx::Error> {
+                    ) -> Result<#entity_name, #error_type> {
                         let entity = #entity_name::from(dto);
                         let insertable = #insertable_name::from(&entity);
                         let row: #row_name = sqlx::query_as(#sql)
                             #(#bindings)*
-                            .fetch_one(&mut **self.tx).await?;
+                            .fetch_one(&mut **self.tx).await #constraint_map_err?;
                         Ok(#entity_name::from(row))
                     }
                 },
@@ -138,12 +148,12 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
                     pub async fn upsert(
                         &mut self,
                         dto: #create_dto
-                    ) -> Result<Option<#entity_name>, sqlx::Error> {
+                    ) -> Result<Option<#entity_name>, #error_type> {
                         let entity = #entity_name::from(dto);
                         let insertable = #insertable_name::from(&entity);
                         let row: Option<#row_name> = sqlx::query_as(#sql)
                             #(#bindings)*
-                            .fetch_optional(&mut **self.tx).await?;
+                            .fetch_optional(&mut **self.tx).await #constraint_map_err?;
                         Ok(row.map(#entity_name::from))
                     }
                 }
@@ -172,10 +182,10 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
                 &mut self,
                 id: #id_type,
                 dto: #update_dto
-            ) -> Result<#entity_name, sqlx::Error> {
+            ) -> Result<#entity_name, #error_type> {
                 #set_stmts
                 if __sets.is_empty() {
-                    return self.find_by_id(id).await?.ok_or(sqlx::Error::RowNotFound);
+                    return Ok(self.find_by_id(id).await?.ok_or(sqlx::Error::RowNotFound)?);
                 }
                 #version_stmts
                 let mut q = sqlx::query_as::<_, #row_name>(
@@ -185,7 +195,8 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
                 #set_binds
                 q = q.bind(&id);
                 #version_bind
-                let row: #row_name = q.fetch_optional(&mut **self.tx).await?
+                let row: Option<#row_name> = q.fetch_optional(&mut **self.tx).await #constraint_map_err?;
+                let row: #row_name = row
                     .ok_or_else(|| sqlx::Error::Protocol("row not found or version conflict".into()))?;
                 Ok(#entity_name::from(row))
             }
@@ -197,7 +208,7 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
             let result = sqlx::query(::sqlx::AssertSqlSafe(format!(
                 "UPDATE {} SET deleted_at = NOW() WHERE {} = $1 AND deleted_at IS NULL",
                 #table, stringify!(#id_name)
-            ))).bind(&id).execute(&mut **self.tx).await?;
+            ))).bind(&id).execute(&mut **self.tx).await #constraint_map_err?;
             Ok(result.rows_affected() > 0)
         }
     } else {
@@ -205,7 +216,7 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
             let result = sqlx::query(::sqlx::AssertSqlSafe(format!(
                 "DELETE FROM {} WHERE {} = $1",
                 #table, stringify!(#id_name)
-            ))).bind(&id).execute(&mut **self.tx).await?;
+            ))).bind(&id).execute(&mut **self.tx).await #constraint_map_err?;
             Ok(result.rows_affected() > 0)
         }
     };
@@ -221,10 +232,16 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
 
     quote! {
         #marker
+        #constraint_mapper
+
         /// Transaction repository adapter for #entity_name.
         ///
         /// Provides repository operations that execute within an active transaction.
         /// Access via `ctx.{entities}()` within a transaction closure.
+        ///
+        /// Methods return the entity's configured `error` type; with
+        /// `typed_constraints`, write paths resolve violated constraints
+        /// exactly like the pool-backed repository.
         #vis struct #repo_name<'t> {
             tx: &'t mut sqlx::Transaction<'static, sqlx::Postgres>,
         }
@@ -245,7 +262,7 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
             pub async fn find_by_id(
                 &mut self,
                 id: #id_type
-            ) -> Result<Option<#entity_name>, sqlx::Error> {
+            ) -> Result<Option<#entity_name>, #error_type> {
                 let row: Option<#row_name> = sqlx::query_as(
                     ::sqlx::AssertSqlSafe(format!("SELECT {} FROM {} WHERE {} = $1{}",
                         #columns_str, #table, stringify!(#id_name), #deleted_filter))
@@ -260,7 +277,7 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
             pub async fn delete(
                 &mut self,
                 id: #id_type
-            ) -> Result<bool, sqlx::Error> {
+            ) -> Result<bool, #error_type> {
                 #delete_sql
             }
 
@@ -270,7 +287,7 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
                 &mut self,
                 limit: i64,
                 offset: i64
-            ) -> Result<Vec<#entity_name>, sqlx::Error> {
+            ) -> Result<Vec<#entity_name>, #error_type> {
                 let where_clause = if #soft_delete { "WHERE deleted_at IS NULL " } else { "" };
                 let rows: Vec<#row_name> = sqlx::query_as(
                     ::sqlx::AssertSqlSafe(format!("SELECT {} FROM {} {}ORDER BY {} DESC LIMIT $1 OFFSET $2",
@@ -597,6 +614,84 @@ mod tx_upsert_tests {
         let code = generate(&entity).to_string();
         assert!(code.contains("Result < Option < Sub > , sqlx :: Error >"));
         assert!(code.contains("fetch_optional"));
+    }
+
+    #[test]
+    fn adapter_uses_custom_error_type() {
+        let entity = parse_entity(quote! {
+            #[entity(table = "parcels", transactions, error = "crate::AppError")]
+            pub struct Parcel {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, update, response)]
+                pub title: String,
+            }
+        });
+        let code = generate(&entity).to_string();
+        assert!(code.contains("Result < Parcel , crate :: AppError >"));
+        assert!(code.contains("Result < Option < Parcel > , crate :: AppError >"));
+        assert!(code.contains("Result < bool , crate :: AppError >"));
+        assert!(code.contains("Result < Vec < Parcel > , crate :: AppError >"));
+        assert!(!code.contains("Result < Parcel , sqlx :: Error >"));
+    }
+
+    #[test]
+    fn adapter_write_paths_map_typed_constraints() {
+        let entity = parse_entity(quote! {
+            #[entity(table = "parcels", transactions, typed_constraints, error = "crate::AppError")]
+            pub struct Parcel {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, update, response)]
+                #[column(unique)]
+                pub title: String,
+            }
+        });
+        let code = generate(&entity).to_string();
+        assert!(code.contains("map_err (__parcel_map_constraint_err)"));
+    }
+
+    #[test]
+    fn adapter_emits_mapper_only_without_pool_impl() {
+        let full = parse_entity(quote! {
+            #[entity(table = "parcels", transactions, typed_constraints, error = "crate::AppError")]
+            pub struct Parcel {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                #[column(unique)]
+                pub title: String,
+            }
+        });
+        let trait_only = parse_entity(quote! {
+            #[entity(table = "parcels", sql = "trait", transactions, typed_constraints, error = "crate::AppError")]
+            pub struct Parcel {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, response)]
+                #[column(unique)]
+                pub title: String,
+            }
+        });
+        let full_code = generate(&full).to_string();
+        let trait_code = generate(&trait_only).to_string();
+        assert!(!full_code.contains("fn __parcel_map_constraint_err"));
+        assert!(trait_code.contains("fn __parcel_map_constraint_err"));
+    }
+
+    #[test]
+    fn adapter_without_typed_constraints_has_no_mapper_calls() {
+        let entity = parse_entity(quote! {
+            #[entity(table = "users", transactions)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, update, response)]
+                pub name: String,
+            }
+        });
+        let code = generate(&entity).to_string();
+        assert!(!code.contains("map_constraint_err"));
     }
 
     #[test]

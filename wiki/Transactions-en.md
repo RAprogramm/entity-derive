@@ -81,6 +81,8 @@ Inside a transaction, you have access to these methods:
 | `delete` | `delete(id) -> Result<bool, Error>` | Delete record (or soft-delete) |
 | `list` | `list(limit, offset) -> Result<Vec<Entity>, Error>` | Paginated list |
 
+`Error` above is the entity's configured `error = "..."` type (default `sqlx::Error`) — the same type the pool-backed repository returns. With `typed_constraints`, the adapter's write methods (`create`, `upsert`, `update`, `delete`) resolve violated constraint names to `entity_core::ConstraintError` exactly like the pool implementation, so an operation keeps its typed error behaviour when it moves inside a transaction.
+
 ## Basic Example
 
 ```rust
