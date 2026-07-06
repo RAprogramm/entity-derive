@@ -99,7 +99,7 @@ utoipa = { version = "5", features = ["chrono", "uuid"] }
 validator = { version = "0.20", features = ["derive"] }
 axum = "0.8"
 garde = { version = "0.23", features = ["derive", "email", "url"] }
-masterror = { version = "0.27", features = ["axum", "openapi"] }
+masterror = { version = "0.29", features = ["axum", "openapi"] }
 
 [package.metadata.docs.rs]
 all-features = true
