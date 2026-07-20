@@ -67,7 +67,7 @@ migrations = []
 projections = []
 
 [dependencies]
-syn = { version = "2", features = ["full", "extra-traits", "parsing"] }
+syn = { version = "3", features = ["full", "extra-traits", "parsing"] }
 quote = "1"
 proc-macro2 = "1"
 darling = "0.23"
