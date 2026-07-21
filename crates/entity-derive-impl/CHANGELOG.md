@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.15](https://github.com/RAprogramm/entity-derive/compare/entity-derive-impl-v0.20.14...entity-derive-impl-v0.20.15) - 2026-07-21
+
+### ✨ Features
+
+- derive utoipa::ToSchema on joined read models under the api feature ([#228](https://github.com/RAprogramm/entity-derive/issues/228))
+
 ## [0.20.14](https://github.com/RAprogramm/entity-derive/compare/entity-derive-impl-v0.20.13...entity-derive-impl-v0.20.14) - 2026-07-05
 
 ### ✨ Features
