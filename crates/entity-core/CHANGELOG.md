@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.3](https://github.com/RAprogramm/entity-derive/compare/entity-core-v0.10.2...entity-core-v0.10.3) - 2026-07-21
+
+### 🐛 Bug Fixes
+
+- fold time/timetz types in schema drift normalizer ([#233](https://github.com/RAprogramm/entity-derive/issues/233))
+
 ## [0.10.2](https://github.com/RAprogramm/entity-derive/compare/entity-core-v0.10.1...entity-core-v0.10.2) - 2026-07-05
 
 ### ✨ Features
