@@ -272,7 +272,7 @@ async fn entities_match_database_schema() {
 }
 ```
 
-Type comparison is family-based (`TEXT`/`VARCHAR`/`CHAR` fold together, arrays compare as arrays); Postgres enums (`USER-DEFINED`) skip the type check but keep presence + nullability guarantees.
+Type comparison is family-based (`TEXT`/`VARCHAR`/`CHAR` fold together; the date/time families fold their aliases to the spelled-out `information_schema` names — `TIMESTAMPTZ` ↔ `timestamp with time zone`, `TIME` ↔ `time without time zone`, `TIMETZ` ↔ `time with time zone`; arrays compare as arrays); Postgres enums (`USER-DEFINED`) skip the type check but keep presence + nullability guarantees.
 
 ## Project Organization
 
