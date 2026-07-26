@@ -119,8 +119,8 @@ impl<'a> Context<'a> {
             placeholders_str: dialect.placeholders(insert_fields.len()),
             soft_delete: entity.is_soft_delete(),
             returning: entity.returning.clone(),
-            streams: entity.has_streams(),
-            outbox: entity.has_outbox()
+            streams: cfg!(feature = "streams") && entity.has_streams(),
+            outbox: cfg!(feature = "outbox") && entity.has_outbox()
         }
     }
 }

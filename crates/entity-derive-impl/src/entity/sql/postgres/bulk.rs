@@ -284,6 +284,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "outbox")]
     fn delete_many_with_outbox_emits_per_row() {
         let entity = post_entity(quote!(, events(outbox)));
         let code = Context::new(&entity).delete_many_method().to_string();

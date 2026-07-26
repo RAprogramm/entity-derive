@@ -40,8 +40,8 @@ mongodb = ["entity-core/mongodb"]
 
 # Real-time streams via Postgres LISTEN/NOTIFY. Pulls in `events`
 # because the NOTIFY payload is an event variant.
-streams = ["entity-core/streams", "events"]
-outbox = ["entity-core/outbox", "events"]
+streams = ["entity-core/streams", "events", "entity-derive-impl/streams"]
+outbox = ["entity-core/outbox", "events", "entity-derive-impl/outbox"]
 
 # HTTP handlers + OpenAPI generation.
 api = ["entity-derive-impl/api"]
