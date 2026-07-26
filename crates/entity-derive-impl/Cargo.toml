@@ -49,8 +49,8 @@ events = []
 # Generates command structs, the handler trait, and the dispatcher.
 commands = []
 
-# Generates `{Entity}Hooks` trait (currently manual-wiring; see #127 for
-# auto-invocation plans).
+# Generates the `{Entity}Hooks` trait and the `{Entity}Repo<H>` wrapper
+# that runs the hooks around every mutation.
 hooks = []
 
 # Generates `{Entity}TransactionRepo` adapter, the (deprecated) `with_*`

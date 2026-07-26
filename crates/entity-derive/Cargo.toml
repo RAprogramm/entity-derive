@@ -59,7 +59,8 @@ events = ["entity-derive-impl/events"]
 # CQRS command pattern: command structs + dispatcher.
 commands = ["entity-derive-impl/commands"]
 
-# `{Entity}Hooks` trait. Manual wiring today; auto-invocation tracked in #127.
+# `{Entity}Hooks` trait plus `{Entity}Repo<H>`, the repository that runs
+# the hooks around every mutation.
 hooks = ["entity-derive-impl/hooks"]
 
 # `{Entity}TransactionRepo` adapter and the `with_*` builder methods
