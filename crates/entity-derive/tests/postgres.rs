@@ -1449,6 +1449,114 @@ mod outbox {
 
         db.teardown().await;
     }
+
+    /// Records what it was handed, and fails on demand.
+    struct Recorder {
+        seen: std::sync::Mutex<Vec<String>>,
+        fail: bool
+    }
+
+    #[entity_derive::async_trait]
+    impl entity_derive::outbox::OutboxHandler for Recorder {
+        type Error = String;
+
+        async fn handle(&self, row: &entity_derive::outbox::OutboxRow) -> Result<(), Self::Error> {
+            self.seen
+                .lock()
+                .expect("the recorder lock is never poisoned")
+                .push(row.entity_id.clone());
+            if self.fail {
+                Err("handler refused".to_owned())
+            } else {
+                Ok(())
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn the_drainer_claims_delivers_and_retries() {
+        let Some(db) = pg::provision(
+            "drainer",
+            &[Invoice::MIGRATION_UP, Invoice::MIGRATION_OUTBOX]
+        )
+        .await
+        else {
+            return;
+        };
+        let pool = db.pool();
+
+        let invoice = pool
+            .create(CreateInvoiceRequest {
+                number: "INV-2".to_owned()
+            })
+            .await
+            .expect("create failed");
+
+        let failing = entity_derive::outbox::OutboxDrainer::new(
+            pool.clone(),
+            Recorder {
+                seen: std::sync::Mutex::new(Vec::new()),
+                fail: true
+            }
+        );
+        let claimed = failing.drain_once().await.expect("drain failed");
+        assert_eq!(claimed, 1, "the pending row must be claimed");
+
+        let (attempts, processed): (i32, Option<chrono::DateTime<chrono::Utc>>) =
+            sqlx::query_as("SELECT attempts, processed_at FROM entity_outbox")
+                .fetch_one(pool)
+                .await
+                .expect("read failed");
+        assert_eq!(attempts, 1, "a failed delivery must count an attempt");
+        assert!(
+            processed.is_none(),
+            "a failed delivery must stay pending for the retry"
+        );
+
+        sqlx::query("UPDATE entity_outbox SET next_attempt_at = NOW()")
+            .execute(pool)
+            .await
+            .expect("rescheduling for the test failed");
+
+        let recorder = Recorder {
+            seen: std::sync::Mutex::new(Vec::new()),
+            fail: false
+        };
+        let succeeding = entity_derive::outbox::OutboxDrainer::new(pool.clone(), recorder);
+        assert_eq!(
+            succeeding.drain_once().await.expect("drain failed"),
+            1,
+            "the retry must claim the row again"
+        );
+
+        let processed: Option<chrono::DateTime<chrono::Utc>> =
+            sqlx::query_scalar("SELECT processed_at FROM entity_outbox")
+                .fetch_one(pool)
+                .await
+                .expect("read failed");
+        assert!(
+            processed.is_some(),
+            "a successful delivery must mark the row processed"
+        );
+
+        assert_eq!(
+            entity_derive::outbox::OutboxDrainer::new(
+                pool.clone(),
+                Recorder {
+                    seen: std::sync::Mutex::new(Vec::new()),
+                    fail: false
+                }
+            )
+            .drain_once()
+            .await
+            .expect("drain failed"),
+            0,
+            "a processed row must not be claimed twice"
+        );
+
+        let _ = invoice;
+        db.teardown().await;
+    }
 }
 
 /// Streams: a write has to publish its event on the entity channel, in
@@ -1508,6 +1616,37 @@ mod streams {
         // The listener holds a pooled connection; teardown closes the
         // pool and would wait for it.
         drop(listener);
+        db.teardown().await;
+    }
+
+    #[tokio::test]
+    async fn the_generated_subscriber_receives_events() {
+        let Some(db) = pg::provision("subscriber", &[Alert::MIGRATION_UP]).await else {
+            return;
+        };
+        let pool = db.pool();
+
+        let mut subscriber = AlertSubscriber::new(pool)
+            .await
+            .expect("subscriber connect failed");
+
+        let alert = pool
+            .create(CreateAlertRequest {
+                message: "battery low".to_owned()
+            })
+            .await
+            .expect("create failed");
+
+        let event = tokio::time::timeout(std::time::Duration::from_secs(5), subscriber.recv())
+            .await
+            .expect("no event arrived within five seconds")
+            .expect("the subscriber must decode the payload");
+        match event {
+            AlertEvent::Created(created) => assert_eq!(created.id, alert.id),
+            other => panic!("expected a Created event, got {other:?}")
+        }
+
+        drop(subscriber);
         db.teardown().await;
     }
 }
@@ -1586,6 +1725,256 @@ mod returning_modes {
             .expect("read failed")
             .expect("a write with no RETURNING must still persist the row");
         assert_eq!(stored.label, "beta");
+
+        db.teardown().await;
+    }
+}
+
+/// Joined read models: the generated `SELECT` spans several tables, so
+/// a wrong alias or a missing column only shows up when it runs.
+mod join_views {
+    use entity_derive::Entity;
+    use uuid::Uuid;
+
+    use crate::pg;
+
+    #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Entity)]
+    #[join(airports as origin, on = origin_iata = iata, fields(
+        city as origin_city: String
+    ))]
+    #[join(airports as dest, on = destination_iata = iata, fields(
+        city as destination_city: String
+    ))]
+    #[entity(table = "tickets", migrations)]
+    pub struct Ticket {
+        #[id]
+        pub id: Uuid,
+
+        #[field(create, response)]
+        pub origin_iata: String,
+
+        #[field(create, response)]
+        pub destination_iata: String
+    }
+
+    /// The joined table is not an entity, so its DDL is written by hand
+    /// exactly as a user would write it.
+    const AIRPORTS: &str = "CREATE TABLE airports (iata TEXT PRIMARY KEY, city TEXT NOT NULL);\n\
+                            INSERT INTO airports (iata, city) VALUES \
+                            ('TLL', 'Tallinn'), ('HEL', 'Helsinki');";
+
+    #[tokio::test]
+    async fn view_joins_both_sides() {
+        let Some(db) = pg::provision("joins", &[AIRPORTS, Ticket::MIGRATION_UP]).await else {
+            return;
+        };
+        let pool = db.pool();
+
+        let ticket = pool
+            .create(CreateTicketRequest {
+                origin_iata:      "TLL".to_owned(),
+                destination_iata: "HEL".to_owned()
+            })
+            .await
+            .expect("create failed");
+
+        let view = TicketView::find_by_id(pool, ticket.id)
+            .await
+            .expect("the joined SELECT must execute")
+            .expect("the row must resolve through both joins");
+        assert_eq!(view.origin_city, "Tallinn");
+        assert_eq!(view.destination_city, "Helsinki");
+        assert_eq!(view.origin_iata, "TLL");
+
+        let page = TicketView::list(pool, 10, 0)
+            .await
+            .expect("the joined list must execute");
+        assert_eq!(page.len(), 1);
+        assert_eq!(page[0].destination_city, "Helsinki");
+
+        db.teardown().await;
+    }
+
+    #[tokio::test]
+    async fn inner_join_drops_rows_without_a_match() {
+        let Some(db) = pg::provision("joinmiss", &[AIRPORTS, Ticket::MIGRATION_UP]).await else {
+            return;
+        };
+        let pool = db.pool();
+
+        let orphan = pool
+            .create(CreateTicketRequest {
+                origin_iata:      "TLL".to_owned(),
+                destination_iata: "XXX".to_owned()
+            })
+            .await
+            .expect("create failed");
+
+        assert!(
+            TicketView::find_by_id(pool, orphan.id)
+                .await
+                .expect("the joined SELECT must execute")
+                .is_none(),
+            "an INNER JOIN must drop the row whose destination has no airport"
+        );
+
+        db.teardown().await;
+    }
+}
+
+/// The policy wrapper is an authorization boundary: a denial has to
+/// stop the write, not just be recorded.
+mod policy {
+    use entity_derive::{Entity, async_trait};
+    use uuid::Uuid;
+
+    use crate::pg;
+
+    #[derive(Debug, Clone, Entity)]
+    #[entity(table = "documents", migrations, policy)]
+    pub struct Document {
+        #[id]
+        pub id: Uuid,
+
+        #[field(create, response)]
+        pub owner_id: Uuid,
+
+        #[field(create, update, response)]
+        pub title: String
+    }
+
+    /// Denies everything an admin is not allowed to do.
+    struct OwnerOnly;
+
+    /// Who is asking.
+    struct Caller {
+        user_id: Uuid
+    }
+
+    #[derive(Debug)]
+    struct Denied;
+
+    impl std::fmt::Display for Denied {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str("not allowed")
+        }
+    }
+
+    impl std::error::Error for Denied {}
+
+    #[async_trait]
+    impl DocumentPolicy for OwnerOnly {
+        type Context = Caller;
+        type Error = Denied;
+
+        async fn can_create(
+            &self,
+            dto: &CreateDocumentRequest,
+            ctx: &Self::Context
+        ) -> Result<(), Self::Error> {
+            if dto.owner_id == ctx.user_id {
+                Ok(())
+            } else {
+                Err(Denied)
+            }
+        }
+
+        async fn can_read(&self, _id: &Uuid, _ctx: &Self::Context) -> Result<(), Self::Error> {
+            Ok(())
+        }
+
+        async fn can_update(
+            &self,
+            _id: &Uuid,
+            _dto: &UpdateDocumentRequest,
+            _ctx: &Self::Context
+        ) -> Result<(), Self::Error> {
+            Err(Denied)
+        }
+
+        async fn can_delete(&self, _id: &Uuid, _ctx: &Self::Context) -> Result<(), Self::Error> {
+            Err(Denied)
+        }
+
+        async fn can_list(&self, _ctx: &Self::Context) -> Result<(), Self::Error> {
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn denied_operations_never_reach_the_database() {
+        let Some(db) = pg::provision("policy", &[Document::MIGRATION_UP]).await else {
+            return;
+        };
+        let pool = db.pool();
+
+        let owner = Uuid::now_v7();
+        let guarded = DocumentPolicyRepository::new(pool.clone(), OwnerOnly);
+        let ctx = Caller {
+            user_id: owner
+        };
+
+        let refused = guarded
+            .create(
+                CreateDocumentRequest {
+                    owner_id: Uuid::now_v7(),
+                    title:    "somebody else's".to_owned()
+                },
+                &ctx
+            )
+            .await;
+        assert!(refused.is_err(), "the policy must refuse the create");
+        assert!(
+            pool.list(10, 0).await.expect("list failed").is_empty(),
+            "a refused create must not have written anything"
+        );
+
+        let allowed = guarded
+            .create(
+                CreateDocumentRequest {
+                    owner_id: owner,
+                    title:    "mine".to_owned()
+                },
+                &ctx
+            )
+            .await
+            .expect("the policy must allow the owner's create");
+        assert_eq!(pool.list(10, 0).await.expect("list failed").len(), 1);
+
+        assert!(
+            guarded
+                .update(
+                    allowed.id,
+                    UpdateDocumentRequest {
+                        title: Some("renamed".to_owned())
+                    },
+                    &ctx
+                )
+                .await
+                .is_err(),
+            "the policy must refuse the update"
+        );
+        let unchanged = pool
+            .find_by_id(allowed.id)
+            .await
+            .expect("read failed")
+            .expect("row missing");
+        assert_eq!(
+            unchanged.title, "mine",
+            "a refused update must leave the row alone"
+        );
+
+        assert!(
+            guarded.delete(allowed.id, &ctx).await.is_err(),
+            "the policy must refuse the delete"
+        );
+        assert!(
+            pool.find_by_id(allowed.id)
+                .await
+                .expect("read failed")
+                .is_some(),
+            "a refused delete must leave the row in place"
+        );
 
         db.teardown().await;
     }
