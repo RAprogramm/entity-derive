@@ -45,7 +45,7 @@ impl Context<'_> {
 
         quote! {
             let __event = #event_name::created(entity.clone());
-            let __payload = ::serde_json::to_string(&__event)
+            let __payload = ::entity_derive::serde_json::to_string(&__event)
                 .expect("event serialization should not fail");
             ::sqlx::query("SELECT pg_notify($1, $2)")
                 .bind(#entity_name::CHANNEL)
@@ -67,7 +67,7 @@ impl Context<'_> {
 
         quote! {
             let __event = #event_name::updated(__old_entity, entity.clone());
-            let __payload = ::serde_json::to_string(&__event)
+            let __payload = ::entity_derive::serde_json::to_string(&__event)
                 .expect("event serialization should not fail");
             ::sqlx::query("SELECT pg_notify($1, $2)")
                 .bind(#entity_name::CHANNEL)
@@ -89,7 +89,7 @@ impl Context<'_> {
 
         quote! {
             let __event = #event_name::hard_deleted(id.clone());
-            let __payload = ::serde_json::to_string(&__event)
+            let __payload = ::entity_derive::serde_json::to_string(&__event)
                 .expect("event serialization should not fail");
             ::sqlx::query("SELECT pg_notify($1, $2)")
                 .bind(#entity_name::CHANNEL)
@@ -111,7 +111,7 @@ impl Context<'_> {
 
         quote! {
             let __event = #event_name::SoftDeleted { id: id.clone() };
-            let __payload = ::serde_json::to_string(&__event)
+            let __payload = ::entity_derive::serde_json::to_string(&__event)
                 .expect("event serialization should not fail");
             ::sqlx::query("SELECT pg_notify($1, $2)")
                 .bind(#entity_name::CHANNEL)

@@ -61,7 +61,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
                     .await
                     .map_err(::entity_derive::stream::StreamError::Database)?;
 
-                ::serde_json::from_str(notification.payload())
+                ::entity_derive::serde_json::from_str(notification.payload())
                     .map_err(|e| ::entity_derive::stream::StreamError::Deserialize(e.to_string()))
             }
 
@@ -74,7 +74,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             ) -> Result<Option<#event_name>, ::entity_derive::stream::StreamError<::sqlx::Error>> {
                 match self.listener.try_recv().await {
                     Ok(Some(notification)) => {
-                        let event = ::serde_json::from_str(notification.payload())
+                        let event = ::entity_derive::serde_json::from_str(notification.payload())
                             .map_err(|e| {
                                 ::entity_derive::stream::StreamError::Deserialize(e.to_string())
                             })?;

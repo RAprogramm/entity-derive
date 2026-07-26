@@ -14,7 +14,7 @@
 //!
 //! ```rust,ignore
 //! let __event = UserEvent::created(entity.clone());
-//! let __payload = ::serde_json::to_value(&__event)
+//! let __payload = ::entity_derive::serde_json::to_value(&__event)
 //!     .expect("event serialization should not fail");
 //! ::sqlx::query(
 //!     "INSERT INTO entity_outbox (entity, kind, entity_id, payload) \
@@ -53,7 +53,7 @@ impl Context<'_> {
         let table = &self.table;
 
         quote! {
-            let __outbox_payload = ::serde_json::to_value(&__event)
+            let __outbox_payload = ::entity_derive::serde_json::to_value(&__event)
                 .expect("event serialization should not fail");
             ::sqlx::query(#OUTBOX_INSERT_SQL)
                 .bind(#table)

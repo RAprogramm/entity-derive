@@ -479,6 +479,73 @@ mod notes {
 
         db.teardown().await;
     }
+
+    #[tokio::test]
+    async fn soft_deleted_rows_stay_out_of_every_read() {
+        let Some(db) = pg::provision("softreads", &[Note::MIGRATION_UP]).await else {
+            return;
+        };
+        let pool = db.pool();
+
+        let kept = pool
+            .create(CreateNoteRequest {
+                title: "kept".to_owned()
+            })
+            .await
+            .expect("create failed");
+        let removed = pool
+            .create(CreateNoteRequest {
+                title: "removed".to_owned()
+            })
+            .await
+            .expect("create failed");
+
+        assert!(pool.delete(removed.id).await.expect("soft delete failed"));
+
+        let visible = pool.list(10, 0).await.expect("list failed");
+        assert_eq!(visible.len(), 1);
+        assert_eq!(visible[0].id, kept.id);
+
+        let everything = pool
+            .list_with_deleted(10, 0)
+            .await
+            .expect("list_with_deleted failed");
+        assert_eq!(
+            everything.len(),
+            2,
+            "the deleted row must still be listable"
+        );
+
+        let by_ids = pool
+            .find_by_ids(vec![kept.id, removed.id])
+            .await
+            .expect("find_by_ids failed");
+        assert_eq!(
+            by_ids.len(),
+            1,
+            "a bulk read must respect the soft delete as well"
+        );
+
+        let deleted_count = pool
+            .delete_many(vec![kept.id])
+            .await
+            .expect("delete_many failed");
+        assert_eq!(deleted_count, 1);
+        assert!(
+            pool.list(10, 0).await.expect("list failed").is_empty(),
+            "the bulk delete must apply the soft delete too"
+        );
+        assert_eq!(
+            pool.list_with_deleted(10, 0)
+                .await
+                .expect("list_with_deleted failed")
+                .len(),
+            2,
+            "a soft bulk delete must not remove rows physically"
+        );
+
+        db.teardown().await;
+    }
 }
 
 /// Optimistic locking via the `#[version]` column.
@@ -543,6 +610,982 @@ mod orders {
             stale.is_err(),
             "an update carrying a stale version must be rejected"
         );
+
+        db.teardown().await;
+    }
+}
+
+/// Relations: parent lookups, child lookups and the junction table
+/// behind a many-to-many link.
+mod relations {
+    use entity_derive::Entity;
+    use uuid::Uuid;
+
+    use crate::pg;
+
+    #[derive(Debug, Clone, Entity)]
+    #[entity(table = "authors", migrations)]
+    #[has_many(Book)]
+    #[has_many(Genre, through = "author_genres")]
+    pub struct Author {
+        #[id]
+        pub id: Uuid,
+
+        #[field(create, update, response)]
+        pub name: String
+    }
+
+    #[derive(Debug, Clone, Entity)]
+    #[entity(table = "books", migrations)]
+    pub struct Book {
+        #[id]
+        pub id: Uuid,
+
+        #[belongs_to(Author)]
+        #[field(create, response)]
+        pub author_id: Uuid,
+
+        #[field(create, update, response)]
+        pub title: String
+    }
+
+    #[derive(Debug, Clone, Entity)]
+    #[entity(table = "genres", migrations)]
+    pub struct Genre {
+        #[id]
+        pub id: Uuid,
+
+        #[field(create, update, response)]
+        pub label: String
+    }
+
+    /// Every table plus the junction DDL the many-to-many link needs.
+    fn migrations() -> Vec<&'static str> {
+        let mut scripts = vec![
+            Author::MIGRATION_UP,
+            Genre::MIGRATION_UP,
+            Book::MIGRATION_UP,
+        ];
+        scripts.extend_from_slice(Author::MIGRATION_JUNCTIONS);
+        scripts
+    }
+
+    #[tokio::test]
+    async fn parent_and_child_lookups() {
+        let Some(db) = pg::provision("relations", &migrations()).await else {
+            return;
+        };
+        let pool = db.pool();
+
+        let author = AuthorRepository::create(
+            pool,
+            CreateAuthorRequest {
+                name: "Ada".to_owned()
+            }
+        )
+        .await
+        .expect("create author failed");
+        let book = BookRepository::create(
+            pool,
+            CreateBookRequest {
+                author_id: author.id,
+                title:     "Notes".to_owned()
+            }
+        )
+        .await
+        .expect("create book failed");
+
+        let books = pool
+            .find_books(author.id)
+            .await
+            .expect("has_many lookup failed");
+        assert_eq!(books.len(), 1, "the author must own exactly one book");
+        assert_eq!(books[0].id, book.id);
+
+        let parent = pool
+            .find_author(book.id)
+            .await
+            .expect("belongs_to lookup failed")
+            .expect("the book must resolve its author");
+        assert_eq!(parent.id, author.id);
+
+        db.teardown().await;
+    }
+
+    #[tokio::test]
+    async fn many_to_many_link_lifecycle() {
+        let Some(db) = pg::provision("junction", &migrations()).await else {
+            return;
+        };
+        let pool = db.pool();
+
+        let author = AuthorRepository::create(
+            pool,
+            CreateAuthorRequest {
+                name: "Grace".to_owned()
+            }
+        )
+        .await
+        .expect("create author failed");
+        let genre = GenreRepository::create(
+            pool,
+            CreateGenreRequest {
+                label: "essays".to_owned()
+            }
+        )
+        .await
+        .expect("create genre failed");
+
+        assert!(
+            !pool
+                .has_genre(author.id, genre.id)
+                .await
+                .expect("has_ lookup failed"),
+            "no link exists yet"
+        );
+
+        pool.add_genre(author.id, genre.id)
+            .await
+            .expect("add_ failed");
+        assert!(
+            pool.has_genre(author.id, genre.id)
+                .await
+                .expect("has_ lookup failed")
+        );
+
+        let linked = pool
+            .find_genres(author.id)
+            .await
+            .expect("through lookup failed");
+        assert_eq!(linked.len(), 1);
+        assert_eq!(linked[0].id, genre.id);
+
+        assert!(
+            pool.remove_genre(author.id, genre.id)
+                .await
+                .expect("remove_ failed")
+        );
+        assert!(
+            pool.find_genres(author.id)
+                .await
+                .expect("through lookup failed")
+                .is_empty()
+        );
+
+        db.teardown().await;
+    }
+}
+
+/// Ownership scoping: every scoped method must refuse rows owned by
+/// somebody else.
+mod scoping {
+    use chrono::{DateTime, Utc};
+    use entity_derive::Entity;
+    use uuid::Uuid;
+
+    use crate::pg;
+
+    #[derive(Debug, Clone, Entity)]
+    #[entity(table = "tickets", soft_delete, migrations)]
+    pub struct Ticket {
+        #[id]
+        pub id: Uuid,
+
+        #[owner]
+        #[field(create, response)]
+        pub owner_id: Uuid,
+
+        #[field(create, update, response)]
+        pub subject: String,
+
+        #[field(skip)]
+        pub deleted_at: Option<DateTime<Utc>>
+    }
+
+    #[tokio::test]
+    async fn scoped_methods_refuse_another_owner() {
+        let Some(db) = pg::provision("scoped", &[Ticket::MIGRATION_UP]).await else {
+            return;
+        };
+        let pool = db.pool();
+
+        let mine = Uuid::now_v7();
+        let theirs = Uuid::now_v7();
+
+        let ticket = pool
+            .create(CreateTicketRequest {
+                owner_id: mine,
+                subject:  "printer".to_owned()
+            })
+            .await
+            .expect("create failed");
+
+        assert!(
+            pool.find_by_id_scoped(ticket.id, mine)
+                .await
+                .expect("scoped read failed")
+                .is_some()
+        );
+        assert!(
+            pool.find_by_id_scoped(ticket.id, theirs)
+                .await
+                .expect("scoped read failed")
+                .is_none(),
+            "another owner must not see the row"
+        );
+
+        let mine_only = pool
+            .list_by_owner(mine, 10, 0)
+            .await
+            .expect("list_by_owner failed");
+        assert_eq!(mine_only.len(), 1);
+        assert!(
+            pool.list_by_owner(theirs, 10, 0)
+                .await
+                .expect("list_by_owner failed")
+                .is_empty()
+        );
+
+        assert!(
+            pool.update_scoped(
+                ticket.id,
+                theirs,
+                UpdateTicketRequest {
+                    subject: Some("hijacked".to_owned())
+                }
+            )
+            .await
+            .expect("scoped update failed")
+            .is_none(),
+            "another owner must not update the row"
+        );
+        let updated = pool
+            .update_scoped(
+                ticket.id,
+                mine,
+                UpdateTicketRequest {
+                    subject: Some("scanner".to_owned())
+                }
+            )
+            .await
+            .expect("scoped update failed")
+            .expect("the owner must update the row");
+        assert_eq!(updated.subject, "scanner");
+
+        assert!(
+            !pool
+                .delete_scoped(ticket.id, theirs)
+                .await
+                .expect("scoped delete failed"),
+            "another owner must not delete the row"
+        );
+        assert!(
+            pool.delete_scoped(ticket.id, mine)
+                .await
+                .expect("scoped delete failed")
+        );
+        assert!(
+            pool.find_by_id(ticket.id)
+                .await
+                .expect("read failed")
+                .is_none(),
+            "the scoped delete must apply the soft delete"
+        );
+
+        db.teardown().await;
+    }
+}
+
+/// The transaction adapter and the aggregate-root `save()`, including
+/// what a rollback must undo.
+mod transactional {
+    use entity_derive::Entity;
+    use uuid::Uuid;
+
+    use crate::pg;
+
+    #[derive(Debug, Clone, Entity)]
+    #[entity(
+        table = "wallets",
+        migrations,
+        transactions,
+        aggregate_root,
+        upsert(conflict = "holder")
+    )]
+    pub struct Wallet {
+        #[id]
+        pub id: Uuid,
+
+        #[field(create, response)]
+        #[column(unique)]
+        pub holder: String,
+
+        #[field(create, update, response)]
+        pub balance: i64
+    }
+
+    #[tokio::test]
+    async fn adapter_writes_inside_one_transaction() {
+        let Some(db) = pg::provision("tx", &[Wallet::MIGRATION_UP]).await else {
+            return;
+        };
+        let pool = db.pool();
+
+        let mut tx = pool.begin().await.expect("begin failed");
+        let mut repo = WalletTransactionRepo::new(&mut tx);
+        let created = repo
+            .create(CreateWalletRequest {
+                holder:  "ada".to_owned(),
+                balance: 100
+            })
+            .await
+            .expect("transactional create failed");
+        let updated = repo
+            .update(
+                created.id,
+                UpdateWalletRequest {
+                    balance: Some(250)
+                }
+            )
+            .await
+            .expect("transactional update failed");
+        assert_eq!(updated.balance, 250);
+        let merged = repo
+            .upsert(CreateWalletRequest {
+                holder:  "ada".to_owned(),
+                balance: 400
+            })
+            .await
+            .expect("transactional upsert failed");
+        assert_eq!(merged.id, created.id, "the upsert must hit the same row");
+        tx.commit().await.expect("commit failed");
+
+        let stored = pool
+            .find_by_id(created.id)
+            .await
+            .expect("read failed")
+            .expect("the committed row must be visible");
+        assert_eq!(stored.balance, 400);
+
+        db.teardown().await;
+    }
+
+    #[tokio::test]
+    async fn rollback_undoes_the_whole_unit() {
+        let Some(db) = pg::provision("rollback", &[Wallet::MIGRATION_UP]).await else {
+            return;
+        };
+        let pool = db.pool();
+
+        let mut tx = pool.begin().await.expect("begin failed");
+        let mut repo = WalletTransactionRepo::new(&mut tx);
+        let created = repo
+            .create(CreateWalletRequest {
+                holder:  "grace".to_owned(),
+                balance: 10
+            })
+            .await
+            .expect("transactional create failed");
+        tx.rollback().await.expect("rollback failed");
+
+        assert!(
+            pool.find_by_id(created.id)
+                .await
+                .expect("read failed")
+                .is_none(),
+            "a rolled back write must leave nothing behind"
+        );
+
+        db.teardown().await;
+    }
+
+    #[tokio::test]
+    async fn row_lock_blocks_a_concurrent_writer() {
+        let Some(db) = pg::provision("rowlock", &[Wallet::MIGRATION_UP]).await else {
+            return;
+        };
+        let pool = db.pool();
+
+        let wallet = pool
+            .create(CreateWalletRequest {
+                holder:  "linus".to_owned(),
+                balance: 1
+            })
+            .await
+            .expect("create failed");
+
+        let mut holder = pool.begin().await.expect("begin failed");
+        let mut repo = WalletTransactionRepo::new(&mut holder);
+        let locked = repo
+            .find_by_id_for_update(wallet.id)
+            .await
+            .expect("row lock failed")
+            .expect("the row must be there to lock");
+        assert_eq!(locked.id, wallet.id);
+
+        let contender = pool.clone();
+        let blocked = tokio::time::timeout(std::time::Duration::from_millis(300), async move {
+            let mut tx = contender.begin().await.expect("begin failed");
+            let mut repo = WalletTransactionRepo::new(&mut tx);
+            repo.find_by_id_for_update(wallet.id).await
+        })
+        .await;
+        assert!(
+            blocked.is_err(),
+            "a second FOR UPDATE must wait while the first transaction holds the row"
+        );
+
+        holder.rollback().await.expect("rollback failed");
+
+        db.teardown().await;
+    }
+
+    #[tokio::test]
+    async fn aggregate_root_save_persists() {
+        let Some(db) = pg::provision("save", &[Wallet::MIGRATION_UP]).await else {
+            return;
+        };
+        let pool = db.pool();
+
+        let saved = pool
+            .save(NewWallet {
+                holder:  "hopper".to_owned(),
+                balance: 7
+            })
+            .await
+            .expect("save failed");
+
+        let stored = pool
+            .find_by_id(saved.id)
+            .await
+            .expect("read failed")
+            .expect("save must persist the row");
+        assert_eq!(stored.holder, "hopper");
+        assert_eq!(stored.balance, 7);
+
+        db.teardown().await;
+    }
+}
+
+/// Migration extras: extensions, triggers, indexes, checks and foreign
+/// keys have to survive contact with the server, not just string
+/// assertions.
+mod migration_extras {
+    use chrono::{DateTime, Utc};
+    use entity_derive::Entity;
+    use uuid::Uuid;
+
+    use crate::pg;
+
+    #[derive(Debug, Clone, Entity)]
+    #[entity(
+        table = "posts",
+        migrations(touch_updated_at, audit),
+        unique_index(space_id, slug)
+    )]
+    pub struct Post {
+        #[id]
+        pub id: Uuid,
+
+        #[field(create, response)]
+        pub space_id: Uuid,
+
+        #[field(create, response)]
+        pub slug: String,
+
+        #[field(create, update, response)]
+        #[filter(search)]
+        pub title: String,
+
+        #[field(create, update, response)]
+        #[column(check = "score >= 0")]
+        pub score: i32,
+
+        #[field(create, update, response)]
+        #[column(index = "gin")]
+        pub tags: Vec<String>,
+
+        #[field(response)]
+        #[auto]
+        pub updated_at: DateTime<Utc>
+    }
+
+    /// Extensions, then enum types, then the table, then triggers — the
+    /// order a migration runner has to apply them in.
+    fn migrations() -> Vec<&'static str> {
+        let mut scripts = Vec::new();
+        scripts.extend_from_slice(Post::MIGRATION_EXTENSIONS);
+        scripts.push(Post::MIGRATION_UP);
+        scripts.extend_from_slice(Post::MIGRATION_TRIGGERS);
+        scripts
+    }
+
+    fn draft(slug: &str, title: &str, score: i32) -> CreatePostRequest {
+        CreatePostRequest {
+            space_id: Uuid::nil(),
+            slug: slug.to_owned(),
+            title: title.to_owned(),
+            score,
+            tags: vec!["rust".to_owned()]
+        }
+    }
+
+    #[tokio::test]
+    async fn declared_ddl_applies_and_holds() {
+        let Some(db) = pg::provision("ddl", &migrations()).await else {
+            return;
+        };
+        let pool = db.pool();
+
+        let post = pool
+            .create(draft("first", "Postgres in anger", 3))
+            .await
+            .expect("create failed");
+
+        assert!(
+            pool.create(draft("first", "Duplicate slug", 1))
+                .await
+                .is_err(),
+            "the composite unique index must reject the duplicate pair"
+        );
+
+        assert!(
+            pool.create(draft("second", "Negative", -1)).await.is_err(),
+            "the check constraint must reject a negative score"
+        );
+
+        let hits = pool
+            .query(PostQuery {
+                title: Some("anger".to_owned()),
+                ..Default::default()
+            })
+            .await
+            .expect("trigram search failed");
+        assert_eq!(hits.len(), 1, "the search filter must find the substring");
+
+        let before = post.updated_at;
+        pool.update(
+            post.id,
+            UpdatePostRequest {
+                title: Some("Postgres, calmly".to_owned()),
+                score: Some(4),
+                tags:  Some(vec!["rust".to_owned(), "sql".to_owned()])
+            }
+        )
+        .await
+        .expect("update failed");
+        let after = pool
+            .find_by_id(post.id)
+            .await
+            .expect("read failed")
+            .expect("row missing")
+            .updated_at;
+        assert!(
+            after > before,
+            "the touch_updated_at trigger must move the timestamp: {before} -> {after}"
+        );
+
+        let audited: i64 =
+            sqlx::query_scalar("SELECT count(*) FROM entity_audit_log WHERE table_name = 'posts'")
+                .fetch_one(pool)
+                .await
+                .expect("audit table missing");
+        assert!(
+            audited >= 2,
+            "the audit trigger must have recorded the insert and the update, got {audited}"
+        );
+
+        db.teardown().await;
+    }
+}
+
+/// Typed constraint errors: a violation has to arrive as the declared
+/// error type with the field named, not as an opaque database error.
+mod typed_constraints {
+    use entity_derive::{ConstraintError, Entity};
+    use uuid::Uuid;
+
+    use crate::pg;
+
+    #[derive(Debug)]
+    pub enum ShopError {
+        Database(sqlx::Error),
+        Constraint(ConstraintError)
+    }
+
+    impl std::fmt::Display for ShopError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match self {
+                Self::Database(e) => write!(f, "database error: {e}"),
+                Self::Constraint(e) => write!(f, "constraint violation: {e}")
+            }
+        }
+    }
+
+    impl std::error::Error for ShopError {}
+
+    impl From<sqlx::Error> for ShopError {
+        fn from(e: sqlx::Error) -> Self {
+            Self::Database(e)
+        }
+    }
+
+    impl From<ConstraintError> for ShopError {
+        fn from(e: ConstraintError) -> Self {
+            Self::Constraint(e)
+        }
+    }
+
+    #[derive(Debug, Clone, Entity)]
+    #[entity(
+        table = "customers",
+        migrations,
+        typed_constraints,
+        error = "ShopError"
+    )]
+    pub struct Customer {
+        #[id]
+        pub id: Uuid,
+
+        #[field(create, response)]
+        #[column(unique)]
+        pub email: String,
+
+        #[field(create, update, response)]
+        pub name: String
+    }
+
+    #[tokio::test]
+    async fn unique_violation_arrives_typed() {
+        let Some(db) = pg::provision("constraints", &[Customer::MIGRATION_UP]).await else {
+            return;
+        };
+        let pool = db.pool();
+
+        pool.create(CreateCustomerRequest {
+            email: "ada@example.com".to_owned(),
+            name:  "Ada".to_owned()
+        })
+        .await
+        .expect("create failed");
+
+        let duplicate = pool
+            .create(CreateCustomerRequest {
+                email: "ada@example.com".to_owned(),
+                name:  "Impostor".to_owned()
+            })
+            .await;
+
+        match duplicate {
+            Err(ShopError::Constraint(violation)) => {
+                assert_eq!(
+                    violation.field,
+                    Some("email"),
+                    "the violation must name the column that collided"
+                );
+            }
+            Err(other) => panic!("expected a typed constraint violation, got {other}"),
+            Ok(_) => panic!("the unique index must reject the duplicate")
+        }
+
+        db.teardown().await;
+    }
+}
+
+/// Postgres enum columns and embedded value objects: both change what
+/// the DDL and the row mapping look like.
+mod column_shapes {
+    use entity_derive::{Entity, ValueObject};
+    use uuid::Uuid;
+
+    use crate::pg;
+
+    #[derive(
+        ValueObject,
+        Debug,
+        Clone,
+        PartialEq,
+        Eq,
+        utoipa::ToSchema,
+        serde::Serialize,
+        serde::Deserialize,
+    )]
+    #[value_object(pg_type = "shipment_status", sqlx)]
+    pub enum ShipmentStatus {
+        Pending,
+        Shipped,
+        Delivered
+    }
+
+    #[derive(Debug, Clone, PartialEq, utoipa::ToSchema, serde::Serialize, serde::Deserialize)]
+    pub struct Money {
+        pub amount_cents: i64,
+        pub currency:     String
+    }
+
+    #[derive(Debug, Clone, Entity)]
+    #[entity(table = "shipments", migrations)]
+    pub struct Shipment {
+        #[id]
+        pub id: Uuid,
+
+        #[field(create, update, response)]
+        #[column(pg_enum = "shipment_status")]
+        pub status: ShipmentStatus,
+
+        #[field(create, update, response)]
+        #[embed(prefix = "cost_", fields(amount_cents: i64, currency: String))]
+        pub cost: Money
+    }
+
+    fn migrations() -> Vec<&'static str> {
+        let mut scripts = Vec::new();
+        scripts.extend_from_slice(Shipment::MIGRATION_TYPES);
+        scripts.push(Shipment::MIGRATION_UP);
+        scripts
+    }
+
+    #[tokio::test]
+    async fn enum_and_embedded_columns_round_trip() {
+        let Some(db) = pg::provision("shapes", &migrations()).await else {
+            return;
+        };
+        let pool = db.pool();
+
+        let created = pool
+            .create(CreateShipmentRequest {
+                status: ShipmentStatus::Pending,
+                cost:   Money {
+                    amount_cents: 1999,
+                    currency:     "EUR".to_owned()
+                }
+            })
+            .await
+            .expect("create failed");
+        assert_eq!(created.status, ShipmentStatus::Pending);
+        assert_eq!(created.cost.amount_cents, 1999);
+
+        let updated = pool
+            .update(
+                created.id,
+                UpdateShipmentRequest {
+                    status: Some(ShipmentStatus::Delivered),
+                    cost:   Some(Money {
+                        amount_cents: 2500,
+                        currency:     "USD".to_owned()
+                    })
+                }
+            )
+            .await
+            .expect("update failed");
+        assert_eq!(updated.status, ShipmentStatus::Delivered);
+        assert_eq!(updated.cost.currency, "USD");
+
+        let stored = pool
+            .find_by_id(created.id)
+            .await
+            .expect("read failed")
+            .expect("row missing");
+        assert_eq!(stored.status, ShipmentStatus::Delivered);
+        assert_eq!(stored.cost.amount_cents, 2500);
+
+        let native: String =
+            sqlx::query_scalar("SELECT status::text FROM shipments WHERE id = $1")
+                .bind(created.id)
+                .fetch_one(pool)
+                .await
+                .expect("the column must be the declared enum type");
+        assert_eq!(native, "delivered");
+
+        db.teardown().await;
+    }
+}
+
+/// The transactional outbox: a write and its outbox row must land in
+/// the same transaction.
+mod outbox {
+    use entity_derive::Entity;
+    use uuid::Uuid;
+
+    use crate::pg;
+
+    #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Entity)]
+    #[entity(table = "invoices", migrations, events(outbox))]
+    pub struct Invoice {
+        #[id]
+        pub id: Uuid,
+
+        #[field(create, update, response)]
+        pub number: String
+    }
+
+    #[tokio::test]
+    async fn writes_enqueue_their_event() {
+        let Some(db) = pg::provision(
+            "outbox",
+            &[Invoice::MIGRATION_UP, Invoice::MIGRATION_OUTBOX]
+        )
+        .await
+        else {
+            return;
+        };
+        let pool = db.pool();
+
+        let invoice = pool
+            .create(CreateInvoiceRequest {
+                number: "INV-1".to_owned()
+            })
+            .await
+            .expect("create failed");
+
+        let (kind, entity_id): (String, String) = sqlx::query_as(
+            "SELECT kind, entity_id FROM entity_outbox WHERE entity = 'invoices' ORDER BY id"
+        )
+        .fetch_one(pool)
+        .await
+        .expect("the create must have enqueued an outbox row");
+        assert_eq!(entity_id, invoice.id.to_string());
+        assert_eq!(kind.to_lowercase(), "created");
+
+        db.teardown().await;
+    }
+}
+
+/// Streams: a write has to publish its event on the entity channel, in
+/// the same transaction that wrote the row.
+mod streams {
+    use entity_derive::Entity;
+    use sqlx::postgres::PgListener;
+    use uuid::Uuid;
+
+    use crate::pg;
+
+    #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Entity)]
+    #[entity(table = "alerts", migrations, events, streams)]
+    pub struct Alert {
+        #[id]
+        pub id: Uuid,
+
+        #[field(create, update, response)]
+        pub message: String
+    }
+
+    #[tokio::test]
+    async fn writes_notify_the_channel() {
+        let Some(db) = pg::provision("streams", &[Alert::MIGRATION_UP]).await else {
+            return;
+        };
+        let pool = db.pool();
+
+        let mut listener = PgListener::connect_with(pool)
+            .await
+            .expect("listener connect failed");
+        listener
+            .listen(Alert::CHANNEL)
+            .await
+            .expect("LISTEN failed");
+
+        let alert = pool
+            .create(CreateAlertRequest {
+                message: "disk full".to_owned()
+            })
+            .await
+            .expect("create failed");
+
+        let notification =
+            tokio::time::timeout(std::time::Duration::from_secs(5), listener.recv())
+                .await
+                .expect("no notification arrived within five seconds")
+                .expect("listener failed");
+
+        let event: AlertEvent = serde_json::from_str(notification.payload())
+            .expect("the payload must deserialize into the generated event");
+        match event {
+            AlertEvent::Created(created) => assert_eq!(created.id, alert.id),
+            other => panic!("expected a Created event, got {other:?}")
+        }
+
+        // The listener holds a pooled connection; teardown closes the
+        // pool and would wait for it.
+        drop(listener);
+        db.teardown().await;
+    }
+}
+
+/// Returning modes decide what comes back from a write, and each mode
+/// builds a different statement.
+mod returning_modes {
+    use entity_derive::Entity;
+    use uuid::Uuid;
+
+    use crate::pg;
+
+    #[derive(Debug, Clone, Entity)]
+    #[entity(table = "id_only", migrations, returning = "id")]
+    pub struct IdOnly {
+        #[id]
+        pub id: Uuid,
+
+        #[field(create, update, response)]
+        pub label: String
+    }
+
+    #[derive(Debug, Clone, Entity)]
+    #[entity(table = "no_returning", migrations, returning = "none")]
+    pub struct NoReturning {
+        #[id]
+        pub id: Uuid,
+
+        #[field(create, update, response)]
+        pub label: String
+    }
+
+    #[tokio::test]
+    async fn id_mode_returns_the_row_it_wrote() {
+        let Some(db) = pg::provision("ret_id", &[IdOnly::MIGRATION_UP]).await else {
+            return;
+        };
+        let pool = db.pool();
+
+        let created = IdOnlyRepository::create(
+            pool,
+            CreateIdOnlyRequest {
+                label: "alpha".to_owned()
+            }
+        )
+        .await
+        .expect("create failed");
+
+        let stored = IdOnlyRepository::find_by_id(pool, created.id)
+            .await
+            .expect("read failed")
+            .expect("the write must have landed");
+        assert_eq!(stored.label, "alpha");
+
+        db.teardown().await;
+    }
+
+    #[tokio::test]
+    async fn none_mode_still_writes() {
+        let Some(db) = pg::provision("ret_none", &[NoReturning::MIGRATION_UP]).await else {
+            return;
+        };
+        let pool = db.pool();
+
+        let created = NoReturningRepository::create(
+            pool,
+            CreateNoReturningRequest {
+                label: "beta".to_owned()
+            }
+        )
+        .await
+        .expect("create failed");
+
+        let stored = NoReturningRepository::find_by_id(pool, created.id)
+            .await
+            .expect("read failed")
+            .expect("a write with no RETURNING must still persist the row");
+        assert_eq!(stored.label, "beta");
 
         db.teardown().await;
     }
