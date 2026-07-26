@@ -317,6 +317,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "streams")]
     fn stream_filtered_with_streams_and_filters() {
         let input: syn::DeriveInput = syn::parse_quote! {
             #[entity(table = "users", streams)]

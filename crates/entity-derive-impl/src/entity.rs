@@ -83,6 +83,7 @@ mod repository;
 mod row;
 mod schema_check;
 mod sql;
+#[cfg(feature = "streams")]
 mod streams;
 #[cfg(feature = "transactions")]
 mod transaction;
@@ -133,7 +134,16 @@ fn generate(entity: EntityDef) -> proc_macro2::TokenStream {
     let dto = dto::generate(&entity);
     let query_struct = query::generate(&entity);
     let policy = policy::generate(&entity);
+
+    #[cfg(feature = "streams")]
     let streams = streams::generate(&entity);
+    #[cfg(not(feature = "streams"))]
+    let streams = guard_disabled_attribute(&entity, "streams", entity.has_streams());
+
+    #[cfg(feature = "outbox")]
+    let outbox_guard = proc_macro2::TokenStream::new();
+    #[cfg(not(feature = "outbox"))]
+    let outbox_guard = guard_disabled_attribute(&entity, "outbox", entity.has_outbox());
     let api = api::generate(&entity);
     let repository = repository::generate(&entity);
     let row = row::generate(&entity);
@@ -197,6 +207,7 @@ fn generate(entity: EntityDef) -> proc_macro2::TokenStream {
         #commands
         #policy
         #streams
+        #outbox_guard
         #transaction
         #api
         #repository

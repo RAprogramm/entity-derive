@@ -66,6 +66,15 @@ migrations = []
 # Generates projection structs and `find_by_id_<projection>` methods.
 projections = []
 
+# Generates the `pg_notify` publication in writes and the
+# `{Entity}Subscriber`. Off means an entity asking for `streams` gets a
+# compile error naming the feature, not a missing-path error from
+# generated code.
+streams = []
+
+# Generates the transactional-outbox enqueue inside writes.
+outbox = []
+
 [dependencies]
 syn = { version = "2", features = ["full", "extra-traits", "parsing"] }
 quote = "1"

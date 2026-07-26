@@ -48,6 +48,13 @@ pub use async_trait::async_trait;
 /// consumer never has to depend on `futures` itself.
 #[cfg(feature = "streams")]
 pub use futures;
+/// Re-export `serde_json` for generated event payloads.
+///
+/// Stream notifications and outbox rows carry the serialised event, and
+/// the generators reach the serialiser through the facade rather than
+/// through the consumer's dependencies.
+#[cfg(any(feature = "streams", feature = "outbox"))]
+pub use serde_json;
 
 /// Compare two strings in const context.
 ///

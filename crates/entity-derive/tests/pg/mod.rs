@@ -61,6 +61,10 @@ const DB_PREFIX: &str = "ed_t_";
 /// aborted run and swept.
 const STALE_AFTER_MS: u128 = 30 * 60 * 1000;
 
+/// How long teardown waits for the pool to drain before dropping the
+/// database out from under whatever is still holding a connection.
+const CLOSE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+
 /// A provisioned database, owned by exactly one test.
 pub struct TestDb {
     /// Name of the database created for this test.
@@ -95,7 +99,12 @@ impl TestDb {
     /// leaves the database behind on purpose — it can be inspected,
     /// and the next run sweeps it once it ages out.
     pub async fn teardown(self) {
-        self.pool.close().await;
+        // A connection the test still holds — a listener, a transaction
+        // it forgot — would make `close` wait forever. The drop below
+        // is forceful anyway, so a slow close is not worth hanging the
+        // run over.
+        let _ = tokio::time::timeout(CLOSE_TIMEOUT, self.pool.close()).await;
+
         let Ok(mut conn) = PgConnection::connect_with(&self.admin).await else {
             return;
         };
