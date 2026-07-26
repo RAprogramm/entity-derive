@@ -9,15 +9,16 @@
 //! - before_update, after_update
 //! - before_delete, after_delete
 //!
-//! # Manual wiring required (as of 0.8.2)
+//! # Invocation
 //!
-//! The macro emits the `{Entity}Hooks` trait, but the generated
-//! `Repository` impl on `sqlx::PgPool` does NOT call it automatically.
-//! See the HTTP handlers below — each one calls `svc.before_*().await?`
-//! and `svc.after_*().await?` explicitly around the repository call.
-//! That is the supported pattern for now.
+//! The macro emits the `{Entity}Hooks` trait together with
+//! `{Entity}Repo<H>`, a repository that owns a pool and a hooks
+//! implementation and runs the hooks around every mutation. The
+//! handlers below call `repo.create(dto)` and the hooks fire on their
+//! own; reads reach the pool through the same value.
 //!
-//! Auto-invocation is tracked in <https://github.com/RAprogramm/entity-derive/issues/127>.
+//! The bare pool keeps working without hooks, which is what the
+//! `list_users` handler uses.
 
 use std::sync::Arc;
 
@@ -86,6 +87,14 @@ impl std::fmt::Display for HookError {
 
 impl std::error::Error for HookError {}
 
+// The wrapper needs the hook error to convert into the repository
+// error, which for this entity is the sqlx one.
+impl From<HookError> for sqlx::Error {
+    fn from(e: HookError) -> Self {
+        Self::Protocol(e.to_string())
+    }
+}
+
 struct MyUserHooks;
 
 #[async_trait]
@@ -150,8 +159,7 @@ impl UserHooks for MyUserHooks {
 
 #[derive(Clone)]
 struct AppState {
-    pool:  Arc<PgPool>,
-    hooks: Arc<MyUserHooks>
+    repo: Arc<UserRepo<MyUserHooks>>
 }
 
 // ============================================================================
@@ -160,25 +168,12 @@ struct AppState {
 
 async fn create_user(
     State(state): State<AppState>,
-    Json(mut dto): Json<CreateUserRequest>
+    Json(dto): Json<CreateUserRequest>
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    // Run before_create hook
-    state
-        .hooks
-        .before_create(&mut dto)
-        .await
-        .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
-
+    // before_create runs inside, and may rewrite the DTO.
     let user = state
-        .pool
+        .repo
         .create(dto)
-        .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-
-    // Run after_create hook
-    state
-        .hooks
-        .after_create(&user)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
@@ -188,25 +183,11 @@ async fn create_user(
 async fn update_user(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
-    Json(mut dto): Json<UpdateUserRequest>
+    Json(dto): Json<UpdateUserRequest>
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    // Run before_update hook
-    state
-        .hooks
-        .before_update(&id, &mut dto)
-        .await
-        .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
-
     let user = state
-        .pool
+        .repo
         .update(id, dto)
-        .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-
-    // Run after_update hook
-    state
-        .hooks
-        .after_update(&user)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
@@ -217,27 +198,14 @@ async fn delete_user(
     State(state): State<AppState>,
     Path(id): Path<Uuid>
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    // Run before_delete hook
-    state
-        .hooks
-        .before_delete(&id)
-        .await
-        .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
-
+    // after_delete runs only when a row was actually affected.
     let deleted = state
-        .pool
+        .repo
         .delete(id)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     if deleted {
-        // Run after_delete hook
-        state
-            .hooks
-            .after_delete(&id)
-            .await
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-
         Ok(StatusCode::NO_CONTENT)
     } else {
         Err((StatusCode::NOT_FOUND, "User not found".into()))
@@ -245,8 +213,9 @@ async fn delete_user(
 }
 
 async fn list_users(State(state): State<AppState>) -> Result<impl IntoResponse, StatusCode> {
+    // Reads carry no hooks; the wrapper forwards them to the pool.
     let users = state
-        .pool
+        .repo
         .list(100, 0)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -289,8 +258,7 @@ async fn main() {
         .expect("Failed to run migrations");
 
     let state = AppState {
-        pool:  Arc::new(pool),
-        hooks: Arc::new(MyUserHooks)
+        repo: Arc::new(UserRepo::new(pool, MyUserHooks))
     };
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
