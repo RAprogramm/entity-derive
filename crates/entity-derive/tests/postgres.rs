@@ -2635,3 +2635,83 @@ mod commands {
         db.teardown().await;
     }
 }
+
+/// Update-DTO setters have to produce the same patch a struct literal
+/// does, including asking for NULL.
+mod update_builders {
+    use entity_derive::Entity;
+    use uuid::Uuid;
+
+    use crate::pg;
+
+    #[derive(Debug, Clone, Entity)]
+    #[entity(table = "shipments_b", migrations)]
+    pub struct Shipment {
+        #[id]
+        pub id: Uuid,
+
+        #[field(create, update, response)]
+        pub status: String,
+
+        #[field(create, update, response)]
+        pub courier_id: Option<Uuid>
+    }
+
+    #[tokio::test]
+    async fn setters_and_clear_reach_the_row() {
+        let Some(db) = pg::provision("builders", &[Shipment::MIGRATION_UP]).await else {
+            return;
+        };
+        let pool = db.pool();
+
+        let courier = Uuid::now_v7();
+        let shipment = pool
+            .create(CreateShipmentRequest {
+                status:     "created".to_owned(),
+                courier_id: Some(courier)
+            })
+            .await
+            .expect("create failed");
+
+        let patched = pool
+            .update(
+                shipment.id,
+                UpdateShipmentRequest::default().set_status("accepted".to_owned())
+            )
+            .await
+            .expect("update failed");
+        assert_eq!(patched.status, "accepted");
+        assert_eq!(
+            patched.courier_id,
+            Some(courier),
+            "an untouched field must keep its stored value"
+        );
+
+        let cleared = pool
+            .update(
+                shipment.id,
+                UpdateShipmentRequest::default().clear_courier_id()
+            )
+            .await
+            .expect("update failed");
+        assert_eq!(
+            cleared.courier_id, None,
+            "clear_ must write NULL, not leave the column alone"
+        );
+        assert_eq!(
+            cleared.status, "accepted",
+            "clearing one column must not touch another"
+        );
+
+        let reassigned = pool
+            .update(
+                shipment.id,
+                UpdateShipmentRequest::default().set_courier_id(courier)
+            )
+            .await
+            .expect("update failed");
+        assert_eq!(reassigned.courier_id, Some(courier));
+
+        db.teardown().await;
+    }
+}

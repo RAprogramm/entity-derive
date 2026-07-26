@@ -481,7 +481,20 @@ let profile = pool.update(id, patch).await?;
 ```
 
 In Rust code: `None` = leave, `Some(None)` = SET NULL,
-`Some(Some(v))` = SET v.
+`Some(Some(v))` = SET v. Chainable setters say the same thing without
+the nesting — `set_{field}` for every updatable column, `clear_{field}`
+for the nullable ones, `expecting_version` where `#[version]` is
+declared:
+
+```rust,ignore
+let patch = UpdateProfileRequest::default()
+    .set_display_name("Neo".into())   // SET display_name = 'Neo'
+    .clear_nickname();                // SET nickname = NULL
+
+let profile = pool.update(id, patch).await?;
+```
+
+Struct-literal construction keeps working; the setters are additive.
 
 ### Bulk Operations
 
