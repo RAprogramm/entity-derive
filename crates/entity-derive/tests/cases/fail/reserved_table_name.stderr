@@ -1,0 +1,5 @@
+error: table name `user` is a reserved SQL word and would need quoting; rename it (for example `users`)
+  --> tests/cases/fail/reserved_table_name.rs:12:12
+   |
+12 | pub struct Account {
+   |            ^^^^^^^

@@ -65,7 +65,7 @@ use super::{
     parse_projection_attrs,
     upsert::{UpsertAction, UpsertDef}
 };
-use crate::utils::docs::extract_doc_comments;
+use crate::utils::{docs::extract_doc_comments, sql_ident};
 
 impl EntityDef {
     /// Parse entity definition from syn's `DeriveInput`.
@@ -126,6 +126,8 @@ impl EntityDef {
                 );
             }
         };
+
+        validate_sql_names(&attrs.table, &attrs.schema, &fields, input)?;
 
         let has_many = parse_has_many_attrs(&input.attrs);
         let projections = parse_projection_attrs(&input.attrs);
@@ -424,6 +426,35 @@ fn expand_embed_fields(fields: &mut Vec<FieldDef>) -> darling::Result<()> {
 /// | Conflict target carries a uniqueness guarantee | `ON CONFLICT` requires a unique index or constraint |
 /// | `returning = "full"` | The returned entity must reflect the persisted row, which on the update path is the pre-existing one |
 /// | `action = "update"` needs a non-conflict insert column | An empty `DO UPDATE SET` is invalid SQL |
+/// Reject table, schema and column names that generated SQL cannot
+/// carry unquoted.
+///
+/// The generator interpolates these names into statements as written,
+/// so a reserved word or an upper-case letter produces SQL that fails
+/// at runtime — and only once that statement runs. Checking here turns
+/// it into an error at the offending attribute.
+fn validate_sql_names(
+    table: &str,
+    schema: &str,
+    fields: &[FieldDef],
+    input: &DeriveInput
+) -> darling::Result<()> {
+    sql_ident::validate("table", table)
+        .map_err(|msg| darling::Error::custom(msg).with_span(&input.ident))?;
+
+    if !schema.is_empty() {
+        sql_ident::validate("schema", schema)
+            .map_err(|msg| darling::Error::custom(msg).with_span(&input.ident))?;
+    }
+
+    for field in fields {
+        sql_ident::validate("column", &field.column_name())
+            .map_err(|msg| darling::Error::custom(msg).with_span(&field.ident))?;
+    }
+
+    Ok(())
+}
+
 fn validate_upsert(
     upsert: &UpsertDef,
     fields: &[FieldDef],
