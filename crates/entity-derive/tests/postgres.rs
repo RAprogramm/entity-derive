@@ -51,11 +51,10 @@ mod articles {
         #[filter(range)]
         pub views: i64,
 
-        /// Populated by the database default: the generated INSERT skips
-        /// `#[auto]` columns, so the DDL has to supply the value.
+        /// Populated by the database: the generated INSERT skips
+        /// `#[auto]` columns, so the DDL supplies the value.
         #[field(response)]
         #[auto]
-        #[column(default = "NOW()")]
         pub created_at: DateTime<Utc>
     }
 

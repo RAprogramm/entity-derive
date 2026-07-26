@@ -220,7 +220,7 @@ tracing-subscriber = "0.3"
 
 ```rust,ignore
 #[id]                          // Primary key (auto-generated UUID)
-#[auto]                        // Auto-generated (timestamps)
+#[auto]                        // Auto-generated: skipped by INSERT, gets a DB default in migrations
 #[owner]                       // Ownership column: adds *_scoped methods
 #[version]                     // Optimistic locking: guarded, auto-bumped
 #[embed(prefix, fields(...))]  // Flatten a value object to prefixed columns
