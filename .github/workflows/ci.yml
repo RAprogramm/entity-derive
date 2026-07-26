@@ -244,7 +244,10 @@ jobs:
       postgres:
         image: postgres:${{ matrix.postgres }}-alpine
         env:
-          POSTGRES_PASSWORD: postgres
+          # The container is reachable only from this job and is thrown
+          # away with it, so it takes no password at all rather than a
+          # hardcoded one.
+          POSTGRES_HOST_AUTH_METHOD: trust
         ports:
           - 5432:5432
         options: >-
@@ -274,7 +277,7 @@ jobs:
       # silently stopped covering the generated SQL.
       - name: Run generated SQL against Postgres
         env:
-          ENTITY_DERIVE_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+          ENTITY_DERIVE_TEST_DATABASE_URL: postgres://postgres@localhost:5432/postgres
         run: cargo nextest run -p entity-derive --all-features --test postgres --profile ci --no-tests=fail
 
   coverage:
