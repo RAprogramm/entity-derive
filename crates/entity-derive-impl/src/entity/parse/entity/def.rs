@@ -63,7 +63,7 @@ use super::{
         api::ApiConfig, command::CommandDef, dialect::DatabaseDialect, field::FieldDef,
         returning::ReturningMode, sql_level::SqlLevel, uuid_version::UuidVersion
     },
-    CompositeIndexDef, ProjectionDef,
+    CompositeIndexDef, ProjectionDef, ScopeDef,
     helpers::HasManyDef,
     join::JoinDef,
     transition::TransitionDef,
@@ -241,6 +241,12 @@ pub struct EntityDef {
     ///
     /// Non-empty when the entity generates a `{Entity}View`.
     pub joins: Vec<JoinDef>,
+
+    /// Participant scopes from `#[scope(...)]`.
+    ///
+    /// Each entry generates a `list_{name}` method ORing the declared
+    /// columns against one bound value.
+    pub scopes: Vec<ScopeDef>,
 
     /// State-machine transitions from `#[transition(...)]`.
     ///

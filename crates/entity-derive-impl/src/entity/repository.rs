@@ -112,6 +112,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
 
     let upsert_method = generate_upsert_method(entity);
     let scoped_methods = generate_scoped_methods(entity, id_type);
+    let participant_scopes = generate_scope_methods(entity);
     let relation_methods = generate_relation_methods(entity, id_type);
     let projection_methods = generate_projection_methods(entity, id_type);
     let soft_delete_methods = generate_soft_delete_methods(entity, id_type);
@@ -191,9 +192,62 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
 
             #scoped_methods
 
+            #participant_scopes
+
             #save_method
         }
     }
+}
+
+/// Generate the trait side of every `#[scope(...)]` declaration.
+///
+/// One method per scope, listing rows where the bound value appears in
+/// any of the declared columns.
+fn generate_scope_methods(entity: &EntityDef) -> TokenStream {
+    let column_type = |name: &str| {
+        entity
+            .column_fields()
+            .into_iter()
+            .find(|f| f.name_str() == name)
+            .map(|f| f.ty().clone())
+            .expect("scope columns are validated during parsing")
+    };
+
+    let methods: Vec<TokenStream> = entity
+        .scopes
+        .iter()
+        .map(|scope| {
+            let method_name = format_ident!("{}", scope.method_name());
+            let entity_name = entity.name();
+            let value_type = column_type(&scope.columns[0]);
+            let within = scope.within.as_ref().map(|column| {
+                let name = format_ident!("{column}");
+                let ty = column_type(column);
+                quote! { #name: #ty, }
+            });
+            let doc = format!(
+                "List rows where `value` appears in {}{}.\n\nOrdered by id descending;                  soft-deleted rows are excluded.",
+                scope.columns.join(" or "),
+                scope
+                    .within
+                    .as_ref()
+                    .map_or_else(String::new, |c| format!(", narrowed to one `{c}`"))
+            );
+
+            quote! {
+                #[doc = #doc]
+                async fn #method_name(
+                    &self,
+                    #within
+                    value: #value_type,
+                    limit: i64,
+                    offset: i64,
+                ) -> Result<Vec<#entity_name>, Self::Error>;
+            }
+        })
+        .collect();
+
+    quote! { #(#methods)* }
 }
 
 /// Generate relation methods for `#[belongs_to]` and `#[has_many]`.

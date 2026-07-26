@@ -455,6 +455,20 @@ sqlx::query(Order::MIGRATION_UP).execute(&pool).await?;
 - El nombre declarado se verifica contra la constante `PG_TYPE` del enum en tiempo de compilación; una discrepancia rompe la compilación
 - El flag opcional `sqlx` de `ValueObject` genera impls `sqlx::Type` / `Encode` / `Decode`; omítelo si ya derivas `sqlx::Type`
 
+### `#[scope(...)]`
+
+A nivel de entidad. Declara un listado sobre un grupo OR de columnas del mismo tipo: «filas donde este principal participa en cualquier rol».
+
+```rust
+#[derive(Entity)]
+#[entity(table = "disputes")]
+#[scope(involving: requester_id | subject_id)]
+#[scope(handled: requester_id | subject_id, within = parcel_id)]
+pub struct Dispute { /* ... */ }
+```
+
+Genera: `list_involving(value, limit, offset)` y `list_handled(parcel_id, value, limit, offset)`. El valor se liga una vez y se compara con todas las columnas declaradas; `within` acota antes el grupo a un padre. Se exigen al menos dos columnas, que deben existir y coincidir en tipo — todo verificado en compilación. Respeta el borrado lógico y ordena por id descendente.
+
 ### `#[owner]`
 
 Alcance por propietario a nivel de fila. Marca la columna con el id del propietario; el repositorio obtiene métodos con alcance que nunca revelan si una fila existe para otro propietario y respetan `soft_delete`.

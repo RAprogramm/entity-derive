@@ -2715,3 +2715,103 @@ mod update_builders {
         db.teardown().await;
     }
 }
+
+/// Participant scopes: one value matched against several roles, with
+/// and without narrowing to a parent row.
+mod scopes {
+    use entity_derive::Entity;
+    use uuid::Uuid;
+
+    use crate::pg;
+
+    #[derive(Debug, Clone, Entity)]
+    #[entity(table = "disputes", migrations)]
+    #[scope(involving: requester_id | subject_id)]
+    #[scope(handled: requester_id | subject_id, within = parcel_id)]
+    pub struct Dispute {
+        #[id]
+        pub id: Uuid,
+
+        #[field(create, response)]
+        pub parcel_id: Uuid,
+
+        #[field(create, response)]
+        pub requester_id: Uuid,
+
+        #[field(create, response)]
+        pub subject_id: Uuid
+    }
+
+    #[tokio::test]
+    async fn a_scope_matches_every_declared_role() {
+        let Some(db) = pg::provision("scopes", &[Dispute::MIGRATION_UP]).await else {
+            return;
+        };
+        let pool = db.pool();
+
+        let ada = Uuid::now_v7();
+        let grace = Uuid::now_v7();
+        let stranger = Uuid::now_v7();
+        let parcel = Uuid::now_v7();
+        let other_parcel = Uuid::now_v7();
+
+        let requested = pool
+            .create(CreateDisputeRequest {
+                parcel_id:    parcel,
+                requester_id: ada,
+                subject_id:   grace
+            })
+            .await
+            .expect("create failed");
+        let subjected = pool
+            .create(CreateDisputeRequest {
+                parcel_id:    other_parcel,
+                requester_id: grace,
+                subject_id:   ada
+            })
+            .await
+            .expect("create failed");
+        pool.create(CreateDisputeRequest {
+            parcel_id:    parcel,
+            requester_id: grace,
+            subject_id:   stranger
+        })
+        .await
+        .expect("create failed");
+
+        let ada_rows = pool
+            .list_involving(ada, 10, 0)
+            .await
+            .expect("scope query failed");
+        let ada_ids: Vec<Uuid> = ada_rows.iter().map(|d| d.id).collect();
+        assert_eq!(ada_ids.len(), 2, "both roles must match the same principal");
+        assert!(ada_ids.contains(&requested.id) && ada_ids.contains(&subjected.id));
+
+        let narrowed = pool
+            .list_handled(parcel, ada, 10, 0)
+            .await
+            .expect("narrowed scope query failed");
+        assert_eq!(
+            narrowed.len(),
+            1,
+            "narrowing must drop the row belonging to another parcel"
+        );
+        assert_eq!(narrowed[0].id, requested.id);
+
+        assert!(
+            pool.list_involving(Uuid::now_v7(), 10, 0)
+                .await
+                .expect("scope query failed")
+                .is_empty(),
+            "an uninvolved principal matches nothing"
+        );
+
+        let page = pool
+            .list_involving(ada, 1, 0)
+            .await
+            .expect("scope query failed");
+        assert_eq!(page.len(), 1, "the scope honours its pagination");
+
+        db.teardown().await;
+    }
+}
