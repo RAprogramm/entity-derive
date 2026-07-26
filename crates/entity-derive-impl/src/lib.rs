@@ -7,14 +7,23 @@
     html_favicon_url = "https://raw.githubusercontent.com/RAprogramm/entity-derive/main/assets/favicon.ico"
 )]
 #![cfg_attr(docsrs, feature(doc_cfg))]
-// Several parsing helpers (column DDL, composite indexes, projection
-// metadata) are only consumed by the `migrations` and `projections`
-// generators. When users opt out of those features, the helpers become
-// unused — silence the dead-code lint in those configurations so minimal
-// builds stay warning-clean. Default builds (every feature on) keep the
-// warning active.
+// The macro parses every attribute regardless of which generators are
+// compiled in, so the parse layer carries helpers — column DDL,
+// composite indexes, projection metadata, command sources, transition
+// definitions — that only one generator consumes. Switching that
+// generator off leaves its helpers legitimately unused, and a minimal
+// build must still be warning-clean. With every generator on (the
+// default, and what CI builds) the lints stay active.
 #![cfg_attr(
-    any(not(feature = "migrations"), not(feature = "projections")),
+    not(all(
+        feature = "events",
+        feature = "commands",
+        feature = "hooks",
+        feature = "transactions",
+        feature = "aggregate_root",
+        feature = "migrations",
+        feature = "projections"
+    )),
     allow(dead_code, unused_imports)
 )]
 #![warn(

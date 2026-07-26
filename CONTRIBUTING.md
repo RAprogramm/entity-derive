@@ -67,6 +67,10 @@ run drops it once it is half an hour old.
 | Lint | `cargo clippy -- -D warnings` |
 | Test | `cargo test` |
 | Live Postgres | `cargo nextest run -p entity-derive --all-features --test postgres` (matrix: Postgres 18, 17) |
+| Examples | `cargo check --manifest-path examples/<name>/Cargo.toml --all-targets` |
+| Feature combinations | `cargo hack check --workspace --feature-powerset --depth 2 --no-dev-deps` |
+| Dependency policy | `cargo deny check` |
+| Semver | `cargo semver-checks check-release --workspace --exclude entity-derive-impl` |
 | Coverage | `cargo llvm-cov` (95%+ required) |
 
 ## Code standards
