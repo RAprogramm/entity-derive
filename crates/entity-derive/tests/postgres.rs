@@ -2147,3 +2147,491 @@ mod http {
         db.teardown().await;
     }
 }
+
+/// Declarative state transitions: the guard is SQL plus a status check
+/// under a row lock, so only a real run proves it.
+mod transitions {
+    use entity_derive::{Entity, ValueObject};
+    use uuid::Uuid;
+
+    use crate::pg;
+
+    #[derive(
+        ValueObject,
+        Debug,
+        Clone,
+        Copy,
+        PartialEq,
+        Eq,
+        utoipa::ToSchema,
+        serde::Serialize,
+        serde::Deserialize,
+    )]
+    #[value_object(pg_type = "parcel_status", sqlx)]
+    pub enum ParcelStatus {
+        Created,
+        Accepted,
+        Cancelled
+    }
+
+    /// The transition guard reports a typed failure, so the entity has
+    /// to declare an error type that can carry it.
+    #[derive(Debug)]
+    pub enum ParcelError {
+        Database(sqlx::Error),
+        Transition(entity_derive::TransitionError)
+    }
+
+    impl std::fmt::Display for ParcelError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match self {
+                Self::Database(e) => write!(f, "database error: {e}"),
+                Self::Transition(e) => write!(f, "transition refused: {e}")
+            }
+        }
+    }
+
+    impl std::error::Error for ParcelError {}
+
+    impl From<sqlx::Error> for ParcelError {
+        fn from(e: sqlx::Error) -> Self {
+            Self::Database(e)
+        }
+    }
+
+    impl From<entity_derive::TransitionError> for ParcelError {
+        fn from(e: entity_derive::TransitionError) -> Self {
+            Self::Transition(e)
+        }
+    }
+
+    #[derive(Debug, Clone, Entity)]
+    #[entity(table = "parcels", migrations, transactions, error = "ParcelError")]
+    #[transition(created -> accepted, sets(courier_id))]
+    #[transition(created | accepted -> cancelled)]
+    pub struct Parcel {
+        #[id]
+        pub id: Uuid,
+
+        #[field(create, update, response)]
+        #[column(pg_enum = "parcel_status")]
+        pub status: ParcelStatus,
+
+        #[field(create, update, response)]
+        pub courier_id: Option<Uuid>
+    }
+
+    fn migrations() -> Vec<&'static str> {
+        let mut scripts = Vec::new();
+        scripts.extend_from_slice(Parcel::MIGRATION_TYPES);
+        scripts.push(Parcel::MIGRATION_UP);
+        scripts
+    }
+
+    #[tokio::test]
+    async fn allowed_transition_patches_declared_columns() {
+        let Some(db) = pg::provision("transition", &migrations()).await else {
+            return;
+        };
+        let pool = db.pool();
+
+        let parcel = pool
+            .create(CreateParcelRequest {
+                status:     ParcelStatus::Created,
+                courier_id: None
+            })
+            .await
+            .expect("create failed");
+
+        let courier = Uuid::now_v7();
+        let mut tx = pool.begin().await.expect("begin failed");
+        let mut repo = ParcelTransactionRepo::new(&mut tx);
+        let accepted = repo
+            .transition_to_accepted(parcel.id, courier)
+            .await
+            .expect("the declared transition must be allowed")
+            .expect("the row must exist");
+        tx.commit().await.expect("commit failed");
+
+        assert_eq!(accepted.status, ParcelStatus::Accepted);
+        assert_eq!(
+            accepted.courier_id,
+            Some(courier),
+            "the transition must patch the columns it declares"
+        );
+
+        db.teardown().await;
+    }
+
+    #[tokio::test]
+    async fn disallowed_source_status_is_refused() {
+        let Some(db) = pg::provision("transbad", &migrations()).await else {
+            return;
+        };
+        let pool = db.pool();
+
+        let parcel = pool
+            .create(CreateParcelRequest {
+                status:     ParcelStatus::Cancelled,
+                courier_id: None
+            })
+            .await
+            .expect("create failed");
+
+        let mut tx = pool.begin().await.expect("begin failed");
+        let mut repo = ParcelTransactionRepo::new(&mut tx);
+        let refused = repo.transition_to_accepted(parcel.id, Uuid::now_v7()).await;
+        assert!(
+            refused.is_err(),
+            "a cancelled parcel must not become accepted"
+        );
+        tx.rollback().await.expect("rollback failed");
+
+        let unchanged = pool
+            .find_by_id(parcel.id)
+            .await
+            .expect("read failed")
+            .expect("row missing");
+        assert_eq!(
+            unchanged.status,
+            ParcelStatus::Cancelled,
+            "a refused transition must leave the status alone"
+        );
+
+        db.teardown().await;
+    }
+
+    #[tokio::test]
+    async fn a_missing_row_is_not_an_error() {
+        let Some(db) = pg::provision("transnone", &migrations()).await else {
+            return;
+        };
+        let pool = db.pool();
+
+        let mut tx = pool.begin().await.expect("begin failed");
+        let mut repo = ParcelTransactionRepo::new(&mut tx);
+        let outcome = repo
+            .transition_to_cancelled(Uuid::now_v7())
+            .await
+            .expect("a missing row must not be reported as a transition failure");
+        assert!(outcome.is_none());
+        tx.rollback().await.expect("rollback failed");
+
+        db.teardown().await;
+    }
+}
+
+/// HTTP guards and the generated OpenAPI document.
+mod http_guard {
+    use std::sync::Arc;
+
+    use axum::{
+        body::Body,
+        extract::FromRequestParts,
+        http::{Request, StatusCode, request::Parts}
+    };
+    use entity_derive::Entity;
+    use tower::ServiceExt;
+    use uuid::Uuid;
+
+    use crate::pg;
+
+    /// Accepts a request only when it carries an authorization header.
+    pub struct RequireAuth;
+
+    impl<S> FromRequestParts<S> for RequireAuth
+    where
+        S: Send + Sync
+    {
+        type Rejection = StatusCode;
+
+        fn from_request_parts(
+            parts: &mut Parts,
+            _state: &S
+        ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send {
+            let authenticated = parts.headers.contains_key("authorization");
+            async move {
+                if authenticated {
+                    Ok(Self)
+                } else {
+                    Err(StatusCode::UNAUTHORIZED)
+                }
+            }
+        }
+    }
+
+    #[derive(Debug, Clone, Entity)]
+    #[entity(
+        table = "vaults",
+        migrations,
+        api(tag = "Vaults", handlers, guard = "RequireAuth", guard(list = "none"))
+    )]
+    pub struct Vault {
+        #[id]
+        pub id: Uuid,
+
+        #[field(create, update, response)]
+        pub label: String
+    }
+
+    async fn status_of(pool: &sqlx::PgPool, request: Request<Body>) -> StatusCode {
+        let app = vault_router::<sqlx::PgPool>().with_state(Arc::new(pool.clone()));
+        app.oneshot(request)
+            .await
+            .expect("the router must respond")
+            .status()
+    }
+
+    #[tokio::test]
+    async fn the_guard_rejects_and_the_exempt_route_stays_open() {
+        let Some(db) = pg::provision("guard", &[Vault::MIGRATION_UP]).await else {
+            return;
+        };
+        let pool = db.pool();
+
+        let anonymous_create = Request::builder()
+            .method("POST")
+            .uri("/vaults")
+            .header("content-type", "application/json")
+            .body(Body::from(r#"{"label":"secrets"}"#))
+            .expect("request build failed");
+        assert_eq!(
+            status_of(pool, anonymous_create).await,
+            StatusCode::UNAUTHORIZED,
+            "the guard must reject a request without credentials"
+        );
+        assert!(
+            pool.list(10, 0).await.expect("list failed").is_empty(),
+            "a rejected request must not have written anything"
+        );
+
+        let authenticated_create = Request::builder()
+            .method("POST")
+            .uri("/vaults")
+            .header("content-type", "application/json")
+            .header("authorization", "Bearer token")
+            .body(Body::from(r#"{"label":"secrets"}"#))
+            .expect("request build failed");
+        assert_eq!(
+            status_of(pool, authenticated_create).await,
+            StatusCode::CREATED,
+            "the guard must let an authenticated request through"
+        );
+
+        let anonymous_list = Request::builder()
+            .uri("/vaults")
+            .body(Body::empty())
+            .expect("request build failed");
+        assert_eq!(
+            status_of(pool, anonymous_list).await,
+            StatusCode::OK,
+            "the route exempted with guard(list = \"none\") must stay open"
+        );
+
+        db.teardown().await;
+    }
+
+    #[test]
+    fn the_openapi_document_describes_the_routes() {
+        use utoipa::OpenApi;
+
+        let document = VaultApi::openapi();
+        let json = serde_json::to_value(&document).expect("the document must serialize");
+
+        let paths = json["paths"]
+            .as_object()
+            .expect("the document must declare paths");
+        assert!(
+            paths.contains_key("/vaults"),
+            "the collection path must be documented, got {:?}",
+            paths.keys().collect::<Vec<_>>()
+        );
+        assert!(
+            paths.contains_key("/vaults/{id}"),
+            "the item path must be documented"
+        );
+        assert!(
+            paths["/vaults"].get("post").is_some(),
+            "the create operation must be documented"
+        );
+
+        let schemas = json["components"]["schemas"]
+            .as_object()
+            .expect("the document must declare schemas");
+        for expected in ["VaultResponse", "CreateVaultRequest", "UpdateVaultRequest"] {
+            assert!(
+                schemas.contains_key(expected),
+                "{expected} must be in the document, got {:?}",
+                schemas.keys().collect::<Vec<_>>()
+            );
+        }
+    }
+}
+
+/// CQRS commands: the dispatcher routes a variant to its handler, and
+/// the generated route carries a command over HTTP.
+mod commands {
+    use std::sync::Arc;
+
+    use axum::{
+        body::Body,
+        http::{Request, StatusCode}
+    };
+    use entity_derive::{Entity, async_trait};
+    use tower::ServiceExt;
+    use uuid::Uuid;
+
+    use crate::pg;
+
+    #[derive(Debug, Clone, Entity)]
+    #[entity(
+        table = "members",
+        migrations,
+        commands,
+        api(tag = "Members", handlers)
+    )]
+    #[command(Register)]
+    #[command(Rename: nickname, requires_id)]
+    pub struct Member {
+        #[id]
+        pub id: Uuid,
+
+        #[field(create, update, response)]
+        pub nickname: String
+    }
+
+    /// Handles commands by writing through the generated repository.
+    struct Handlers {
+        pool: sqlx::PgPool
+    }
+
+    #[async_trait]
+    impl MemberCommandHandler for Handlers {
+        type Context = ();
+        type Error = sqlx::Error;
+
+        async fn handle_register(
+            &self,
+            cmd: RegisterMember,
+            _ctx: &Self::Context
+        ) -> Result<Member, Self::Error> {
+            self.pool
+                .create(CreateMemberRequest {
+                    nickname: cmd.nickname
+                })
+                .await
+        }
+
+        async fn handle_rename(
+            &self,
+            cmd: RenameMember,
+            _ctx: &Self::Context
+        ) -> Result<Member, Self::Error> {
+            self.pool
+                .update(
+                    cmd.id,
+                    UpdateMemberRequest {
+                        nickname: Some(cmd.nickname)
+                    }
+                )
+                .await
+        }
+    }
+
+    #[tokio::test]
+    async fn the_dispatcher_routes_each_variant() {
+        let Some(db) = pg::provision("commands", &[Member::MIGRATION_UP]).await else {
+            return;
+        };
+        let pool = db.pool();
+        let handlers = Handlers {
+            pool: pool.clone()
+        };
+
+        let registered = handlers
+            .handle(
+                MemberCommand::Register(RegisterMember {
+                    nickname: "ada".to_owned()
+                }),
+                &()
+            )
+            .await
+            .expect("the dispatcher must route Register");
+        let MemberCommandResult::Register(member) = registered else {
+            panic!("the result variant must match the command")
+        };
+        assert_eq!(member.nickname, "ada");
+
+        let renamed = handlers
+            .handle(
+                MemberCommand::Rename(RenameMember {
+                    id:       member.id,
+                    nickname: "grace".to_owned()
+                }),
+                &()
+            )
+            .await
+            .expect("the dispatcher must route Rename");
+        let MemberCommandResult::Rename(updated) = renamed else {
+            panic!("the result variant must match the command")
+        };
+        assert_eq!(updated.nickname, "grace");
+
+        let stored = pool
+            .find_by_id(member.id)
+            .await
+            .expect("read failed")
+            .expect("row missing");
+        assert_eq!(
+            stored.nickname, "grace",
+            "the handler's write must have reached the database"
+        );
+
+        db.teardown().await;
+    }
+
+    #[tokio::test]
+    async fn a_command_route_answers_over_http() {
+        let Some(db) = pg::provision("cmdhttp", &[Member::MIGRATION_UP]).await else {
+            return;
+        };
+        let pool = db.pool();
+
+        // Command handlers take their dependency as an extension, not
+        // as router state.
+        let app =
+            member_commands_router::<Handlers>().layer(axum::Extension(Arc::new(Handlers {
+                pool: pool.clone()
+            })));
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/members/register")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"nickname":"hopper"}"#))
+                    .expect("request build failed")
+            )
+            .await
+            .expect("the router must respond");
+        assert_eq!(response.status(), StatusCode::OK);
+
+        assert_eq!(
+            pool.list(10, 0).await.expect("list failed").len(),
+            1,
+            "the command handler must have written the row"
+        );
+
+        let body = axum::body::to_bytes(response.into_body(), 1 << 20)
+            .await
+            .expect("body read failed");
+        let json: serde_json::Value =
+            serde_json::from_slice(&body).expect("the response must be JSON");
+        assert_eq!(
+            json["nickname"], "hopper",
+            "a command route answers with the response shape, not the raw entity"
+        );
+
+        db.teardown().await;
+    }
+}

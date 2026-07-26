@@ -61,10 +61,17 @@ fn generate_command_struct(entity: &EntityDef, cmd: &CommandDef) -> TokenStream 
         entity.name_str()
     );
 
+    let schema_derive = if cfg!(feature = "api") {
+        quote! { #[derive(utoipa::ToSchema)] }
+    } else {
+        TokenStream::new()
+    };
+
     quote! {
         #marker
         #[doc = #doc]
-        #[derive(Debug, Clone)]
+        #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+        #schema_derive
         #vis struct #struct_name {
             #id_field
             #payload_fields

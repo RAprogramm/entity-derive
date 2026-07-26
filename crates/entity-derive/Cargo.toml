@@ -40,11 +40,13 @@ mongodb = ["entity-core/mongodb"]
 
 # Real-time streams via Postgres LISTEN/NOTIFY. Pulls in `events`
 # because the NOTIFY payload is an event variant.
-streams = ["entity-core/streams", "events", "entity-derive-impl/streams"]
-outbox = ["entity-core/outbox", "events", "entity-derive-impl/outbox"]
+streams = ["entity-core/streams", "events", "entity-derive-impl/streams", "dep:serde_json"]
+outbox = ["entity-core/outbox", "events", "entity-derive-impl/outbox", "dep:serde_json"]
 
-# HTTP handlers + OpenAPI generation.
-api = ["entity-derive-impl/api"]
+# HTTP handlers + OpenAPI generation. The error type and the JSON
+# examples in the document belong to the generated code, so the facade
+# carries them instead of asking every consumer to.
+api = ["entity-derive-impl/api", "dep:masterror", "dep:serde_json"]
 
 # `validator::Validate` integration on DTOs.
 validate = ["entity-derive-impl/validate"]
@@ -81,6 +83,8 @@ tracing = ["entity-core/tracing", "entity-derive-impl/tracing"]
 [dependencies]
 entity-core = { path = "../entity-core", version = "0.10", features = ["serde"] }
 entity-derive-impl = { path = "../entity-derive-impl", version = "0.20", default-features = false }
+masterror = { version = "0.29", features = ["axum", "openapi"], optional = true }
+serde_json = { version = "1", optional = true }
 
 [dev-dependencies]
 trybuild = "1"

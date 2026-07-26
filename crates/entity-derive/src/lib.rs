@@ -38,3 +38,15 @@
 // Re-export all core types
 pub use entity_core::*;
 pub use entity_derive_impl::{Entity, ValueObject};
+/// Re-export of the error type generated HTTP handlers return.
+///
+/// Consumers of the `api` feature reach it through this path, so the
+/// crate never has to appear in their own dependencies.
+#[cfg(feature = "api")]
+pub use masterror;
+/// Re-export of the JSON runtime generated code serializes through.
+///
+/// Used by stream payloads, outbox rows and the examples in the OpenAPI
+/// document.
+#[cfg(any(feature = "api", feature = "streams", feature = "outbox"))]
+pub use serde_json;

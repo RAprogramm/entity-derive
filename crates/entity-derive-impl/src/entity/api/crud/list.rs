@@ -299,14 +299,14 @@ pub fn generate_list_handler(entity: &EntityDef) -> TokenStream {
             axum::extract::State(repo): axum::extract::State<std::sync::Arc<R>>,
             axum::extract::Query(pagination): axum::extract::Query<PaginationQuery>,
             #guard_param
-        ) -> masterror::AppResult<axum::response::Json<Vec<#response_dto>>>
+        ) -> ::entity_derive::masterror::AppResult<axum::response::Json<Vec<#response_dto>>>
         where
             R: #repo_trait + 'static,
         {
             let entities = repo
                 .list(pagination.limit, pagination.offset)
                 .await
-                .map_err(|e| masterror::AppError::internal(e.to_string()))?;
+                .map_err(|e| ::entity_derive::masterror::AppError::internal(e.to_string()))?;
             let responses: Vec<#response_dto> = entities.into_iter().map(#response_dto::from).collect();
             Ok(axum::response::Json(responses))
         }

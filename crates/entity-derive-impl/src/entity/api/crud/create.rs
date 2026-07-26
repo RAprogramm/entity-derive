@@ -227,14 +227,14 @@ pub fn generate_create_handler(entity: &EntityDef) -> TokenStream {
             axum::extract::State(repo): axum::extract::State<std::sync::Arc<R>>,
             #guard_param
             axum::extract::Json(dto): axum::extract::Json<#create_dto>,
-        ) -> masterror::AppResult<(axum::http::StatusCode, axum::response::Json<#response_dto>)>
+        ) -> ::entity_derive::masterror::AppResult<(axum::http::StatusCode, axum::response::Json<#response_dto>)>
         where
             R: #repo_trait + 'static,
         {
             let entity = repo
                 .create(dto)
                 .await
-                .map_err(|e| masterror::AppError::internal(e.to_string()))?;
+                .map_err(|e| ::entity_derive::masterror::AppError::internal(e.to_string()))?;
             Ok((axum::http::StatusCode::CREATED, axum::response::Json(#response_dto::from(entity))))
         }
     }
