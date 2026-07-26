@@ -2345,14 +2345,17 @@ mod http_guard {
     {
         type Rejection = StatusCode;
 
-        async fn from_request_parts(
+        fn from_request_parts(
             parts: &mut Parts,
             _state: &S
-        ) -> Result<Self, Self::Rejection> {
-            if parts.headers.contains_key("authorization") {
-                Ok(Self)
-            } else {
-                Err(StatusCode::UNAUTHORIZED)
+        ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send {
+            let authenticated = parts.headers.contains_key("authorization");
+            async move {
+                if authenticated {
+                    Ok(Self)
+                } else {
+                    Err(StatusCode::UNAUTHORIZED)
+                }
             }
         }
     }
