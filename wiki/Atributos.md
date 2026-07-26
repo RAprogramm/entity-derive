@@ -645,6 +645,16 @@ pub struct Post {
 
 Las actualizaciones generadas son parches parciales reales: la cláusula SET se construye en tiempo de ejecución con los campos realmente presentes; los omitidos no se tocan. Las columnas anulables usan doble `Option` (`None` = dejar, `Some(None)` = poner NULL, `Some(Some(v))` = poner v) mediante `entity_core::serde_helpers::double_option`.
 
+Los setters encadenables expresan el mismo parche sin el anidamiento: `set_{field}` para cada columna actualizable, `clear_{field}` para las anulables y `expecting_version` cuando hay `#[version]`.
+
+```rust
+let patch = UpdateUserRequest::default()
+    .set_name("Neo".into())
+    .clear_nickname();
+```
+
+La construcción con literal de estructura sigue funcionando; los setters son aditivos.
+
 ```rust
 // {}                   → nothing changes
 // {"nickname": null}   → nickname = NULL

@@ -754,6 +754,16 @@ pub struct Post {
 
 Generated updates are true partial patches: the UPDATE SET clause is built at runtime from the fields actually present, so omitted fields stay untouched. Nullable columns use double-`Option` (`None` = leave, `Some(None)` = SET NULL, `Some(Some(v))` = SET v) via `entity_core::serde_helpers::double_option`.
 
+Chainable setters express the same patch without the nesting: `set_{field}` for every updatable column, `clear_{field}` for the nullable ones, and `expecting_version` where `#[version]` is declared.
+
+```rust
+let patch = UpdateUserRequest::default()
+    .set_name("Neo".into())
+    .clear_nickname();
+```
+
+Struct-literal construction keeps working; the setters are additive.
+
 ```rust
 // {}                   → nothing changes
 // {"nickname": null}   → nickname = NULL
