@@ -113,6 +113,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     let upsert_method = generate_upsert_method(entity);
     let scoped_methods = generate_scoped_methods(entity, id_type);
     let participant_scopes = generate_scope_methods(entity);
+    let domain_operations = generate_domain_operations(entity);
     let relation_methods = generate_relation_methods(entity, id_type);
     let projection_methods = generate_projection_methods(entity, id_type);
     let soft_delete_methods = generate_soft_delete_methods(entity, id_type);
@@ -194,9 +195,53 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
 
             #participant_scopes
 
+            #domain_operations
+
             #save_method
         }
     }
+}
+
+/// Generate the trait side of every command declaring `sets(...)`.
+///
+/// A domain operation writes named columns that are deliberately not
+/// `#[field(update)]`, so they stay out of the public patch DTO and out
+/// of the upsert SET list.
+fn generate_domain_operations(entity: &EntityDef) -> TokenStream {
+    let entity_name = entity.name();
+    let entity_name_str = entity.name_str();
+
+    let methods: Vec<TokenStream> = entity
+        .command_defs()
+        .iter()
+        .filter(|cmd| !cmd.sets.is_empty())
+        .map(|cmd| {
+            let method_name = format_ident!("{}", cmd.name.to_string().to_case(Case::Snake));
+            let command_struct = cmd.struct_name(&entity_name_str);
+            let written = cmd
+                .sets
+                .iter()
+                .map(|(column, expression)| format!("`{column}` = `{expression}`"))
+                .collect::<Vec<_>>()
+                .join(", ");
+            let doc = format!(
+                "Apply the `{}` domain operation.\n\nWrites {written} plus the columns carried \
+                 by the command, and nothing else. Returns the updated row, or the row-not-found \
+                 error when the id does not exist.",
+                cmd.name
+            );
+
+            quote! {
+                #[doc = #doc]
+                async fn #method_name(
+                    &self,
+                    command: #command_struct,
+                ) -> Result<#entity_name, Self::Error>;
+            }
+        })
+        .collect();
+
+    quote! { #(#methods)* }
 }
 
 /// Generate the trait side of every `#[scope(...)]` declaration.

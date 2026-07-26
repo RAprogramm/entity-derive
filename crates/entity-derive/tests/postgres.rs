@@ -2815,3 +2815,91 @@ mod scopes {
         db.teardown().await;
     }
 }
+
+/// Domain operations write named columns that the public patch DTO
+/// deliberately does not carry.
+mod domain_operations {
+    use chrono::{DateTime, Utc};
+    use entity_derive::Entity;
+    use uuid::Uuid;
+
+    use crate::pg;
+
+    #[derive(Debug, Clone, Entity)]
+    #[entity(table = "citizens", migrations, commands)]
+    #[command(
+        VerifyPassport,
+        payload(passport_provider),
+        sets(passport_verified = "true", passport_verified_at = "NOW()")
+    )]
+    pub struct Citizen {
+        #[id]
+        pub id: Uuid,
+
+        #[field(create, update, response)]
+        pub name: String,
+
+        #[field(response)]
+        #[column(default = "false")]
+        pub passport_verified: bool,
+
+        #[field(response)]
+        pub passport_provider: Option<String>,
+
+        #[field(response)]
+        pub passport_verified_at: Option<DateTime<Utc>>
+    }
+
+    #[tokio::test]
+    async fn the_operation_writes_exactly_its_columns() {
+        let Some(db) = pg::provision("domainop", &[Citizen::MIGRATION_UP]).await else {
+            return;
+        };
+        let pool = db.pool();
+
+        let citizen = pool
+            .create(CreateCitizenRequest {
+                name: "Ada".to_owned()
+            })
+            .await
+            .expect("create failed");
+        assert!(!citizen.passport_verified);
+        assert!(citizen.passport_verified_at.is_none());
+
+        let verified = pool
+            .verify_passport(VerifyPassportCitizen {
+                id:                citizen.id,
+                passport_provider: Some("gov".to_owned())
+            })
+            .await
+            .expect("the domain operation must apply");
+
+        assert!(
+            verified.passport_verified,
+            "the fixed expression must apply"
+        );
+        assert_eq!(
+            verified.passport_provider.as_deref(),
+            Some("gov"),
+            "the payload column must be bound"
+        );
+        assert!(
+            verified.passport_verified_at.is_some(),
+            "the second fixed expression must apply too"
+        );
+        assert_eq!(
+            verified.name, "Ada",
+            "a column the operation does not name must stay untouched"
+        );
+
+        let missing = pool
+            .verify_passport(VerifyPassportCitizen {
+                id:                Uuid::now_v7(),
+                passport_provider: None
+            })
+            .await;
+        assert!(missing.is_err(), "an unknown id must not report success");
+
+        db.teardown().await;
+    }
+}

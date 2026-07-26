@@ -61,7 +61,7 @@ use syn::DeriveInput;
 use super::{
     super::{
         ColumnConfig, MapConfig,
-        command::parse_command_attrs,
+        command::{CommandDef, parse_command_attrs},
         field::{ExposeConfig, FieldDef, FilterConfig, StorageConfig, ValidationConfig},
         returning::ReturningMode
     },
@@ -145,6 +145,7 @@ impl EntityDef {
         let scopes =
             super::scope::parse_scope_attrs(&input.attrs).map_err(darling::Error::from)?;
         validate_scopes(&scopes, &fields, input)?;
+        validate_command_sets(&command_defs, &fields, input)?;
         let field_names: Vec<String> = fields
             .iter()
             .map(super::super::field::FieldDef::name_str)
@@ -459,6 +460,30 @@ fn validate_sql_names(
     for field in fields {
         sql_ident::validate("column", &field.column_name())
             .map_err(|msg| darling::Error::custom(msg).with_span(&field.ident))?;
+    }
+
+    Ok(())
+}
+
+/// Check that a command's `sets(...)` names real columns.
+///
+/// The expressions land in the statement verbatim, so a typo in a
+/// column name would only surface when the operation runs.
+fn validate_command_sets(
+    commands: &[CommandDef],
+    fields: &[FieldDef],
+    input: &DeriveInput
+) -> darling::Result<()> {
+    for command in commands.iter().filter(|c| !c.sets.is_empty()) {
+        for (column, _) in &command.sets {
+            if !fields.iter().any(|f| &f.name_str() == column) {
+                return Err(darling::Error::custom(format!(
+                    "command `{}` writes column `{column}`, which is not a field of this entity",
+                    command.name
+                ))
+                .with_span(&input.ident));
+            }
+        }
     }
 
     Ok(())
