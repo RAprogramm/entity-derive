@@ -65,6 +65,7 @@ mod bulk;
 mod constraints;
 mod context;
 mod crud;
+mod domain_ops;
 mod lookup;
 mod notify;
 mod outbox;
@@ -127,6 +128,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     let soft_delete_impls = ctx.soft_delete_methods();
     let scoped_impls = ctx.scoped_methods();
     let participant_scope_impls = ctx.scope_methods();
+    let domain_operation_impls = ctx.domain_operation_methods();
     let lookup_impls = ctx.lookup_methods();
     let save_impl = ctx.save_method();
     let constraint_mapper = ctx.constraint_mapper();
@@ -163,6 +165,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             #soft_delete_impls
             #scoped_impls
             #participant_scope_impls
+            #domain_operation_impls
             #save_impl
         }
     }

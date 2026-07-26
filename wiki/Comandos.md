@@ -141,6 +141,21 @@ Usa solo campos especificados (añade `requires_id` automáticamente):
 // Generado: UpdateProfileUser { id, name, bio, avatar }
 ```
 
+### Operación de Dominio
+
+Un comando con `sets(...)` escribe columnas nombradas directamente, sin que tengan que ser `#[field(update)]`, de modo que no aparecen ni en el DTO de parche público ni en la lista SET del upsert:
+
+```rust
+#[command(VerifyPassport, payload(passport_provider), sets(
+    passport_verified = "true",
+    passport_verified_at = "NOW()"
+))]
+// Genera: VerifyPassportUser { id, passport_provider }
+//         pool.verify_passport(command) -> User
+```
+
+Un solo UPDATE escribe las expresiones fijas más las columnas del payload y nada más. Las expresiones llegan a la sentencia tal cual, como en `#[column(default = "...")]`; los nombres de columna se verifican contra la entidad en compilación.
+
 ### Comando Solo ID
 
 Añade solo el campo ID:

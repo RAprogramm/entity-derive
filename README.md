@@ -163,7 +163,7 @@ tracing-subscriber = "0.3"
 | **Real-Time Streams** | Postgres LISTEN/NOTIFY integration |
 | **Transactional Outbox** | `events(outbox)` — durable at-least-once event delivery with retry/backoff |
 | **Lifecycle Hook Traits** | `{Entity}Hooks` trait emitted with `before_create` / `after_update` / etc.; invocation is currently manual at your service layer (tracking auto-invocation: [#127](https://github.com/RAprogramm/entity-derive/issues/127)) |
-| **CQRS Commands** | Business-oriented command pattern |
+| **CQRS Commands** | Business-oriented command pattern; `sets(...)` turns one into a domain operation writing named columns |
 | **Soft Delete** | `deleted_at` timestamp support |
 | **Structured Logging** | Opt-in `tracing` feature wraps every generated async method in `#[tracing::instrument]` with `entity` + `op` fields |
 
@@ -287,6 +287,32 @@ cooperate), retried with exponential backoff and parked after
 handlers must be idempotent. Composes with `streams`: NOTIFY wakes
 subscribers instantly, the outbox guarantees nothing is lost. Requires
 the `outbox` feature and `serde_json` in your crate.
+
+### Domain Operations
+
+Columns that must change only through a named operation cannot be
+`#[field(update)]` — that would put them in the public patch DTO and in
+the upsert SET list. Declare the operation instead:
+
+```rust,ignore
+#[derive(Entity)]
+#[entity(table = "citizens", commands)]
+#[command(VerifyPassport, payload(passport_provider), sets(
+    passport_verified = "true",
+    passport_verified_at = "NOW()"
+))]
+pub struct Citizen { /* ... */ }
+
+let verified = pool.verify_passport(VerifyPassportCitizen {
+    id,
+    passport_provider: Some("gov".into()),
+}).await?;
+```
+
+One UPDATE writes the fixed expressions plus the payload columns and
+nothing else. The expressions land in the statement verbatim, like
+`#[column(default = "...")]`; the column names are checked against the
+entity at compile time.
 
 ### Participant Scopes
 

@@ -193,7 +193,16 @@ pub struct CommandDef {
     ///
     /// When set, overrides the entity-level default security.
     /// Use `"none"` to make a command public.
-    pub security: Option<String>
+    pub security: Option<String>,
+
+    /// Columns the command writes with a fixed SQL expression.
+    ///
+    /// Declared as `sets(column = "expression", ...)`. Non-empty turns
+    /// the command into a domain operation: the repository gains a
+    /// method writing exactly these columns plus the payload ones,
+    /// without the columns having to be `#[field(update)]` and so
+    /// without them leaking into the public patch DTO.
+    pub sets: Vec<(String, String)>
 }
 
 impl CommandDef {
@@ -209,7 +218,8 @@ impl CommandDef {
             requires_id: false,
             result_type: None,
             kind: CommandKindHint::default(),
-            security: None
+            security: None,
+            sets: Vec::new()
         }
     }
 

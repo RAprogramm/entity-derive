@@ -141,6 +141,21 @@ Uses only specified fields (adds `requires_id` automatically):
 // Generated: UpdateProfileUser { id, name, bio, avatar }
 ```
 
+### Domain Operation
+
+A command declaring `sets(...)` writes named columns directly, without them being `#[field(update)]` — so they stay out of the public patch DTO and out of the upsert SET list:
+
+```rust
+#[command(VerifyPassport, payload(passport_provider), sets(
+    passport_verified = "true",
+    passport_verified_at = "NOW()"
+))]
+// Generated: VerifyPassportUser { id, passport_provider }
+//            pool.verify_passport(command) -> User
+```
+
+One UPDATE writes the fixed expressions plus the payload columns and nothing else. The expressions land in the statement verbatim, like `#[column(default = "...")]`; the column names are checked against the entity at compile time.
+
 ### ID-Only Command
 
 Adds only the ID field:

@@ -358,7 +358,8 @@ mod tests {
             requires_id,
             result_type: None,
             kind,
-            security: None
+            security: None,
+            sets: Vec::new()
         }
     }
 
@@ -374,7 +375,8 @@ mod tests {
             requires_id,
             result_type: None,
             kind,
-            security
+            security,
+            sets: Vec::new()
         }
     }
 
@@ -389,7 +391,8 @@ mod tests {
             requires_id: false,
             result_type: Some(result_type),
             kind,
-            security: None
+            security: None,
+            sets: Vec::new()
         }
     }
 
