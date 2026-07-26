@@ -108,8 +108,8 @@ serde = { version = "1", features = ["derive"] }
 | `aggregate_root` | ✓ | `New{Entity}` constructor type and transactional `save()` (`#[entity(aggregate_root)]`) |
 | `migrations` | ✓ | Compile-time `MIGRATION_UP` / `MIGRATION_DOWN` SQL constants (`#[entity(migrations)]`) |
 | `projections` | ✓ | Projection structs and `find_by_id_<projection>` lookups (`#[projection(...)]`) |
-| `clickhouse` |   | Generate ClickHouse-backed repositories *(planned)* |
-| `mongodb` |   | Generate MongoDB-backed repositories *(planned)* |
+| `clickhouse` |   | **Not implemented** — selecting this dialect is a compile error ([#23](https://github.com/RAprogramm/entity-derive/issues/23)) |
+| `mongodb` |   | **Not implemented** — selecting this dialect is a compile error ([#24](https://github.com/RAprogramm/entity-derive/issues/24)) |
 | `streams` |   | `{Entity}Subscriber` using Postgres `LISTEN`/`NOTIFY` (pulls in `events`) |
 | `outbox` |   | Transactional-outbox enqueue in generated writes + `OutboxDrainer` runtime (pulls in `events`) |
 | `api` |   | Generate HTTP handlers (`axum`) and `utoipa` OpenAPI schemas |

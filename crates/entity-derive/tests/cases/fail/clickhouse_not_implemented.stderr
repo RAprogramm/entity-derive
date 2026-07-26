@@ -1,4 +1,4 @@
-error: ClickHouse support is not yet implemented. Use `sql = "trait"` to generate only the trait, then implement it manually for `clickhouse::Client`.
+error: ClickHouse support is not implemented; see https://github.com/RAprogramm/entity-derive/issues/23. Use `sql = "trait"` to generate only the trait, then implement it for `clickhouse::Client`.
  --> tests/cases/fail/clickhouse_not_implemented.rs:7:10
   |
 7 | #[derive(Entity)]

@@ -30,7 +30,10 @@ default = [
   "projections",
 ]
 
-# Database dialects
+# Database dialects. Postgres is the only implemented one: selecting
+# `dialect = "clickhouse"` or `"mongodb"` on an entity is a compile
+# error pointing at the tracking issue (#23, #24). The features exist so
+# the dialect names resolve, not because they generate anything.
 postgres = ["entity-core/postgres", "entity-derive-impl/postgres"]
 clickhouse = ["entity-core/clickhouse"]
 mongodb = ["entity-core/mongodb"]

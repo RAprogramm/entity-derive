@@ -82,8 +82,8 @@ Dialecto de BD para generación SQL. Por defecto: `"postgres"`.
 | Dialecto | Alias | Tipo Cliente | Estado |
 |----------|-------|--------------|--------|
 | `"postgres"` | `"pg"`, `"postgresql"` | `sqlx::PgPool` | Estable |
-| `"clickhouse"` | `"ch"` | `clickhouse::Client` | Planificado |
-| `"mongodb"` | `"mongo"` | `mongodb::Client` | Planificado |
+| `"clickhouse"` | `"ch"` | `clickhouse::Client` | No implementado — error de compilación |
+| `"mongodb"` | `"mongo"` | `mongodb::Client` | No implementado — error de compilación |
 
 ### `uuid` (opcional)
 

@@ -25,9 +25,10 @@ use crate::entity::parse::EntityDef;
 pub fn generate(_entity: &EntityDef) -> TokenStream {
     quote! {
         compile_error!(
-            "ClickHouse support is not yet implemented. \
+            "ClickHouse support is not implemented; see \
+             https://github.com/RAprogramm/entity-derive/issues/23. \
              Use `sql = \"trait\"` to generate only the trait, \
-             then implement it manually for `clickhouse::Client`."
+             then implement it for `clickhouse::Client`."
         );
     }
 }

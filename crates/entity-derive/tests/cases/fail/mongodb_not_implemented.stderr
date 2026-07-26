@@ -1,4 +1,4 @@
-error: MongoDB support is not yet implemented. Use `sql = "trait"` to generate only the trait, then implement it manually for `mongodb::Client`.
+error: MongoDB support is not implemented; see https://github.com/RAprogramm/entity-derive/issues/24. Use `sql = "trait"` to generate only the trait, then implement it for `mongodb::Client`.
  --> tests/cases/fail/mongodb_not_implemented.rs:7:10
   |
 7 | #[derive(Entity)]
