@@ -1,0 +1,5 @@
+error: scope `involving` ORs columns of different types (`Uuid` and `String`); one value is bound against all of them
+  --> tests/cases/fail/scope_type_mismatch.rs:13:12
+   |
+13 | pub struct Dispute {
+   |            ^^^^^^^

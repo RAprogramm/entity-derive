@@ -121,7 +121,7 @@ pub use api::ApiConfig;
 pub use command::{CommandDef, CommandKindHint, CommandSource};
 pub use dialect::DatabaseDialect;
 pub use entity::{
-    CompositeIndexDef, EntityDef, HasManyDef, ProjectionDef, TransitionDef, UpsertAction
+    CompositeIndexDef, EntityDef, HasManyDef, ProjectionDef, ScopeDef, TransitionDef, UpsertAction
 };
 #[allow(unused_imports)] // Will be used for OpenAPI schema examples (#80)
 pub use field::ExampleValue;

@@ -155,6 +155,7 @@ tracing-subscriber = "0.3"
 | **Embedded Value Objects** | `#[embed(prefix, fields(...))]` — structs flattened to prefixed columns |
 | **Relations** | `#[belongs_to]`, `#[has_many]` and many-to-many via `through = "junction"` |
 | **Ownership Scoping** | `#[owner]` generates `find_by_id_scoped` / `list_by_owner` / `update_scoped` / `delete_scoped` |
+| **Participant Scopes** | `#[scope(name: col_a \| col_b)]` generates `list_{name}` over an OR group, optionally narrowed by `within` |
 | **Upsert** | `upsert(conflict = "…")` generates `INSERT ... ON CONFLICT DO UPDATE / DO NOTHING` |
 | **Aggregate Roots** | `#[entity(aggregate_root)]` with `New{T}` DTOs and transactional `save` |
 | **Transactions** | Multi-entity atomic operations |
@@ -249,6 +250,7 @@ tracing-subscriber = "0.3"
 #[has_many(Entity)]            // One-to-many relation
 #[has_many(E, through = "t")]  // Many-to-many via junction table
 #[projection(Name: fields)]    // Partial view
+#[scope(name: col_a | col_b)]  // list_{name} over an OR group of columns
 ```
 
 ### Transactional Outbox
@@ -285,6 +287,28 @@ cooperate), retried with exponential backoff and parked after
 handlers must be idempotent. Composes with `streams`: NOTIFY wakes
 subscribers instantly, the outbox guarantees nothing is lost. Requires
 the `outbox` feature and `serde_json` in your crate.
+
+### Participant Scopes
+
+"Rows where this principal takes part in any role" is an OR over several
+columns holding the same kind of value. Declare it once:
+
+```rust,ignore
+#[derive(Entity)]
+#[entity(table = "disputes")]
+#[scope(involving: requester_id | subject_id)]
+#[scope(handled: requester_id | subject_id, within = parcel_id)]
+pub struct Dispute { /* ... */ }
+
+let mine = pool.list_involving(user_id, 20, 0).await?;
+let here = pool.list_handled(parcel_id, user_id, 20, 0).await?;
+```
+
+The value is bound once and matched against every declared column;
+`within` narrows the group to one parent first. Columns are checked at
+compile time: an unknown name or a group whose columns disagree on their
+type is an error at the declaration. Soft-delete aware, ordered by id
+descending.
 
 ### Ownership Scoping
 

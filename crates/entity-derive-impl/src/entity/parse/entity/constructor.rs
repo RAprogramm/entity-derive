@@ -65,7 +65,7 @@ use super::{
         field::{ExposeConfig, FieldDef, FilterConfig, StorageConfig, ValidationConfig},
         returning::ReturningMode
     },
-    CompositeIndexDef, EntityAttrs, EntityDef,
+    CompositeIndexDef, EntityAttrs, EntityDef, ScopeDef,
     helpers::{parse_api_attr, parse_constraint_attrs, parse_has_many_attrs, parse_index_attrs},
     parse_projection_attrs,
     upsert::{UpsertAction, UpsertDef}
@@ -142,6 +142,9 @@ impl EntityDef {
         let joins = super::join::parse_join_attrs(&input.attrs).map_err(darling::Error::from)?;
         let transitions = super::transition::parse_transition_attrs(&input.attrs)
             .map_err(darling::Error::from)?;
+        let scopes =
+            super::scope::parse_scope_attrs(&input.attrs).map_err(darling::Error::from)?;
+        validate_scopes(&scopes, &fields, input)?;
         let field_names: Vec<String> = fields
             .iter()
             .map(super::super::field::FieldDef::name_str)
@@ -341,6 +344,7 @@ impl EntityDef {
             extensions: attrs.migrations.extensions,
             indexes,
             joins,
+            scopes,
             transitions,
             aggregate_root: attrs.aggregate_root,
             upsert: attrs.upsert,
@@ -455,6 +459,56 @@ fn validate_sql_names(
     for field in fields {
         sql_ident::validate("column", &field.column_name())
             .map_err(|msg| darling::Error::custom(msg).with_span(&field.ident))?;
+    }
+
+    Ok(())
+}
+
+/// Check that every column a scope names exists, and that the OR-ed
+/// ones share a type.
+///
+/// The generated method binds one value against all of them, so a
+/// mismatch would only surface as a decode error at run time.
+fn validate_scopes(
+    scopes: &[ScopeDef],
+    fields: &[FieldDef],
+    input: &DeriveInput
+) -> darling::Result<()> {
+    let column = |name: &str| fields.iter().find(|f| f.name_str() == name);
+
+    for scope in scopes {
+        for name in &scope.columns {
+            if column(name).is_none() {
+                return Err(darling::Error::custom(format!(
+                    "scope `{}` names column `{name}`, which is not a field of this entity",
+                    scope.name
+                ))
+                .with_span(&input.ident));
+            }
+        }
+
+        if let Some(within) = &scope.within
+            && column(within).is_none()
+        {
+            return Err(darling::Error::custom(format!(
+                "scope `{}` narrows by `{within}`, which is not a field of this entity",
+                scope.name
+            ))
+            .with_span(&input.ident));
+        }
+
+        let mut declared = scope.columns.iter().filter_map(|name| {
+            column(name).map(|f| quote::ToTokens::to_token_stream(f.ty()).to_string())
+        });
+        if let Some(first) = declared.next()
+            && let Some(other) = declared.find(|ty| *ty != first)
+        {
+            return Err(darling::Error::custom(format!(
+                "scope `{}` ORs columns of different types (`{first}` and `{other}`); one value is bound against all of them",
+                scope.name
+            ))
+            .with_span(&input.ident));
+        }
     }
 
     Ok(())

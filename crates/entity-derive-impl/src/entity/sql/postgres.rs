@@ -73,6 +73,7 @@ mod query;
 mod relations;
 mod save;
 mod scoped;
+mod scopes;
 mod soft_delete;
 mod upsert;
 
@@ -125,6 +126,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     let projection_impls = ctx.projection_methods();
     let soft_delete_impls = ctx.soft_delete_methods();
     let scoped_impls = ctx.scoped_methods();
+    let participant_scope_impls = ctx.scope_methods();
     let lookup_impls = ctx.lookup_methods();
     let save_impl = ctx.save_method();
     let constraint_mapper = ctx.constraint_mapper();
@@ -160,6 +162,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             #projection_impls
             #soft_delete_impls
             #scoped_impls
+            #participant_scope_impls
             #save_impl
         }
     }

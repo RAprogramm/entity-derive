@@ -145,6 +145,7 @@ mod helpers;
 mod index;
 mod join;
 mod projection;
+mod scope;
 mod transition;
 mod upsert;
 
@@ -153,6 +154,7 @@ pub use def::EntityDef;
 pub use helpers::{CustomConstraintDef, HasManyDef};
 pub use index::CompositeIndexDef;
 pub use projection::{ProjectionDef, parse_projection_attrs};
+pub use scope::ScopeDef;
 pub use transition::TransitionDef;
 pub use upsert::UpsertAction;
 
