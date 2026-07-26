@@ -148,13 +148,22 @@ WHERE name ILIKE $1
 ```
 
 **Uso:**
+
+Pase la subcadena sin comodines. El código generado envuelve el valor en
+`%...%` y escapa los `%`, `_` y `\` que contenga, de modo que un comodín
+escrito por el usuario final coincide literalmente en lugar de ampliar
+la búsqueda:
+
 ```rust
 let query = ProductQuery {
-    name: Some("%widget%".into()),  // Contiene "widget"
-    description: Some("premium%".into()),  // Empieza con "premium"
+    name: Some("widget".into()),          // Contiene "widget"
+    description: Some("premium".into()),  // Contiene "premium"
     ..Default::default()
 };
 ```
+
+Todo filtro `like` es una coincidencia de subcadena: buscar solo por
+prefijo o solo por sufijo no se puede expresar con él.
 
 ### Filtro de Rango (`#[filter(range)]`)
 
@@ -215,7 +224,7 @@ let query = ProductQuery {
     category_id: Some(electronics_category_id),
     price_from: Some(0),
     price_to: Some(10000),  // $100.00
-    name: Some("%phone%".into()),
+    name: Some("phone".into()),
     limit: Some(50),
     ..Default::default()
 };
@@ -260,7 +269,7 @@ async fn list_products(
     let per_page = params.per_page.unwrap_or(20).min(100);
 
     let query = ProductQuery {
-        name: params.name.map(|n| format!("%{}%", n)),
+        name: params.name,
         category_id: params.category_id,
         price_from: params.min_price,
         price_to: params.max_price,
@@ -405,7 +414,7 @@ let next: Vec<Post> = pool.list_after(page.last().map(|p| p.id), 20).await?;
 
 ## Búsqueda por trigramas
 
-`#[filter(search)]` en una columna de texto añade un filtro difuso de subcadena (`col ILIKE '%' || $n || '%'`, el término va ligado). Con `migrations`, el índice `gin_trgm_ops` correspondiente aterriza en `MIGRATION_UP` y `pg_trgm` se añade automáticamente a `MIGRATION_EXTENSIONS`. Verificación en compilación: el campo debe ser `String`.
+`#[filter(search)]` en una columna de texto añade un filtro difuso de subcadena (`col ILIKE '%' || $n || '%'`; el término va ligado tal cual, por lo que un `%` dentro de él actúa como comodín en lugar de coincidir literalmente, a diferencia de `#[filter(like)]`). Con `migrations`, el índice `gin_trgm_ops` correspondiente aterriza en `MIGRATION_UP` y `pg_trgm` se añade automáticamente a `MIGRATION_EXTENSIONS`. Verificación en compilación: el campo debe ser `String`.
 
 ```rust
 #[field(create, update, response)]

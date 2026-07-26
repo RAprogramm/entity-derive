@@ -229,7 +229,7 @@ tracing-subscriber = "0.3"
 #[field(response)]             // Include in Response
 #[field(skip)]                 // Exclude from all DTOs
 #[filter]                      // Exact match filter
-#[filter(like)]                // ILIKE pattern filter
+#[filter(like)]                // ILIKE substring filter; pass the bare value, wildcards in it are escaped
 #[filter(range)]               // Range filter (from/to)
 #[filter(search)]              // Trigram substring search (pg_trgm)
 #[sort]                        // Whitelisted dynamic ORDER BY
@@ -397,7 +397,9 @@ the flag behavior is unchanged.
 `#[filter(search)]` on a text column gives the Query struct a fuzzy
 substring filter (`col ILIKE '%' || $n || '%'`), while `migrations`
 emit the matching `gin_trgm_ops` index and add `pg_trgm` to
-`MIGRATION_EXTENSIONS` automatically:
+`MIGRATION_EXTENSIONS` automatically. Unlike `#[filter(like)]`, the
+value is bound as given: a `%` inside it acts as a wildcard rather than
+matching literally.
 
 ```rust,ignore
 #[field(create, update, response)]

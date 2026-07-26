@@ -354,7 +354,7 @@ pub struct Post {
 // Obtener posts de un usuario específico con filtro de título
 let query = PostQuery {
     user_id: Some(user_id),
-    title: Some("%rust%".into()),
+    title: Some("rust".into()),
     limit: Some(20),
     ..Default::default()
 };

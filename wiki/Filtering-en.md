@@ -148,13 +148,21 @@ WHERE name ILIKE $1
 ```
 
 **Usage:**
+
+Pass the bare substring. The generated code wraps the value in `%...%`
+itself and escapes any `%`, `_` or `\` it contains, so a wildcard typed
+by an end user matches literally instead of widening the search:
+
 ```rust
 let query = ProductQuery {
-    name: Some("%widget%".into()),  // Contains "widget"
-    description: Some("premium%".into()),  // Starts with "premium"
+    name: Some("widget".into()),          // Contains "widget"
+    description: Some("premium".into()),  // Contains "premium"
     ..Default::default()
 };
 ```
+
+Every `like` filter is a substring match: prefix- or suffix-only
+matching is not expressible through it.
 
 ### Range Filter (`#[filter(range)]`)
 
@@ -215,7 +223,7 @@ let query = ProductQuery {
     category_id: Some(electronics_category_id),
     price_from: Some(0),
     price_to: Some(10000),  // $100.00
-    name: Some("%phone%".into()),
+    name: Some("phone".into()),
     limit: Some(50),
     ..Default::default()
 };
@@ -260,7 +268,7 @@ async fn list_products(
     let per_page = params.per_page.unwrap_or(20).min(100);
 
     let query = ProductQuery {
-        name: params.name.map(|n| format!("%{}%", n)),
+        name: params.name,
         category_id: params.category_id,
         price_from: params.min_price,
         price_to: params.max_price,
@@ -405,7 +413,7 @@ let next: Vec<Post> = pool.list_after(page.last().map(|p| p.id), 20).await?;
 
 ## Trigram Search
 
-`#[filter(search)]` on a text column adds a fuzzy substring filter (`col ILIKE '%' || $n || '%'`, the term is bound). With `migrations`, the matching `gin_trgm_ops` index lands in `MIGRATION_UP` and `pg_trgm` is added to `MIGRATION_EXTENSIONS` automatically. Compile-time check: the field must be a `String`.
+`#[filter(search)]` on a text column adds a fuzzy substring filter (`col ILIKE '%' || $n || '%'`; the term is bound as given, so a `%` inside it acts as a wildcard rather than matching literally, unlike `#[filter(like)]`). With `migrations`, the matching `gin_trgm_ops` index lands in `MIGRATION_UP` and `pg_trgm` is added to `MIGRATION_EXTENSIONS` automatically. Compile-time check: the field must be a `String`.
 
 ```rust
 #[field(create, update, response)]

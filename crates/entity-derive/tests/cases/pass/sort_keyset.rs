@@ -22,7 +22,7 @@ pub struct Post {
 
 async fn exercise(pool: sqlx::PgPool, cursor: Option<Uuid>) -> Result<(), sqlx::Error> {
     let query = PostQuery {
-        title: Some("%rust%".into()),
+        title: Some("rust".into()),
         sort: Some(PostSortField::ViewsDesc),
         limit: Some(20),
         ..Default::default()
