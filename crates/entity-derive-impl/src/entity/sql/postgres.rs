@@ -134,7 +134,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
         #marker
         #constraint_mapper
 
-        #[async_trait::async_trait]
+        #[::entity_derive::async_trait]
         impl #trait_name for sqlx::PgPool {
             type Error = #error_type;
             type Pool = sqlx::PgPool;

@@ -174,8 +174,8 @@ impl Context<'_> {
             async fn stream_filtered(
                 &self,
                 filter: #filter_type,
-            ) -> Result<std::pin::Pin<Box<dyn futures::Stream<Item = Result<#entity_name, Self::Error>> + Send + '_>>, Self::Error> {
-                use futures::StreamExt;
+            ) -> Result<std::pin::Pin<Box<dyn ::entity_derive::futures::Stream<Item = Result<#entity_name, Self::Error>> + Send + '_>>, Self::Error> {
+                use ::entity_derive::futures::StreamExt;
 
                 let mut conditions: Vec<String> = Vec::new();
                 let mut param_idx: usize = 1;
@@ -207,7 +207,7 @@ impl Context<'_> {
                 // Fetch all results and convert to stream for simpler lifetime handling
                 let rows = q.fetch_all(self).await?;
                 let entities: Vec<#entity_name> = rows.into_iter().map(#entity_name::from).collect();
-                let stream = futures::stream::iter(entities.into_iter().map(Ok));
+                let stream = ::entity_derive::futures::stream::iter(entities.into_iter().map(Ok));
 
                 Ok(Box::pin(stream))
             }

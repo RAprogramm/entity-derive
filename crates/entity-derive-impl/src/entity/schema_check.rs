@@ -8,7 +8,7 @@
 //! drift surfaces as runtime decode errors. The generated constant
 //! describes the declared columns (name, DDL type, nullability) and
 //! `assert_schema(pool)` compares it against
-//! `information_schema.columns` via `entity_core::schema::assert_table`
+//! `information_schema.columns` via `::entity_derive::schema::assert_table`
 //! — one integration test per entity restores a compile-time-like
 //! guarantee:
 //!
@@ -53,7 +53,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             let type_str = sql_type.to_sql_string();
             let nullable = sql_type.nullable;
             quote! {
-                ::entity_core::schema::SchemaColumn {
+                ::entity_derive::schema::SchemaColumn {
                     name: #name,
                     sql_type: #type_str,
                     nullable: #nullable
@@ -69,8 +69,8 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
         #marker
         impl #entity_name {
             #[doc = #schema_doc]
-            pub const SCHEMA: ::entity_core::schema::TableSchema =
-                ::entity_core::schema::TableSchema {
+            pub const SCHEMA: ::entity_derive::schema::TableSchema =
+                ::entity_derive::schema::TableSchema {
                     table: #table,
                     schema: #schema,
                     columns: &[#(#columns),*]
@@ -84,8 +84,8 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             /// entity in an integration test.
             pub async fn assert_schema(
                 pool: &sqlx::PgPool
-            ) -> Result<(), ::entity_core::schema::SchemaCheckError> {
-                ::entity_core::schema::assert_table(pool, &Self::SCHEMA).await
+            ) -> Result<(), ::entity_derive::schema::SchemaCheckError> {
+                ::entity_derive::schema::assert_table(pool, &Self::SCHEMA).await
             }
         }
     }

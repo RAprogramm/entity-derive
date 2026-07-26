@@ -54,15 +54,15 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             #recv_span
             pub async fn recv(
                 &mut self,
-            ) -> Result<#event_name, ::entity_core::stream::StreamError<::sqlx::Error>> {
+            ) -> Result<#event_name, ::entity_derive::stream::StreamError<::sqlx::Error>> {
                 let notification = self
                     .listener
                     .recv()
                     .await
-                    .map_err(::entity_core::stream::StreamError::Database)?;
+                    .map_err(::entity_derive::stream::StreamError::Database)?;
 
                 ::serde_json::from_str(notification.payload())
-                    .map_err(|e| ::entity_core::stream::StreamError::Deserialize(e.to_string()))
+                    .map_err(|e| ::entity_derive::stream::StreamError::Deserialize(e.to_string()))
             }
 
             /// Try to receive an event without blocking.
@@ -71,17 +71,17 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             #try_recv_span
             pub async fn try_recv(
                 &mut self,
-            ) -> Result<Option<#event_name>, ::entity_core::stream::StreamError<::sqlx::Error>> {
+            ) -> Result<Option<#event_name>, ::entity_derive::stream::StreamError<::sqlx::Error>> {
                 match self.listener.try_recv().await {
                     Ok(Some(notification)) => {
                         let event = ::serde_json::from_str(notification.payload())
                             .map_err(|e| {
-                                ::entity_core::stream::StreamError::Deserialize(e.to_string())
+                                ::entity_derive::stream::StreamError::Deserialize(e.to_string())
                             })?;
                         Ok(Some(event))
                     }
                     Ok(None) => Ok(None),
-                    Err(e) => Err(::entity_core::stream::StreamError::Database(e)),
+                    Err(e) => Err(::entity_derive::stream::StreamError::Database(e)),
                 }
             }
         }

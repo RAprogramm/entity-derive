@@ -19,10 +19,10 @@
 //!     Restored { id: Uuid },
 //! }
 //!
-//! impl entity_core::EntityEvent for UserEvent {
+//! impl ::entity_derive::EntityEvent for UserEvent {
 //!     type Id = Uuid;
 //!
-//!     fn kind(&self) -> entity_core::EventKind { ... }
+//!     fn kind(&self) -> ::entity_derive::EventKind { ... }
 //!     fn entity_id(&self) -> &Self::Id { ... }
 //! }
 //! ```
@@ -69,8 +69,8 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
 
     let soft_delete_kind_arms = if entity.is_soft_delete() {
         quote! {
-            Self::SoftDeleted { .. } => entity_core::EventKind::SoftDeleted,
-            Self::Restored { .. } => entity_core::EventKind::Restored,
+            Self::SoftDeleted { .. } => ::entity_derive::EventKind::SoftDeleted,
+            Self::Restored { .. } => ::entity_derive::EventKind::Restored,
         }
     } else {
         TokenStream::new()
@@ -141,14 +141,14 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             }
         }
 
-        impl entity_core::EntityEvent for #event_name {
+        impl ::entity_derive::EntityEvent for #event_name {
             type Id = #id_type;
 
-            fn kind(&self) -> entity_core::EventKind {
+            fn kind(&self) -> ::entity_derive::EventKind {
                 match self {
-                    Self::Created(_) => entity_core::EventKind::Created,
-                    Self::Updated { .. } => entity_core::EventKind::Updated,
-                    Self::HardDeleted { .. } => entity_core::EventKind::HardDeleted,
+                    Self::Created(_) => ::entity_derive::EventKind::Created,
+                    Self::Updated { .. } => ::entity_derive::EventKind::Updated,
+                    Self::HardDeleted { .. } => ::entity_derive::EventKind::HardDeleted,
                     #soft_delete_kind_arms
                 }
             }

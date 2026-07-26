@@ -229,6 +229,37 @@ jobs:
           report_type: test_results
           fail_ci_if_error: false
 
+  examples:
+    name: Examples
+    needs: [check, fmt, security, reuse]
+    if: ${{ !inputs.skip_tests }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
+        continue-on-error: true
+        with:
+          shared-key: examples
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      # The example crates are the only consumers shaped like a user
+      # project: they depend on the facade alone, so they are what
+      # proves the generated code needs nothing else in scope.
+      - name: Check every example
+        run: |
+          status=0
+          for manifest in examples/*/Cargo.toml; do
+            echo "::group::$manifest"
+            cargo check --manifest-path "$manifest" --all-targets || status=1
+            echo "::endgroup::"
+          done
+          exit $status
+
   postgres:
     name: Live Postgres (${{ matrix.postgres }})
     needs: [check, fmt, security, reuse]

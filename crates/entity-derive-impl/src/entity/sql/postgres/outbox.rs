@@ -6,7 +6,7 @@
 //! When `#[entity(events(outbox))]` is set, every generated write
 //! inserts the serialized `{Entity}Event` into the `entity_outbox`
 //! table **in the same transaction** as the DML. A separate drainer
-//! (`entity_core::outbox::OutboxDrainer`) delivers the rows with
+//! (`::entity_derive::outbox::OutboxDrainer`) delivers the rows with
 //! retry/backoff, so events survive crashes that LISTEN/NOTIFY alone
 //! would lose.
 //!

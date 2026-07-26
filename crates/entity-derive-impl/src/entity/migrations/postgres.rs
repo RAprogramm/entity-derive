@@ -74,7 +74,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
         .map(|(ty, declared)| {
             quote! {
                 assert!(
-                    ::entity_core::const_str_eq(<#ty>::PG_TYPE, #declared),
+                    ::entity_derive::const_str_eq(<#ty>::PG_TYPE, #declared),
                     "#[column(pg_enum = ...)] does not match the ValueObject's pg_type"
                 );
             }

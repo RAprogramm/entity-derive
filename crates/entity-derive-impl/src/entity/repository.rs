@@ -123,7 +123,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
 
     quote! {
         #marker
-        #[async_trait::async_trait]
+        #[::entity_derive::async_trait]
         #vis trait #trait_name: Send + Sync {
             /// Error type for repository operations.
             type Error: std::error::Error + Send + Sync;
@@ -381,7 +381,7 @@ fn generate_query_method(entity: &EntityDef) -> TokenStream {
 /// async fn stream_filtered(
 ///     &self,
 ///     filter: UserFilter,
-/// ) -> Result<impl futures::Stream<Item = Result<User, sqlx::Error>>, Self::Error>;
+/// ) -> Result<impl ::entity_derive::futures::Stream<Item = Result<User, sqlx::Error>>, Self::Error>;
 /// ```
 pub fn generate_stream_method(entity: &EntityDef) -> TokenStream {
     if !entity.has_streams() || !entity.has_filters() {
@@ -398,7 +398,7 @@ pub fn generate_stream_method(entity: &EntityDef) -> TokenStream {
         async fn stream_filtered(
             &self,
             filter: #filter_type,
-        ) -> Result<std::pin::Pin<Box<dyn futures::Stream<Item = Result<#entity_name, Self::Error>> + Send + '_>>, Self::Error>;
+        ) -> Result<std::pin::Pin<Box<dyn ::entity_derive::futures::Stream<Item = Result<#entity_name, Self::Error>> + Send + '_>>, Self::Error>;
     }
 }
 
