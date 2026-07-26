@@ -765,3 +765,16 @@ build without the attribute — zero runtime cost.
   </a>
 </p>
 
+
+---
+
+## Project
+
+| Document | Purpose |
+|---|---|
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Branch, commit and PR conventions; local checks; the live Postgres suite |
+| [SUPPORT.md](SUPPORT.md) | Where to ask what, and what a good issue contains |
+| [SECURITY.md](SECURITY.md) | Private vulnerability reporting, supported versions, what is in scope |
+| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | Expected behaviour in project spaces |
+| [RELEASE.md](RELEASE.md) | How a release is cut and how versions are decided |
+| [STABILITY.md](STABILITY.md) | What the generated API guarantees across versions |
