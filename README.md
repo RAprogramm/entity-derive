@@ -84,6 +84,18 @@ pub struct User {
 entity-derive = { version = "0.22", features = ["postgres", "api"] }
 ```
 
+Generated code reaches its own runtime through the `entity-derive`
+facade, so nothing else has to be added on its behalf. The crates you
+still declare are the ones your entity itself uses — the pool and column
+types, and `serde` when the DTOs are serialized:
+
+```toml
+sqlx = { version = "0.9", features = ["runtime-tokio", "postgres", "uuid", "chrono"] }
+uuid = { version = "1", features = ["v4", "v7", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+```
+
 ### Feature flags
 
 | Feature | Default | What it does |

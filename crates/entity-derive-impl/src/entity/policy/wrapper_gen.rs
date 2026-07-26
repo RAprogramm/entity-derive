@@ -66,15 +66,15 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
                 &self,
                 dto: #create_dto,
                 ctx: &P::Context,
-            ) -> Result<#entity_name, ::entity_core::policy::PolicyError<R::Error, P::Error>> {
+            ) -> Result<#entity_name, ::entity_derive::policy::PolicyError<R::Error, P::Error>> {
                 self.policy
                     .can_create(&dto, ctx)
                     .await
-                    .map_err(::entity_core::policy::PolicyError::Policy)?;
+                    .map_err(::entity_derive::policy::PolicyError::Policy)?;
                 self.repo
                     .create(dto)
                     .await
-                    .map_err(::entity_core::policy::PolicyError::Repository)
+                    .map_err(::entity_derive::policy::PolicyError::Repository)
             }
 
             /// Find entity by ID with authorization check.
@@ -82,16 +82,16 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
                 &self,
                 id: #id_type,
                 ctx: &P::Context,
-            ) -> Result<Option<#entity_name>, ::entity_core::policy::PolicyError<R::Error, P::Error>>
+            ) -> Result<Option<#entity_name>, ::entity_derive::policy::PolicyError<R::Error, P::Error>>
             {
                 self.policy
                     .can_read(&id, ctx)
                     .await
-                    .map_err(::entity_core::policy::PolicyError::Policy)?;
+                    .map_err(::entity_derive::policy::PolicyError::Policy)?;
                 self.repo
                     .find_by_id(id)
                     .await
-                    .map_err(::entity_core::policy::PolicyError::Repository)
+                    .map_err(::entity_derive::policy::PolicyError::Repository)
             }
 
             /// Update entity with authorization check.
@@ -100,15 +100,15 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
                 id: #id_type,
                 dto: #update_dto,
                 ctx: &P::Context,
-            ) -> Result<#entity_name, ::entity_core::policy::PolicyError<R::Error, P::Error>> {
+            ) -> Result<#entity_name, ::entity_derive::policy::PolicyError<R::Error, P::Error>> {
                 self.policy
                     .can_update(&id, &dto, ctx)
                     .await
-                    .map_err(::entity_core::policy::PolicyError::Policy)?;
+                    .map_err(::entity_derive::policy::PolicyError::Policy)?;
                 self.repo
                     .update(id, dto)
                     .await
-                    .map_err(::entity_core::policy::PolicyError::Repository)
+                    .map_err(::entity_derive::policy::PolicyError::Repository)
             }
 
             /// Delete entity with authorization check.
@@ -116,15 +116,15 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
                 &self,
                 id: #id_type,
                 ctx: &P::Context,
-            ) -> Result<bool, ::entity_core::policy::PolicyError<R::Error, P::Error>> {
+            ) -> Result<bool, ::entity_derive::policy::PolicyError<R::Error, P::Error>> {
                 self.policy
                     .can_delete(&id, ctx)
                     .await
-                    .map_err(::entity_core::policy::PolicyError::Policy)?;
+                    .map_err(::entity_derive::policy::PolicyError::Policy)?;
                 self.repo
                     .delete(id)
                     .await
-                    .map_err(::entity_core::policy::PolicyError::Repository)
+                    .map_err(::entity_derive::policy::PolicyError::Repository)
             }
 
             /// List entities with authorization check.
@@ -133,16 +133,16 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
                 limit: i64,
                 offset: i64,
                 ctx: &P::Context,
-            ) -> Result<Vec<#entity_name>, ::entity_core::policy::PolicyError<R::Error, P::Error>>
+            ) -> Result<Vec<#entity_name>, ::entity_derive::policy::PolicyError<R::Error, P::Error>>
             {
                 self.policy
                     .can_list(ctx)
                     .await
-                    .map_err(::entity_core::policy::PolicyError::Policy)?;
+                    .map_err(::entity_derive::policy::PolicyError::Policy)?;
                 self.repo
                     .list(limit, offset)
                     .await
-                    .map_err(::entity_core::policy::PolicyError::Repository)
+                    .map_err(::entity_derive::policy::PolicyError::Repository)
             }
         }
     }

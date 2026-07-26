@@ -6,7 +6,7 @@
 //! With `#[entity(typed_constraints)]`, generated write methods resolve
 //! the violated constraint name (as reported by Postgres) against the
 //! constraints the macro itself created and surface
-//! `entity_core::ConstraintError` instead of a raw driver error.
+//! `::entity_derive::ConstraintError` instead of a raw driver error.
 //!
 //! # Known Constraint Names
 //!
@@ -18,7 +18,7 @@
 //! | `unique_index(...)` | index name (`idx_{table}_{cols}` or custom) |
 //!
 //! The repository `Error` type must implement
-//! `From<entity_core::ConstraintError>`.
+//! `From<::entity_derive::ConstraintError>`.
 
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
@@ -51,9 +51,9 @@ impl Context<'_> {
         for custom in &self.entity.custom_constraints {
             let name = custom.name.clone();
             let kind = match custom.kind.as_str() {
-                "unique" => quote! { ::entity_core::ConstraintKind::Unique },
-                "foreign_key" => quote! { ::entity_core::ConstraintKind::ForeignKey },
-                _ => quote! { ::entity_core::ConstraintKind::Check }
+                "unique" => quote! { ::entity_derive::ConstraintKind::Unique },
+                "foreign_key" => quote! { ::entity_derive::ConstraintKind::ForeignKey },
+                _ => quote! { ::entity_derive::ConstraintKind::Check }
             };
             let field = match &custom.field {
                 Some(f) => quote! { Some(#f) },
@@ -75,7 +75,7 @@ impl Context<'_> {
                 };
                 if covered.insert(name.clone()) {
                     arms.push(quote! {
-                        #name => Some((::entity_core::ConstraintKind::Unique, Some(#column))),
+                        #name => Some((::entity_derive::ConstraintKind::Unique, Some(#column))),
                     });
                 }
             }
@@ -83,7 +83,7 @@ impl Context<'_> {
                 let name = format!("{table}_{column}_fkey");
                 if covered.insert(name.clone()) {
                     arms.push(quote! {
-                        #name => Some((::entity_core::ConstraintKind::ForeignKey, Some(#column))),
+                        #name => Some((::entity_derive::ConstraintKind::ForeignKey, Some(#column))),
                     });
                 }
             }
@@ -91,7 +91,7 @@ impl Context<'_> {
                 let name = format!("{table}_{column}_check");
                 if covered.insert(name.clone()) {
                     arms.push(quote! {
-                        #name => Some((::entity_core::ConstraintKind::Check, Some(#column))),
+                        #name => Some((::entity_derive::ConstraintKind::Check, Some(#column))),
                     });
                 }
             }
@@ -102,7 +102,7 @@ impl Context<'_> {
                 let name = index.name_or_default(table);
                 if covered.insert(name.clone()) {
                     arms.push(quote! {
-                        #name => Some((::entity_core::ConstraintKind::Unique, None)),
+                        #name => Some((::entity_derive::ConstraintKind::Unique, None)),
                     });
                 }
             }
@@ -117,13 +117,13 @@ impl Context<'_> {
                 if let Some(db_err) = err.as_database_error()
                     && let Some(constraint) = db_err.constraint()
                 {
-                    let resolved: Option<(::entity_core::ConstraintKind, Option<&'static str>)> =
+                    let resolved: Option<(::entity_derive::ConstraintKind, Option<&'static str>)> =
                         match constraint {
                             #(#arms)*
                             _ => None
                         };
                     if let Some((kind, field)) = resolved {
-                        return ::entity_core::ConstraintError {
+                        return ::entity_derive::ConstraintError {
                             kind,
                             constraint: constraint.to_string(),
                             field

@@ -122,7 +122,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
         /// If a `before_*` hook returns an error, the caller should abort
         /// the operation. If an `after_*` hook returns an error, the
         /// operation has already completed but the error is propagated.
-        #[async_trait::async_trait]
+        #[::entity_derive::async_trait]
         #vis trait #hooks_trait: Send + Sync {
             /// Error type for hook operations.
             type Error: std::error::Error + Send + Sync;

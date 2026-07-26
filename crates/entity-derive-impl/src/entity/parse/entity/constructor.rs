@@ -178,7 +178,7 @@ impl EntityDef {
                 quote::ToTokens::to_token_stream(&attrs.error).to_string() == "sqlx :: Error";
             if default_error {
                 return Err(darling::Error::custom(
-                    "transition(...) requires a custom error type implementing From<entity_core::TransitionError>"
+                    "transition(...) requires a custom error type implementing From<::entity_derive::TransitionError>"
                 )
                 .with_span(&input.ident));
             }

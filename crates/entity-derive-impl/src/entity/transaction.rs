@@ -328,7 +328,7 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
 ///
 /// Each method locks the row with `find_by_id_for_update`, verifies the
 /// current status is one of the declared sources (typed
-/// `entity_core::TransitionError` otherwise), patches `status` plus the
+/// `::entity_derive::TransitionError` otherwise), patches `status` plus the
 /// declared `sets(...)` columns in one UPDATE and returns the persisted
 /// row. `Ok(None)` means the row does not exist.
 fn transition_methods(
@@ -403,7 +403,7 @@ fn transition_methods(
                 "Transition the row to `{target_str}` from {}, patching {}.\n\n\
                  Locks the row for the duration of the transaction; returns\n\
                  `Ok(None)` when the row does not exist and a typed\n\
-                 [`entity_core::TransitionError`] when the current status does\n\
+                 [`::entity_derive::TransitionError`] when the current status does\n\
                  not allow this transition.",
                 t.sources.join("/"),
                 if t.sets.is_empty() {
@@ -427,7 +427,7 @@ fn transition_methods(
                     #[allow(unreachable_patterns)]
                     let allowed = matches!(current.status, #(<#status_type>::#source_variants)|*);
                     if !allowed {
-                        return Err(::entity_core::TransitionError {
+                        return Err(::entity_derive::TransitionError {
                             entity: #entity_name_str,
                             from: format!("{:?}", current.status),
                             to: #target_str
@@ -491,7 +491,7 @@ fn generate_builder_extension(entity: &EntityDef) -> TokenStream {
             fn #method_name(self) -> Self;
         }
 
-        impl<'p> #trait_name<'p> for entity_core::transaction::Transaction<'p, sqlx::PgPool> {
+        impl<'p> #trait_name<'p> for ::entity_derive::transaction::Transaction<'p, sqlx::PgPool> {
             fn #method_name(self) -> Self {
                 self
             }
@@ -521,7 +521,7 @@ fn generate_context_extension(entity: &EntityDef) -> TokenStream {
             fn #accessor_name(&mut self) -> #repo_name<'_>;
         }
 
-        impl #trait_name for entity_core::transaction::TransactionContext {
+        impl #trait_name for ::entity_derive::transaction::TransactionContext {
             fn #accessor_name(&mut self) -> #repo_name<'_> {
                 #repo_name::new(self.transaction())
             }
