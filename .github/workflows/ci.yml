@@ -201,7 +201,7 @@ jobs:
           tool: cargo-nextest
 
       - name: Run tests
-        run: cargo nextest run --all-features --profile ci --no-tests=pass
+        run: cargo nextest run --all-features --profile ci --no-tests=pass -E 'not binary(postgres)'
 
       - name: Run doctests
         run: cargo test --doc --all-features || true
@@ -229,6 +229,54 @@ jobs:
           report_type: test_results
           fail_ci_if_error: false
 
+  postgres:
+    name: Live Postgres (${{ matrix.postgres }})
+    needs: [check, fmt, security, reuse]
+    if: ${{ !inputs.skip_tests }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Two most recent stable majors: the generated DDL and SQL must
+        # hold on the version users run today and the one before it.
+        postgres: ["18", "17"]
+    services:
+      postgres:
+        image: postgres:${{ matrix.postgres }}-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
+        continue-on-error: true
+        with:
+          shared-key: test
+          save-if: false
+
+      - name: Install nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+
+      # --no-tests=fail: an empty target here would mean the suite
+      # silently stopped covering the generated SQL.
+      - name: Run generated SQL against Postgres
+        env:
+          ENTITY_DERIVE_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+        run: cargo nextest run -p entity-derive --all-features --test postgres --profile ci --no-tests=fail
+
   coverage:
     name: Coverage
     needs: test
@@ -255,7 +303,7 @@ jobs:
 
       - name: Generate coverage
         run: |
-          cargo llvm-cov nextest --all-features --profile ci --lcov --output-path lcov.info
+          cargo llvm-cov nextest --all-features --profile ci --lcov --output-path lcov.info -E 'not binary(postgres)'
           cargo llvm-cov report --html
 
       - name: Upload to Codecov

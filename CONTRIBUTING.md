@@ -40,6 +40,25 @@ cargo clippy -- -D warnings
 cargo test
 ```
 
+## Live Postgres suite
+
+`crates/entity-derive/tests/postgres.rs` runs the *generated* SQL —
+migrations, CRUD, upsert, keyset pagination, soft delete, lookups,
+projections, optimistic locking — against a real server. Point it at
+one and it provisions a throwaway database per test:
+
+```bash
+ENTITY_DERIVE_TEST_DATABASE_URL=postgres://postgres@localhost/postgres \
+  cargo test -p entity-derive --all-features --test postgres
+```
+
+`DATABASE_URL` works as a fallback. Without either variable the tests
+print a notice and pass, so no local server is required to contribute;
+CI always provides one, and there the missing variable is a hard error.
+
+A test that panics leaves its database behind for inspection — the next
+run drops it once it is half an hour old.
+
 ## CI checks
 
 | Check | Command |
@@ -47,6 +66,7 @@ cargo test
 | Format | `cargo +nightly fmt --check` |
 | Lint | `cargo clippy -- -D warnings` |
 | Test | `cargo test` |
+| Live Postgres | `cargo nextest run -p entity-derive --all-features --test postgres` (matrix: Postgres 18, 17) |
 | Coverage | `cargo llvm-cov` (95%+ required) |
 
 ## Code standards
