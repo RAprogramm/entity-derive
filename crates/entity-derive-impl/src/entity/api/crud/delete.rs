@@ -239,18 +239,18 @@ pub fn generate_delete_handler(entity: &EntityDef) -> TokenStream {
             axum::extract::State(repo): axum::extract::State<std::sync::Arc<R>>,
             axum::extract::Path(id): axum::extract::Path<#id_type>,
             #guard_param
-        ) -> masterror::AppResult<axum::http::StatusCode>
+        ) -> ::entity_derive::masterror::AppResult<axum::http::StatusCode>
         where
             R: #repo_trait + 'static,
         {
             let deleted = repo
                 .delete(id)
                 .await
-                .map_err(|e| masterror::AppError::internal(e.to_string()))?;
+                .map_err(|e| ::entity_derive::masterror::AppError::internal(e.to_string()))?;
             if deleted {
                 Ok(axum::http::StatusCode::NO_CONTENT)
             } else {
-                Err(masterror::AppError::not_found(#not_found_msg))
+                Err(::entity_derive::masterror::AppError::not_found(#not_found_msg))
             }
         }
     }

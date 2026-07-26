@@ -95,7 +95,7 @@ fn generate_handler(entity: &EntityDef, cmd: &CommandDef) -> TokenStream {
         quote! {}
     };
 
-    let (response_type, response_body) = response_type_for_command(entity, cmd);
+    let (response_type, response_body, map_result) = response_type_for_command(entity, cmd);
 
     let deprecated_attr = if api_config.is_deprecated() {
         quote! { , deprecated = true }
@@ -146,6 +146,7 @@ fn generate_handler(entity: &EntityDef, cmd: &CommandDef) -> TokenStream {
             &command_struct,
             &handler_trait,
             &response_type,
+            &map_result,
             &utoipa_attr
         )
     } else {
@@ -157,6 +158,7 @@ fn generate_handler(entity: &EntityDef, cmd: &CommandDef) -> TokenStream {
             &command_struct,
             &handler_trait,
             &response_type,
+            &map_result,
             &utoipa_attr
         )
     }
@@ -189,6 +191,7 @@ fn generate_handler_without_id(
     command_struct: &syn::Ident,
     handler_trait: &syn::Ident,
     response_type: &TokenStream,
+    map_result: &TokenStream,
     utoipa_attr: &TokenStream
 ) -> TokenStream {
     let vis = &entity.vis;
@@ -213,7 +216,7 @@ fn generate_handler_without_id(
         {
             let ctx = H::Context::default();
             match handler.#handler_method(cmd, &ctx).await {
-                Ok(result) => Ok(axum::response::Json(result)),
+                Ok(result) => Ok(axum::response::Json(#map_result)),
                 Err(_) => Err(axum::http::StatusCode::INTERNAL_SERVER_ERROR),
             }
         }
@@ -230,6 +233,7 @@ fn generate_handler_with_id(
     command_struct: &syn::Ident,
     handler_trait: &syn::Ident,
     response_type: &TokenStream,
+    map_result: &TokenStream,
     utoipa_attr: &TokenStream
 ) -> TokenStream {
     let vis = &entity.vis;
@@ -258,7 +262,7 @@ fn generate_handler_with_id(
             cmd.id = id;
             let ctx = H::Context::default();
             match handler.#handler_method(cmd, &ctx).await {
-                Ok(result) => Ok(axum::response::Json(result)),
+                Ok(result) => Ok(axum::response::Json(#map_result)),
                 Err(_) => Err(axum::http::StatusCode::INTERNAL_SERVER_ERROR),
             }
         }
@@ -309,17 +313,33 @@ fn security_scheme_name(scheme: &str) -> &'static str {
     }
 }
 
-/// Get the response type for a command.
-fn response_type_for_command(entity: &EntityDef, cmd: &CommandDef) -> (TokenStream, TokenStream) {
-    let entity_name = entity.name();
+/// Response type of a command handler, what OpenAPI documents for it,
+/// and the expression mapping the handler's return value into it.
+///
+/// A command answers with the same shape the CRUD handlers answer with —
+/// the generated response DTO — so a column kept out of the response
+/// never reaches the wire through a command route.
+fn response_type_for_command(
+    entity: &EntityDef,
+    cmd: &CommandDef
+) -> (TokenStream, TokenStream, TokenStream) {
+    let response_dto = entity.ident_with("", "Response");
 
     if let Some(ref result_type) = cmd.result_type {
-        (quote! { #result_type }, quote! { #result_type })
-    } else {
-        match cmd.kind {
-            CommandKindHint::Delete => (quote! { () }, quote! { () }),
-            _ => (quote! { #entity_name }, quote! { #entity_name })
-        }
+        return (
+            quote! { #result_type },
+            quote! { #result_type },
+            quote! { result }
+        );
+    }
+
+    match cmd.kind {
+        CommandKindHint::Delete => (quote! { () }, quote! { () }, quote! { result }),
+        _ => (
+            quote! { #response_dto },
+            quote! { #response_dto },
+            quote! { #response_dto::from(result) }
+        )
     }
 }
 
@@ -514,7 +534,7 @@ mod tests {
         };
         let entity = EntityDef::from_derive_input(&input).unwrap();
         let cmd = create_test_command("Delete", true, CommandKindHint::Delete);
-        let (resp_type, _) = response_type_for_command(&entity, &cmd);
+        let (resp_type, _, _map) = response_type_for_command(&entity, &cmd);
         assert_eq!(resp_type.to_string(), "()");
     }
 
@@ -530,8 +550,16 @@ mod tests {
         };
         let entity = EntityDef::from_derive_input(&input).unwrap();
         let cmd = create_test_command("Register", false, CommandKindHint::Create);
-        let (resp_type, _) = response_type_for_command(&entity, &cmd);
-        assert_eq!(resp_type.to_string(), "User");
+        let (resp_type, _, map) = response_type_for_command(&entity, &cmd);
+        assert_eq!(
+            resp_type.to_string(),
+            "UserResponse",
+            "a command answers with the response shape, not the entity"
+        );
+        assert!(
+            map.to_string().contains("UserResponse :: from"),
+            "the handler has to convert the entity it received: {map}"
+        );
     }
 
     #[test]
@@ -547,7 +575,7 @@ mod tests {
         let entity = EntityDef::from_derive_input(&input).unwrap();
         let result_type: syn::Type = syn::parse_quote!(CustomResult);
         let cmd = create_command_with_result("Transfer", CommandKindHint::Custom, result_type);
-        let (resp_type, _) = response_type_for_command(&entity, &cmd);
+        let (resp_type, _, _map) = response_type_for_command(&entity, &cmd);
         assert_eq!(resp_type.to_string(), "CustomResult");
     }
 
