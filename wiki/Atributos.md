@@ -340,6 +340,11 @@ Marca campos auto-generados (timestamps, secuencias).
 - Obtiene `Default::default()` en `From<CreateRequest>`
 - Excluido de `CreateRequest` y `UpdateRequest`
 - Puede incluirse en `Response` con `#[field(response)]`
+- Excluido del `INSERT` generado, por lo que con `migrations` una
+  columna temporal no nulable recibe el valor por defecto correspondiente
+  en la base de datos: `NOW()` para `TIMESTAMPTZ` y `TIMESTAMP`,
+  `CURRENT_DATE` para `DATE`, `CURRENT_TIME` para `TIME`. Un
+  `#[column(default = "...")]` explícito tiene prioridad
 
 ```rust
 #[auto]

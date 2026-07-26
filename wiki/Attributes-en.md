@@ -399,6 +399,11 @@ Marks auto-generated fields (timestamps, sequences).
 - Gets `Default::default()` in `From<CreateRequest>`
 - Excluded from `CreateRequest` and `UpdateRequest`
 - Can be included in `Response` with `#[field(response)]`
+- Excluded from the generated `INSERT`, so with `migrations` a
+  non-nullable temporal column receives a matching database default:
+  `NOW()` for `TIMESTAMPTZ` and `TIMESTAMP`, `CURRENT_DATE` for `DATE`,
+  `CURRENT_TIME` for `TIME`. An explicit `#[column(default = "...")]`
+  overrides it
 
 ```rust
 #[auto]

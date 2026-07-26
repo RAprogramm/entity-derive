@@ -8,7 +8,7 @@
 use convert_case::{Case, Casing};
 
 use crate::entity::{
-    migrations::types::{PostgresTypeMapper, TypeMapper},
+    migrations::types::{PostgresTypeMapper, SqlType, TypeMapper},
     parse::{CompositeIndexDef, EntityDef, FieldDef}
 };
 
@@ -96,8 +96,12 @@ fn generate_column_def(
         parts.push("UNIQUE".to_string());
     }
 
-    // DEFAULT value
+    // DEFAULT value: explicit declaration wins, otherwise an #[auto]
+    // temporal column gets the default that makes the generated INSERT
+    // (which skips auto columns) valid.
     if let Some(ref default) = field.column().default {
+        parts.push(format!("DEFAULT {default}"));
+    } else if let Some(default) = implicit_auto_default(field, &sql_type) {
         parts.push(format!("DEFAULT {default}"));
     }
 
@@ -122,6 +126,26 @@ fn generate_column_def(
     }
 
     parts.join(" ")
+}
+
+/// Database-side default for an `#[auto]` column that carries no
+/// explicit `#[column(default = ...)]`.
+///
+/// The generated INSERT skips `#[auto]` columns, so a `NOT NULL` one
+/// without a default rejects every row. Temporal columns get the clock
+/// function matching their type; anything else keeps no default, since
+/// the macro has no meaningful value to invent.
+fn implicit_auto_default(field: &FieldDef, sql_type: &SqlType) -> Option<&'static str> {
+    if !field.is_auto() || sql_type.nullable || sql_type.array_dim > 0 {
+        return None;
+    }
+
+    match sql_type.name.as_str() {
+        "TIMESTAMPTZ" | "TIMESTAMP" => Some("NOW()"),
+        "DATE" => Some("CURRENT_DATE"),
+        "TIME" | "TIMETZ" => Some("CURRENT_TIME"),
+        _ => None
+    }
 }
 
 /// Generate CREATE INDEX for a single column.
@@ -280,6 +304,74 @@ mod tests {
         });
         let sql = generate_up(&entity);
         assert!(sql.contains("email TEXT NOT NULL UNIQUE"));
+    }
+
+    #[test]
+    fn auto_temporal_columns_get_a_clock_default() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "users", migrations)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(response)]
+                #[auto]
+                pub created_at: chrono::DateTime<chrono::Utc>,
+                #[field(response)]
+                #[auto]
+                pub born_on: chrono::NaiveDate,
+                #[field(response)]
+                #[auto]
+                pub rings_at: chrono::NaiveTime,
+            }
+        });
+        let sql = generate_up(&entity);
+        assert!(
+            sql.contains("created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()"),
+            "the generated INSERT skips auto columns, so the DDL must supply the value: {sql}"
+        );
+        assert!(sql.contains("born_on DATE NOT NULL DEFAULT CURRENT_DATE"));
+        assert!(sql.contains("rings_at TIME NOT NULL DEFAULT CURRENT_TIME"));
+    }
+
+    #[test]
+    fn explicit_default_wins_over_the_implicit_one() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "users", migrations)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(response)]
+                #[auto]
+                #[column(default = "'epoch'")]
+                pub created_at: chrono::DateTime<chrono::Utc>,
+            }
+        });
+        let sql = generate_up(&entity);
+        assert!(sql.contains("created_at TIMESTAMPTZ NOT NULL DEFAULT 'epoch'"));
+        assert!(!sql.contains("NOW()"));
+    }
+
+    #[test]
+    fn non_temporal_and_nullable_auto_columns_keep_no_default() {
+        let entity = parse_entity(quote::quote! {
+            #[entity(table = "users", migrations)]
+            pub struct User {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(response)]
+                #[auto]
+                pub token: String,
+                #[field(response)]
+                #[auto]
+                pub seen_at: Option<chrono::DateTime<chrono::Utc>>,
+            }
+        });
+        let sql = generate_up(&entity);
+        assert!(sql.contains("token TEXT NOT NULL,"));
+        assert!(
+            !sql.contains("seen_at TIMESTAMPTZ DEFAULT"),
+            "a nullable auto column already accepts the absent value: {sql}"
+        );
     }
 
     #[test]
