@@ -49,7 +49,7 @@
 //!     table = "users",      // Required: database table name
 //!     schema = "public",    // Optional: database schema (omit to exclude from SQL)
 //!     sql = "full",         // Optional: "full" | "trait" | "none" (default: "full")
-//!     dialect = "postgres", // Optional: "postgres" | "clickhouse" | "mongodb" (default: "postgres")
+//!     dialect = "postgres", // Optional; "postgres" is the only implemented dialect
 //!     uuid = "v7"           // Optional: "v7" | "v4" (default: "v7")
 //! )]
 //! pub struct User { /* ... */ }
@@ -272,7 +272,7 @@ use proc_macro::TokenStream;
 /// | `table` | **Yes** | — | Database table name |
 /// | `schema` | No | — | Database schema name (omitted = no prefix in SQL) |
 /// | `sql` | No | `"full"` | SQL generation: `"full"`, `"trait"`, or `"none"` |
-/// | `dialect` | No | `"postgres"` | Database dialect: `"postgres"`, `"clickhouse"`, `"mongodb"` |
+/// | `dialect` | No | `"postgres"` | Database dialect. `"postgres"` is the only implemented one; `"clickhouse"` and `"mongodb"` parse but fail to compile |
 /// | `uuid` | No | `"v7"` | UUID version for ID: `"v7"` (time-ordered) or `"v4"` (random) |
 /// | `migrations` | No | `false` | Generate `MIGRATION_UP` and `MIGRATION_DOWN` constants |
 ///

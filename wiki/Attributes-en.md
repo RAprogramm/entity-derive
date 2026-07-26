@@ -84,8 +84,8 @@ Database dialect for SQL generation. Default: `"postgres"`.
 | Dialect | Aliases | Client Type | Status |
 |---------|---------|-------------|--------|
 | `"postgres"` | `"pg"`, `"postgresql"` | `sqlx::PgPool` | Stable |
-| `"clickhouse"` | `"ch"` | `clickhouse::Client` | Planned |
-| `"mongodb"` | `"mongo"` | `mongodb::Client` | Planned |
+| `"clickhouse"` | `"ch"` | `clickhouse::Client` | Not implemented — compile error |
+| `"mongodb"` | `"mongo"` | `mongodb::Client` | Not implemented — compile error |
 
 ### `uuid` (optional)
 
