@@ -162,7 +162,7 @@ tracing-subscriber = "0.3"
 | **Lifecycle Events** | `Created`, `Updated`, `Deleted` events |
 | **Real-Time Streams** | Postgres LISTEN/NOTIFY integration |
 | **Transactional Outbox** | `events(outbox)` — durable at-least-once event delivery with retry/backoff |
-| **Lifecycle Hook Traits** | `{Entity}Hooks` trait emitted with `before_create` / `after_update` / etc.; invocation is currently manual at your service layer (tracking auto-invocation: [#127](https://github.com/RAprogramm/entity-derive/issues/127)) |
+| **Lifecycle Hooks** | `{Entity}Hooks` trait plus `{Entity}Repo<H>`, a repository that runs the hooks around every mutation |
 | **CQRS Commands** | Business-oriented command pattern; `sets(...)` turns one into a domain operation writing named columns |
 | **Soft Delete** | `deleted_at` timestamp support |
 | **Structured Logging** | Opt-in `tracing` feature wraps every generated async method in `#[tracing::instrument]` with `entity` + `op` fields |
@@ -287,6 +287,29 @@ cooperate), retried with exponential backoff and parked after
 handlers must be idempotent. Composes with `streams`: NOTIFY wakes
 subscribers instantly, the outbox guarantees nothing is lost. Requires
 the `outbox` feature and `serde_json` in your crate.
+
+### Lifecycle Hooks
+
+`#[entity(hooks)]` emits the `{Entity}Hooks` trait and `{Entity}Repo<H>`,
+a repository that owns a pool and a hooks implementation and runs the
+hooks around every mutation:
+
+```rust,ignore
+#[derive(Entity)]
+#[entity(table = "users", hooks)]
+pub struct User { /* ... */ }
+
+let repo = UserRepo::new(pool, Audit);
+
+let user = repo.create(dto).await?;      // before_create → INSERT → after_create
+let found = repo.find_by_id(id).await?;  // reads carry no hooks
+```
+
+A failing `before_*` aborts before anything is written; `after_delete`
+and `after_restore` run only when a row was actually affected. The hook
+error only has to convert into the repository error, so hooks may keep
+their own error type. The bare pool keeps working exactly as before —
+the wrapper is opt-in.
 
 ### Domain Operations
 

@@ -2903,3 +2903,243 @@ mod domain_operations {
         db.teardown().await;
     }
 }
+
+/// The hook-invoking wrapper: order of calls, and what a refusing
+/// `before_*` must prevent.
+mod hooks {
+    use std::sync::{Arc, Mutex};
+
+    use entity_derive::{Entity, async_trait};
+    use uuid::Uuid;
+
+    use crate::pg;
+
+    #[derive(Debug, Clone, Entity)]
+    #[entity(table = "accounts_h", migrations, soft_delete, hooks)]
+    pub struct Account {
+        #[id]
+        pub id: Uuid,
+
+        #[field(create, update, response)]
+        pub label: String,
+
+        #[field(skip)]
+        pub deleted_at: Option<chrono::DateTime<chrono::Utc>>
+    }
+
+    /// Records the calls it receives, and can refuse one of them.
+    #[derive(Clone)]
+    struct Recorder {
+        calls:  Arc<Mutex<Vec<&'static str>>>,
+        refuse: Option<&'static str>
+    }
+
+    impl Recorder {
+        fn new(refuse: Option<&'static str>) -> Self {
+            Self {
+                calls: Arc::new(Mutex::new(Vec::new())),
+                refuse
+            }
+        }
+
+        fn note(&self, call: &'static str) -> Result<(), sqlx::Error> {
+            self.calls
+                .lock()
+                .expect("the recorder lock is never poisoned")
+                .push(call);
+            if self.refuse == Some(call) {
+                return Err(sqlx::Error::RowNotFound);
+            }
+            Ok(())
+        }
+
+        fn calls(&self) -> Vec<&'static str> {
+            self.calls
+                .lock()
+                .expect("the recorder lock is never poisoned")
+                .clone()
+        }
+    }
+
+    #[async_trait]
+    impl AccountHooks for Recorder {
+        type Error = sqlx::Error;
+
+        async fn before_create(&self, dto: &mut CreateAccountRequest) -> Result<(), Self::Error> {
+            let trimmed = dto.label.trim().to_owned();
+            dto.label = trimmed;
+            self.note("before_create")
+        }
+
+        async fn after_create(&self, _entity: &Account) -> Result<(), Self::Error> {
+            self.note("after_create")
+        }
+
+        async fn before_update(
+            &self,
+            _id: &Uuid,
+            _dto: &mut UpdateAccountRequest
+        ) -> Result<(), Self::Error> {
+            self.note("before_update")
+        }
+
+        async fn after_update(&self, _entity: &Account) -> Result<(), Self::Error> {
+            self.note("after_update")
+        }
+
+        async fn before_delete(&self, _id: &Uuid) -> Result<(), Self::Error> {
+            self.note("before_delete")
+        }
+
+        async fn after_delete(&self, _id: &Uuid) -> Result<(), Self::Error> {
+            self.note("after_delete")
+        }
+
+        async fn before_restore(&self, _id: &Uuid) -> Result<(), Self::Error> {
+            self.note("before_restore")
+        }
+
+        async fn after_restore(&self, _id: &Uuid) -> Result<(), Self::Error> {
+            self.note("after_restore")
+        }
+    }
+
+    #[tokio::test]
+    async fn hooks_run_around_every_mutation() {
+        let Some(db) = pg::provision("hooks", &[Account::MIGRATION_UP]).await else {
+            return;
+        };
+        let pool = db.pool();
+
+        let recorder = Recorder::new(None);
+        let repo = AccountRepo::new(pool.clone(), recorder.clone());
+
+        let created = repo
+            .create(CreateAccountRequest {
+                label: "  ledger  ".to_owned()
+            })
+            .await
+            .expect("create failed");
+        assert_eq!(
+            created.label, "ledger",
+            "before_create must be able to rewrite the DTO before the INSERT"
+        );
+
+        repo.update(
+            created.id,
+            UpdateAccountRequest {
+                label: Some("cashbook".to_owned())
+            }
+        )
+        .await
+        .expect("update failed");
+
+        assert!(repo.delete(created.id).await.expect("delete failed"));
+        assert!(repo.restore(created.id).await.expect("restore failed"));
+
+        assert_eq!(
+            recorder.calls(),
+            vec![
+                "before_create",
+                "after_create",
+                "before_update",
+                "after_update",
+                "before_delete",
+                "after_delete",
+                "before_restore",
+                "after_restore",
+            ]
+        );
+
+        db.teardown().await;
+    }
+
+    #[tokio::test]
+    async fn a_refusing_before_hook_writes_nothing() {
+        let Some(db) = pg::provision("hooksrefuse", &[Account::MIGRATION_UP]).await else {
+            return;
+        };
+        let pool = db.pool();
+
+        let recorder = Recorder::new(Some("before_create"));
+        let repo = AccountRepo::new(pool.clone(), recorder.clone());
+
+        assert!(
+            repo.create(CreateAccountRequest {
+                label: "ledger".to_owned()
+            })
+            .await
+            .is_err(),
+            "a refusing before_create must fail the call"
+        );
+        assert!(
+            pool.list(10, 0).await.expect("list failed").is_empty(),
+            "a refused create must not have written a row"
+        );
+        assert_eq!(
+            recorder.calls(),
+            vec!["before_create"],
+            "the after hook must not run when the before hook refused"
+        );
+
+        db.teardown().await;
+    }
+
+    #[tokio::test]
+    async fn a_refusing_delete_hook_leaves_the_row() {
+        let Some(db) = pg::provision("hooksdel", &[Account::MIGRATION_UP]).await else {
+            return;
+        };
+        let pool = db.pool();
+
+        let stored = pool
+            .create(CreateAccountRequest {
+                label: "ledger".to_owned()
+            })
+            .await
+            .expect("create failed");
+
+        let repo = AccountRepo::new(pool.clone(), Recorder::new(Some("before_delete")));
+        assert!(repo.delete(stored.id).await.is_err());
+        assert!(
+            pool.find_by_id(stored.id)
+                .await
+                .expect("read failed")
+                .is_some(),
+            "a refused delete must leave the row in place"
+        );
+
+        db.teardown().await;
+    }
+
+    #[tokio::test]
+    async fn reads_reach_the_pool_through_the_wrapper() {
+        let Some(db) = pg::provision("hooksread", &[Account::MIGRATION_UP]).await else {
+            return;
+        };
+        let pool = db.pool();
+
+        let recorder = Recorder::new(None);
+        let repo = AccountRepo::new(pool.clone(), recorder.clone());
+        let created = repo
+            .create(CreateAccountRequest {
+                label: "ledger".to_owned()
+            })
+            .await
+            .expect("create failed");
+
+        let found = repo
+            .find_by_id(created.id)
+            .await
+            .expect("read through the wrapper failed")
+            .expect("row missing");
+        assert_eq!(found.id, created.id);
+        assert_eq!(
+            recorder.calls(),
+            vec!["before_create", "after_create"],
+            "a read must not invoke any hook"
+        );
+
+        db.teardown().await;
+    }
+}
