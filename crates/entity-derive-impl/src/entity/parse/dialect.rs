@@ -64,7 +64,11 @@ impl DatabaseDialect {
     }
 
     /// Generate comma-separated placeholders for given count.
+    ///
+    /// Every dialect numbers placeholders the same way, so the receiver
+    /// is kept for call-site symmetry with the rest of the dialect API.
     #[must_use]
+    #[allow(clippy::unused_self)]
     pub fn placeholders(&self, count: usize) -> String {
         (1..=count)
             .map(|i| format!("${i}"))

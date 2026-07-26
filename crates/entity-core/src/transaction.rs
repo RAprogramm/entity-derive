@@ -312,7 +312,7 @@ impl Transaction<'_, sqlx::PgPool> {
         let tx = self.pool.begin().await.map_err(E::from)?;
         let mut ctx = TransactionContext::new(tx);
         let result = f(&mut ctx).await;
-        finalize_with_commit(ctx, result, |c| c.commit()).await
+        finalize_with_commit(ctx, result, TransactionContext::commit).await
     }
 
     /// Execute a closure within a transaction with explicit commit.

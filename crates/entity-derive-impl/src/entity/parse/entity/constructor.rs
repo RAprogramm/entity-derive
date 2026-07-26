@@ -59,7 +59,12 @@ use darling::FromDeriveInput;
 use syn::DeriveInput;
 
 use super::{
-    super::{command::parse_command_attrs, field::FieldDef, returning::ReturningMode},
+    super::{
+        ColumnConfig, MapConfig,
+        command::parse_command_attrs,
+        field::{ExposeConfig, FieldDef, FilterConfig, StorageConfig, ValidationConfig},
+        returning::ReturningMode
+    },
     CompositeIndexDef, EntityAttrs, EntityDef,
     helpers::{parse_api_attr, parse_constraint_attrs, parse_has_many_attrs, parse_index_attrs},
     parse_projection_attrs,
@@ -393,14 +398,14 @@ fn expand_embed_fields(fields: &mut Vec<FieldDef>) -> darling::Result<()> {
                 sortable:     false,
                 embed:        None,
                 embed_origin: Some((field.ident.clone(), sub.clone())),
-                expose:       Default::default(),
-                storage:      Default::default(),
-                filter:       Default::default(),
-                column:       Default::default(),
+                expose:       ExposeConfig::default(),
+                storage:      StorageConfig::default(),
+                filter:       FilterConfig::default(),
+                column:       ColumnConfig::default(),
                 doc:          None,
-                validation:   Default::default(),
+                validation:   ValidationConfig::default(),
                 example:      None,
-                map:          Default::default()
+                map:          MapConfig::default()
             });
         }
         insertions.push((idx + 1, synthetic));

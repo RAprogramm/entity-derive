@@ -476,15 +476,15 @@ mod tests {
     #[test]
     fn generate_for_non_enum_fails() {
         let input = parse_input(
-            r#"
+            r"
             struct NotAnEnum {
                 field: String,
             }
-            "#
+            "
         );
 
-        let _result = generate(&input);
-        assert!(_result.is_err());
+        let result = generate(&input);
+        assert!(result.is_err());
     }
 
     #[test]

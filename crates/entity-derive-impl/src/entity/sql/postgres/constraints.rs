@@ -55,9 +55,10 @@ impl Context<'_> {
                 "foreign_key" => quote! { ::entity_derive::ConstraintKind::ForeignKey },
                 _ => quote! { ::entity_derive::ConstraintKind::Check }
             };
-            let field = match &custom.field {
-                Some(f) => quote! { Some(#f) },
-                None => quote! { None }
+            let field = if let Some(f) = &custom.field {
+                quote! { Some(#f) }
+            } else {
+                quote! { None }
             };
             covered.insert(name.clone());
             arms.push(quote! {

@@ -387,22 +387,20 @@ mod tests {
         assert_eq!(bindings.len(), 2);
 
         let first = bindings[0].to_string();
-        assert!(first.contains("bind"), "Expected 'bind' in: {}", first);
+        assert!(first.contains("bind"), "Expected 'bind' in: {first}");
         assert!(
             first.contains("insertable"),
-            "Expected 'insertable' in: {}",
-            first
+            "Expected 'insertable' in: {first}"
         );
-        assert!(first.contains("id"), "Expected 'id' in: {}", first);
+        assert!(first.contains("id"), "Expected 'id' in: {first}");
 
         let second = bindings[1].to_string();
-        assert!(second.contains("bind"), "Expected 'bind' in: {}", second);
+        assert!(second.contains("bind"), "Expected 'bind' in: {second}");
         assert!(
             second.contains("insertable"),
-            "Expected 'insertable' in: {}",
-            second
+            "Expected 'insertable' in: {second}"
         );
-        assert!(second.contains("name"), "Expected 'name' in: {}", second);
+        assert!(second.contains("name"), "Expected 'name' in: {second}");
     }
 
     #[test]

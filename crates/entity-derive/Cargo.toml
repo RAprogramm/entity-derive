@@ -101,6 +101,9 @@ axum = "0.8"
 garde = { version = "0.23", features = ["derive", "email", "url"] }
 masterror = { version = "0.29", features = ["axum", "openapi"] }
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]

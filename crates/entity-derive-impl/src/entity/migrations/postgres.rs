@@ -187,7 +187,7 @@ fn junction_migration_const(entity: &EntityDef) -> TokenStream {
     let id_sql = crate::entity::migrations::types::TypeMapper::map_type(
         &mapper,
         id_field.ty(),
-        &Default::default()
+        &crate::entity::parse::ColumnConfig::default()
     )
     .name;
     let parent_snake = entity.name_str().to_case(convert_case::Case::Snake);
