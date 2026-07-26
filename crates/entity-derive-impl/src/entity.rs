@@ -88,6 +88,20 @@ mod streams;
 mod transaction;
 mod view;
 
+// The budget only means something when every generator is compiled in;
+// with a generator switched off the stream is legitimately smaller.
+#[cfg(all(
+    test,
+    feature = "events",
+    feature = "commands",
+    feature = "hooks",
+    feature = "transactions",
+    feature = "aggregate_root",
+    feature = "migrations",
+    feature = "projections"
+))]
+mod budget_tests;
+
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{DeriveInput, parse_macro_input};
@@ -98,13 +112,24 @@ use self::parse::EntityDef;
 pub fn derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
-    match EntityDef::from_derive_input(&input) {
+    expand(&input).into()
+}
+
+/// Run the whole pipeline on a parsed item and return the tokens it
+/// produces.
+///
+/// Kept separate from [`derive`] so it stays callable outside a
+/// procedural-macro context: `proc_macro::TokenStream` only exists
+/// while the compiler is expanding, which is why the crate's own tests
+/// work with `proc_macro2` here.
+pub(crate) fn expand(input: &DeriveInput) -> proc_macro2::TokenStream {
+    match EntityDef::from_derive_input(input) {
         Ok(entity) => generate(entity),
-        Err(err) => err.write_errors().into()
+        Err(err) => err.write_errors()
     }
 }
 
-fn generate(entity: EntityDef) -> TokenStream {
+fn generate(entity: EntityDef) -> proc_macro2::TokenStream {
     let dto = dto::generate(&entity);
     let query_struct = query::generate(&entity);
     let policy = policy::generate(&entity);
@@ -185,7 +210,7 @@ fn generate(entity: EntityDef) -> TokenStream {
         #migrations
     };
 
-    expanded.into()
+    expanded
 }
 
 /// Emit a `compile_error!` if the user opted into an entity-attribute
