@@ -1,0 +1,5 @@
+error: column name `Full Name` contains `F`; generated SQL interpolates it unquoted, so it must be lower-case ASCII, digits or underscore
+  --> tests/cases/fail/quoted_column_name.rs:18:9
+   |
+18 |     pub name: String,
+   |         ^^^^
