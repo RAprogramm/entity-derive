@@ -29,7 +29,6 @@
 //! ```
 
 #![warn(missing_docs)]
-#![warn(clippy::all)]
 
 #[cfg(feature = "outbox")]
 pub mod outbox;

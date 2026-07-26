@@ -116,10 +116,10 @@ mod tests {
     #[test]
     fn extract_single_line_doc() {
         let attrs = parse_attrs(
-            r#"
+            r"
             /// User entity.
             struct Foo;
-        "#
+        "
         );
         let docs = extract_doc_comments(&attrs);
         assert_eq!(docs, Some("User entity.".to_string()));
@@ -128,11 +128,11 @@ mod tests {
     #[test]
     fn extract_multi_line_doc() {
         let attrs = parse_attrs(
-            r#"
+            r"
             /// First line.
             /// Second line.
             struct Foo;
-        "#
+        "
         );
         let docs = extract_doc_comments(&attrs);
         assert_eq!(docs, Some("First line.\nSecond line.".to_string()));
@@ -141,12 +141,12 @@ mod tests {
     #[test]
     fn extract_doc_with_empty_lines() {
         let attrs = parse_attrs(
-            r#"
+            r"
             /// Summary.
             ///
             /// Details here.
             struct Foo;
-        "#
+        "
         );
         let docs = extract_doc_comments(&attrs);
         assert_eq!(docs, Some("Summary.\n\nDetails here.".to_string()));
@@ -155,10 +155,10 @@ mod tests {
     #[test]
     fn extract_no_docs() {
         let attrs = parse_attrs(
-            r#"
+            r"
             #[derive(Debug)]
             struct Foo;
-        "#
+        "
         );
         let docs = extract_doc_comments(&attrs);
         assert_eq!(docs, None);
@@ -167,11 +167,11 @@ mod tests {
     #[test]
     fn extract_summary_only() {
         let attrs = parse_attrs(
-            r#"
+            r"
             /// First line summary.
             /// More details.
             struct Foo;
-        "#
+        "
         );
         let summary = extract_doc_summary(&attrs);
         assert_eq!(summary, Some("First line summary.".to_string()));
@@ -180,11 +180,11 @@ mod tests {
     #[test]
     fn extract_summary_skips_empty_first_line() {
         let attrs = parse_attrs(
-            r#"
+            r"
             ///
             /// Actual summary.
             struct Foo;
-        "#
+        "
         );
         let summary = extract_doc_summary(&attrs);
         assert_eq!(summary, Some("Actual summary.".to_string()));

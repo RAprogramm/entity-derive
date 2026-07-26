@@ -213,12 +213,12 @@ mod tests {
     #[test]
     fn parse_length_min_max() {
         let attrs = parse_attrs(
-            r#"
+            r"
             struct Foo {
                 #[validate(length(min = 1, max = 255))]
                 name: String,
             }
-        "#
+        "
         );
         let config = parse_validation_attrs(&attrs);
         assert_eq!(config.min_length, Some(1));
@@ -228,12 +228,12 @@ mod tests {
     #[test]
     fn parse_email() {
         let attrs = parse_attrs(
-            r#"
+            r"
             struct Foo {
                 #[validate(email)]
                 email: String,
             }
-        "#
+        "
         );
         let config = parse_validation_attrs(&attrs);
         assert!(config.email);
@@ -242,12 +242,12 @@ mod tests {
     #[test]
     fn parse_url() {
         let attrs = parse_attrs(
-            r#"
+            r"
             struct Foo {
                 #[validate(url)]
                 website: String,
             }
-        "#
+        "
         );
         let config = parse_validation_attrs(&attrs);
         assert!(config.url);
@@ -256,12 +256,12 @@ mod tests {
     #[test]
     fn parse_range() {
         let attrs = parse_attrs(
-            r#"
+            r"
             struct Foo {
                 #[validate(range(min = 0, max = 100))]
                 score: i32,
             }
-        "#
+        "
         );
         let config = parse_validation_attrs(&attrs);
         assert_eq!(config.minimum, Some(0));
@@ -271,13 +271,13 @@ mod tests {
     #[test]
     fn parse_multiple_validators() {
         let attrs = parse_attrs(
-            r#"
+            r"
             struct Foo {
                 #[validate(length(min = 5))]
                 #[validate(email)]
                 email: String,
             }
-        "#
+        "
         );
         let config = parse_validation_attrs(&attrs);
         assert_eq!(config.min_length, Some(5));
@@ -287,12 +287,12 @@ mod tests {
     #[test]
     fn no_validation() {
         let attrs = parse_attrs(
-            r#"
+            r"
             struct Foo {
                 #[field(create)]
                 name: String,
             }
-        "#
+        "
         );
         let config = parse_validation_attrs(&attrs);
         assert!(!config.has_validation());
@@ -301,12 +301,12 @@ mod tests {
     #[test]
     fn has_validation_true() {
         let attrs = parse_attrs(
-            r#"
+            r"
             struct Foo {
                 #[validate(email)]
                 email: String,
             }
-        "#
+        "
         );
         let config = parse_validation_attrs(&attrs);
         assert!(config.has_validation());
@@ -455,12 +455,12 @@ mod tests {
     #[test]
     fn raw_attrs_stored() {
         let attrs = parse_attrs(
-            r#"
+            r"
             struct Foo {
                 #[validate(length(min = 1))]
                 name: String,
             }
-        "#
+        "
         );
         let config = parse_validation_attrs(&attrs);
         assert!(!config.raw_attrs.is_empty());

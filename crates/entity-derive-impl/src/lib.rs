@@ -29,27 +29,8 @@
 #![warn(
     missing_docs,
     rustdoc::missing_crate_level_docs,
-    rustdoc::broken_intra_doc_links,
-    rust_2018_idioms
+    rustdoc::broken_intra_doc_links
 )]
-#![deny(unsafe_code)]
-#![allow(clippy::option_if_let_else)]
-#![allow(clippy::match_same_arms)]
-#![allow(clippy::trivially_copy_pass_by_ref)]
-#![allow(clippy::struct_excessive_bools)]
-#![allow(clippy::too_many_lines)]
-#![allow(clippy::format_push_string)]
-#![allow(clippy::unused_self)]
-#![allow(clippy::needless_continue)]
-#![allow(clippy::needless_pass_by_value)]
-#![allow(clippy::uninlined_format_args)]
-#![allow(clippy::needless_raw_string_hashes)]
-#![allow(clippy::doc_markdown)]
-#![allow(clippy::missing_const_for_fn)]
-#![allow(clippy::used_underscore_binding)]
-#![allow(clippy::useless_format)]
-#![allow(clippy::approx_constant)]
-#![allow(clippy::needless_collect)]
 
 //! # Quick Navigation
 //!
