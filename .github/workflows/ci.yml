@@ -10,10 +10,6 @@ on:
   pull_request:
   workflow_dispatch:
     inputs:
-      force_publish:
-        description: "Force publish (ignores version check)"
-        type: boolean
-        default: false
       skip_tests:
         description: "Skip test stage (for emergency releases)"
         type: boolean

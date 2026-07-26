@@ -27,8 +27,18 @@ Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`
 
 ### 3. Create PR
 
-- Title: `123`
+- Title: same format as the commit — `#123 feat: add custom class support`.
+  A squash merge takes the PR title as the commit subject, and the
+  changelog groups releases by the type in that subject; a bare number
+  lands the change in no section.
 - Description must include: `Closes #123`
+
+### 4. Bump the version only for a behavioural break
+
+Versions are otherwise raised by the release PR, never by hand. The one
+exception is a change that breaks behaviour without breaking the API —
+`cargo semver-checks` cannot see it, so the PR itself raises the version
+of the affected crates to the next minor. See [RELEASE.md](RELEASE.md).
 
 ## Before commit
 
