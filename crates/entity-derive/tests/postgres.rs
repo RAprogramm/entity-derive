@@ -1979,3 +1979,171 @@ mod policy {
         db.teardown().await;
     }
 }
+
+/// The generated HTTP layer, driven over the generated router with a
+/// real repository behind it.
+mod http {
+    use std::sync::Arc;
+
+    use axum::{
+        body::Body,
+        http::{Request, StatusCode}
+    };
+    use entity_derive::Entity;
+    use tower::ServiceExt;
+    use uuid::Uuid;
+
+    use crate::pg;
+
+    #[derive(Debug, Clone, Entity)]
+    #[entity(table = "gadgets", migrations, api(tag = "Gadgets", handlers))]
+    pub struct Gadget {
+        #[id]
+        pub id: Uuid,
+
+        #[field(create, update, response)]
+        pub name: String,
+
+        #[field(create, update, response)]
+        pub weight: i32
+    }
+
+    /// Send one request through the generated router and return the
+    /// status together with the body.
+    async fn call(pool: &sqlx::PgPool, request: Request<Body>) -> (StatusCode, serde_json::Value) {
+        let app = gadget_router::<sqlx::PgPool>().with_state(Arc::new(pool.clone()));
+        let response = app.oneshot(request).await.expect("the router must respond");
+        let status = response.status();
+        let bytes = axum::body::to_bytes(response.into_body(), 1 << 20)
+            .await
+            .expect("body read failed");
+        let body = if bytes.is_empty() {
+            serde_json::Value::Null
+        } else {
+            serde_json::from_slice(&bytes).expect("the response must be JSON")
+        };
+        (status, body)
+    }
+
+    fn json_request(method: &str, uri: &str, body: serde_json::Value) -> Request<Body> {
+        Request::builder()
+            .method(method)
+            .uri(uri)
+            .header("content-type", "application/json")
+            .body(Body::from(body.to_string()))
+            .expect("request build failed")
+    }
+
+    #[tokio::test]
+    async fn crud_endpoints_answer_over_http() {
+        let Some(db) = pg::provision("http", &[Gadget::MIGRATION_UP]).await else {
+            return;
+        };
+        let pool = db.pool();
+
+        let (status, created) = call(
+            pool,
+            json_request(
+                "POST",
+                "/gadgets",
+                serde_json::json!({
+                    "name": "spanner",
+                    "weight": 3
+                })
+            )
+        )
+        .await;
+        assert_eq!(status, StatusCode::CREATED, "a create must answer 201");
+        assert_eq!(created["name"], "spanner");
+        let id = created["id"].as_str().expect("the response carries the id");
+
+        let (status, fetched) = call(
+            pool,
+            Request::builder()
+                .uri(format!("/gadgets/{id}"))
+                .body(Body::empty())
+                .expect("request build failed")
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(fetched["weight"], 3);
+
+        let (status, listed) = call(
+            pool,
+            Request::builder()
+                .uri("/gadgets?limit=10&offset=0")
+                .body(Body::empty())
+                .expect("request build failed")
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(
+            listed.as_array().map(Vec::len),
+            Some(1),
+            "the list endpoint must honour its pagination parameters"
+        );
+
+        let (status, updated) = call(
+            pool,
+            json_request(
+                "PATCH",
+                &format!("/gadgets/{id}"),
+                serde_json::json!({ "weight": 5 })
+            )
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(updated["weight"], 5);
+        assert_eq!(
+            updated["name"], "spanner",
+            "a PATCH must leave the omitted field alone"
+        );
+
+        let (status, _) = call(
+            pool,
+            Request::builder()
+                .method("DELETE")
+                .uri(format!("/gadgets/{id}"))
+                .body(Body::empty())
+                .expect("request build failed")
+        )
+        .await;
+        assert_eq!(status, StatusCode::NO_CONTENT, "a delete must answer 204");
+
+        let (status, _) = call(
+            pool,
+            Request::builder()
+                .uri(format!("/gadgets/{id}"))
+                .body(Body::empty())
+                .expect("request build failed")
+        )
+        .await;
+        assert_eq!(
+            status,
+            StatusCode::NOT_FOUND,
+            "reading a deleted row must answer 404"
+        );
+
+        db.teardown().await;
+    }
+
+    #[tokio::test]
+    async fn unknown_id_answers_not_found() {
+        let Some(db) = pg::provision("http404", &[Gadget::MIGRATION_UP]).await else {
+            return;
+        };
+        let pool = db.pool();
+
+        let (status, _) = call(
+            pool,
+            Request::builder()
+                .uri(format!("/gadgets/{}", Uuid::now_v7()))
+                .body(Body::empty())
+                .expect("request build failed")
+        )
+        .await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+
+        db.teardown().await;
+    }
+}
