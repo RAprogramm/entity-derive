@@ -19,6 +19,15 @@ git_release_enable = false
 git_tag_enable = false
 publish = true
 release = true
+# Publish only from a release PR. Without this, `release-plz release`
+# publishes on ANY push to `main` where a Cargo.toml version is ahead of
+# crates.io — and a breaking change must raise the version inside its own
+# PR so `cargo semver-checks` can classify the API diff. Such a merge
+# would otherwise reach crates.io with no curated CHANGELOG section and
+# wrong release notes. With `release_always = false` the bumped version
+# flows into the next release PR instead, and publishing happens when
+# that PR merges.
+release_always = false
 
 [[package]]
 name = "entity-derive"
