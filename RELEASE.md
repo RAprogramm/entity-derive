@@ -60,6 +60,33 @@ signal a break — bump the version instead.
 Secrets: `GH_TOKEN` (PAT, so the release PR triggers CI) and
 `CARGO_REGISTRY_TOKEN`.
 
+## Supply-chain artefacts
+
+Publishing a GitHub release triggers `release-attestations.yml`, which
+repackages the workspace from the tagged commit and attaches to the
+release:
+
+| Artefact | What it is |
+|---|---|
+| `entity-{core,derive-impl,derive}-X.Y.Z.crate` | The archives, byte-identical to the ones on crates.io |
+| `entity-derive-sbom.cdx.json` | CycloneDX bill of materials for the workspace |
+| `entity-derive-provenance.sigstore.json` | Sigstore bundle covering every artefact above |
+
+A consumer verifies an archive against the provenance without trusting
+this repository's word for it:
+
+```bash
+gh attestation verify entity-derive-0.22.7.crate --repo RAprogramm/entity-derive
+```
+
+## Withdrawing a release
+
+Run the `Yank` workflow with the crate, the version, and optionally the
+un-yank flag. It uses the same registry token as publishing, so nothing
+has to happen on a maintainer machine. Yanking keeps the version
+resolvable for existing lockfiles and stops new dependants from selecting
+it; record the reason in the next `CHANGELOG.md` section.
+
 ## Verifying a release
 
 Within a few minutes of the release PR merging:
