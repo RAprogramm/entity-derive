@@ -3,7 +3,7 @@
 
 [package]
 name = "entity-derive-impl"
-version = "0.20.14"
+version = "0.20.16"
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
@@ -49,8 +49,8 @@ events = []
 # Generates command structs, the handler trait, and the dispatcher.
 commands = []
 
-# Generates `{Entity}Hooks` trait (currently manual-wiring; see #127 for
-# auto-invocation plans).
+# Generates the `{Entity}Hooks` trait and the `{Entity}Repo<H>` wrapper
+# that runs the hooks around every mutation.
 hooks = []
 
 # Generates `{Entity}TransactionRepo` adapter, the (deprecated) `with_*`
@@ -66,8 +66,17 @@ migrations = []
 # Generates projection structs and `find_by_id_<projection>` methods.
 projections = []
 
+# Generates the `pg_notify` publication in writes and the
+# `{Entity}Subscriber`. Off means an entity asking for `streams` gets a
+# compile error naming the feature, not a missing-path error from
+# generated code.
+streams = []
+
+# Generates the transactional-outbox enqueue inside writes.
+outbox = []
+
 [dependencies]
-syn = { version = "3", features = ["full", "extra-traits", "parsing"] }
+syn = { version = "2", features = ["full", "extra-traits", "parsing"] }
 quote = "1"
 proc-macro2 = "1"
 darling = "0.23"
@@ -90,6 +99,9 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 utoipa = { version = "5", features = ["chrono", "uuid"] }
 validator = { version = "0.20", features = ["derive"] }
 entity-core = { path = "../entity-core" }
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 all-features = true

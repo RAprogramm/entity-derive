@@ -28,7 +28,7 @@ repository = "https://github.com/RAprogramm/entity-derive"
 entity-core = { path = "crates/entity-core", version = "0.10" }
 entity-derive = { path = "crates/entity-derive", version = "0.22" }
 entity-derive-impl = { path = "crates/entity-derive-impl", version = "0.20" }
-syn = { version = "3", features = ["full", "extra-traits", "parsing"] }
+syn = { version = "2", features = ["full", "extra-traits", "parsing"] }
 quote = "1"
 proc-macro2 = "1"
 darling = "0.23"
@@ -42,6 +42,42 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 trybuild = "1"
 utoipa = { version = "5", features = ["chrono", "uuid"] }
 validator = { version = "0.20", features = ["derive"] }
+
+# One lint policy for every crate. Pedantic is on: what stays allowed
+# is listed here with the reason, instead of a per-crate pile of
+# `#![allow(...)]` that silently covers future occurrences too.
+[workspace.lints.rust]
+rust_2018_idioms = { level = "warn", priority = -1 }
+unsafe_code = "deny"
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+# Parse structs arrive from darling by value and are moved into the
+# entity definition; taking them by reference would force a clone.
+needless_pass_by_value = "allow"
+# Dialect and attribute matches stay exhaustive and one arm per case, so
+# adding a variant is a compile error rather than a silent fallthrough.
+match_same_arms = "allow"
+# A generator function is one SQL template read top to bottom; splitting
+# it into fragments hides the statement it produces.
+too_many_lines = "allow"
+# Attribute configuration structs mirror the attribute surface, which is
+# a set of independent flags.
+struct_excessive_bools = "allow"
+# `Option<Option<T>>` is the PATCH contract: absent field versus
+# explicit null.
+option_option = "allow"
+# Field and column descriptors are passed by reference throughout;
+# switching the small ones to by-value would split the convention.
+trivially_copy_pass_by_ref = "allow"
+# Prose in the docs names SQL keywords and types without backticks.
+doc_markdown = "allow"
+# SQL is assembled fragment by fragment; `push_str(&format!(..))` keeps
+# the statement readable, unlike `write!` with an ignored Result.
+format_push_string = "allow"
+# Raised inside the parser darling generates for the attribute structs,
+# where there is no source line to change.
+needless_continue = "allow"
 
 [workspace.metadata.docs.rs]
 all-features = true
