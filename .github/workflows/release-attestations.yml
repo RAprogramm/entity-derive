@@ -1,0 +1,107 @@
+# SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
+#
+# SPDX-License-Identifier: MIT
+
+# A published release carries three crates. This job repackages them from
+# the tagged commit, generates a CycloneDX SBOM, signs a SLSA build
+# provenance attestation through Sigstore, and attaches everything to the
+# GitHub release — so a consumer can run `gh attestation verify` against
+# the `.crate` file they downloaded and see it was built here, by this
+# workflow, from this tag.
+
+name: Release attestations
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag to re-attest (e.g. v0.22.7)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  attest:
+    name: Generate SBOM and provenance
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: ${{ github.repository_owner == 'RAprogramm' }}
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - name: Checkout tagged commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # master
+        with:
+          toolchain: stable
+
+      # `--no-verify` skips the compile step: the artefacts published to
+      # crates.io were already verified by release-plz, and this job only
+      # has to reproduce the byte content of those archives.
+      - name: Package the workspace
+        run: cargo package --workspace --no-verify
+
+      - name: Collect the .crate archives
+        id: artefacts
+        run: |
+          set -euo pipefail
+          mapfile -t crates < <(find target/package -maxdepth 1 -name '*.crate' | sort)
+          if [ "${#crates[@]}" -eq 0 ]; then
+            echo "::error::No .crate archives under target/package" >&2
+            exit 1
+          fi
+          printf 'Packaged %d archives\n' "${#crates[@]}"
+          {
+            echo 'paths<<EOF'
+            printf '%s\n' "${crates[@]}"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Generate CycloneDX SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          path: ./
+          format: cyclonedx-json
+          output-file: entity-derive-sbom.cdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: Generate build provenance attestation
+        id: attest
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: |
+            ${{ steps.artefacts.outputs.paths }}
+            entity-derive-sbom.cdx.json
+
+      - name: Attach artefacts to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+          PATHS: ${{ steps.artefacts.outputs.paths }}
+        run: |
+          set -euo pipefail
+          cp "$BUNDLE" entity-derive-provenance.sigstore.json
+          mapfile -t crates <<< "$PATHS"
+          gh release upload "$TAG" \
+            entity-derive-sbom.cdx.json \
+            entity-derive-provenance.sigstore.json \
+            "${crates[@]}" \
+            --clobber
