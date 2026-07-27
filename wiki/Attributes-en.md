@@ -636,6 +636,27 @@ pub struct User { /* ... */ }
 
 **Generated:** `find_posts()` method in repository.
 
+### `#[schema(...)]`
+
+Overrides how a field documents itself in OpenAPI. The token list is
+handed to utoipa verbatim and lands on every generated struct that
+derives `ToSchema` — the create and response DTOs and the joined view.
+
+A JSONB column typed as `serde_json::Value` documents as a free-form
+object; the override names the shape it actually carries:
+
+```rust
+#[field(create, response)]
+#[schema(value_type = Option<SizeCm>)]
+pub size_cm: Option<serde_json::Value>,
+```
+
+Without the `api` feature nothing generated derives `ToSchema`, and the
+attribute is dropped rather than emitted onto a struct that cannot
+interpret it. Update DTOs do not carry it: the macro rewrites their
+field types for PATCH semantics, so a declared `value_type` would
+contradict the type actually generated.
+
 ### `#[projection(Name: fields)]`
 
 Generate partial view struct (entity-level).
@@ -763,6 +784,7 @@ pub struct Post {
 | Use multi-entity transactions | `transactions` on entity |
 | Define relationship | `#[belongs_to(Entity)]` or `#[has_many(Entity)]` |
 | Partial entity view | `#[projection(Name: fields)]` |
+| Override an OpenAPI field type | `#[schema(value_type = T)]` |
 
 ### Update DTOs: PATCH semantics
 

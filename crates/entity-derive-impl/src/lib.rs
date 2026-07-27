@@ -460,7 +460,7 @@ use proc_macro::TokenStream;
     Entity,
     attributes(
         entity, field, id, auto, owner, sort, version, embed, validate, belongs_to, has_many,
-        projection, filter, command, example, column, map, join, transition, scope
+        projection, filter, command, example, column, map, join, transition, scope, schema
     )
 )]
 pub fn derive_entity(input: TokenStream) -> TokenStream {

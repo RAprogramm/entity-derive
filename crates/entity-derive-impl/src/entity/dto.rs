@@ -66,8 +66,10 @@ fn generate_create_dto(entity: &EntityDef) -> TokenStream {
         let n = f.name();
         let t = f.ty();
         let garde = garde_attr(f, 0);
+        let schema = f.schema_attr();
         quote! {
             #garde
+            #schema
             pub #n: #t
         }
     });
@@ -310,7 +312,11 @@ fn generate_response_dto(entity: &EntityDef) -> TokenStream {
     let field_defs = fields.iter().map(|f| {
         let n = f.name();
         let t = f.ty();
-        quote! { pub #n: #t }
+        let schema = f.schema_attr();
+        quote! {
+            #schema
+            pub #n: #t
+        }
     });
 
     let extra_derives_api = if cfg!(feature = "api") {

@@ -152,6 +152,7 @@ tracing-subscriber = "0.3"
 | **PATCH Semantics** | Dynamic UPDATE SET; double-`Option` distinguishes "leave" from "set NULL" |
 | **Optimistic Locking** | `#[version]` — guarded, auto-incremented version column |
 | **Typed Constraint Errors** | `typed_constraints` — violations resolved to `ConstraintError` with field info |
+| **OpenAPI Overrides** | `#[schema(...)]` forwarded verbatim to the generated create/response DTOs and joined views |
 | **Embedded Value Objects** | `#[embed(prefix, fields(...))]` — structs flattened to prefixed columns |
 | **Relations** | `#[belongs_to]`, `#[has_many]` and many-to-many via `through = "junction"` |
 | **Ownership Scoping** | `#[owner]` generates `find_by_id_scoped` / `list_by_owner` / `update_scoped` / `delete_scoped` |
@@ -251,6 +252,7 @@ tracing-subscriber = "0.3"
 #[has_many(E, through = "t")]  // Many-to-many via junction table
 #[projection(Name: fields)]    // Partial view
 #[scope(name: col_a | col_b)]  // list_{name} over an OR group of columns
+#[schema(value_type = T)]      // OpenAPI type override, forwarded to the generated structs
 ```
 
 ### Transactional Outbox
