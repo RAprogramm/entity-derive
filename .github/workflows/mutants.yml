@@ -127,10 +127,13 @@ jobs:
         with:
           tool: cargo-mutants,cargo-nextest
 
+      # `core.quotePath` off keeps non-ASCII paths literal; with it on,
+      # git escapes them and cargo-mutants rejects the whole diff — the
+      # wiki pages are named in Russian, Chinese and Korean.
       - name: Compute the diff
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: git diff "$BASE_SHA"...HEAD > pr.diff
+        run: git -c core.quotePath=false diff "$BASE_SHA"...HEAD > pr.diff
 
       - name: Run cargo-mutants on the diff
         run: cargo mutants --no-shuffle --jobs 2 --in-diff pr.diff --output mutants.out
