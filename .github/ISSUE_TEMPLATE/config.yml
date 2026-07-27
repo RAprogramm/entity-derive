@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
+# SPDX-License-Identifier: MIT
+
+blank_issues_enabled: false
+contact_links:
+  - name: Guides
+    url: https://github.com/RAprogramm/entity-derive/wiki
+    about: Attributes, filtering, relations, commands and hooks, in five languages
+  - name: API reference
+    url: https://docs.rs/entity-derive
+    about: Rustdoc for the generated items and the runtime traits
+  - name: Vulnerability report
+    url: https://github.com/RAprogramm/entity-derive/security/advisories/new
+    about: Never open a public issue for a security problem

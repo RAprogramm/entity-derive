@@ -1,0 +1,68 @@
+# SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
+# SPDX-License-Identifier: MIT
+
+name: Bug report
+description: Something the macro generates, or the runtime does, is wrong
+labels: ["bug"]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A possible vulnerability goes to
+        [SECURITY.md](https://github.com/RAprogramm/entity-derive/blob/main/SECURITY.md),
+        never here.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happens
+      description: The behaviour you see, and the behaviour you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: entity
+    attributes:
+      label: Entity definition
+      description: The smallest `#[derive(Entity)]` definition that reproduces it.
+      render: rust
+    validations:
+      required: true
+
+  - type: input
+    id: features
+    attributes:
+      label: Features
+      description: The features enabled on `entity-derive`; `default` if untouched.
+      placeholder: "postgres, api, migrations"
+    validations:
+      required: true
+
+  - type: textarea
+    id: output
+    attributes:
+      label: Compiler error, expansion or generated SQL
+      description: >
+        For a compile failure, the full error. For wrong output, the
+        relevant part of `cargo expand` or the statement the database
+        received.
+      render: text
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: entity-derive version
+      placeholder: "0.22.6"
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Rust and Postgres versions
+      placeholder: "rustc 1.96.0, Postgres 18"
+    validations:
+      required: false
