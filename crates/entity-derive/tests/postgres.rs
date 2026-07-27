@@ -2826,7 +2826,7 @@ mod domain_operations {
     use crate::pg;
 
     #[derive(Debug, Clone, Entity)]
-    #[entity(table = "citizens", migrations, commands)]
+    #[entity(table = "citizens", migrations, commands, transactions)]
     #[command(
         VerifyPassport,
         payload(passport_provider),
@@ -2899,6 +2899,56 @@ mod domain_operations {
             })
             .await;
         assert!(missing.is_err(), "an unknown id must not report success");
+
+        db.teardown().await;
+    }
+
+    #[tokio::test]
+    async fn the_operation_runs_inside_a_transaction() {
+        let Some(db) = pg::provision("domainoptx", &[Citizen::MIGRATION_UP]).await else {
+            return;
+        };
+        let pool = db.pool();
+
+        let citizen = pool
+            .create(CreateCitizenRequest {
+                name: "Grace".to_owned()
+            })
+            .await
+            .expect("create failed");
+
+        let mut tx = pool.begin().await.expect("begin failed");
+        let verified = CitizenTransactionRepo::new(&mut tx)
+            .verify_passport(VerifyPassportCitizen {
+                id:                citizen.id,
+                passport_provider: Some("gov".to_owned())
+            })
+            .await
+            .expect("the operation must apply")
+            .expect("the row exists");
+        assert!(verified.passport_verified);
+        tx.rollback().await.expect("rollback failed");
+
+        let after_rollback = pool
+            .find_by_id(citizen.id)
+            .await
+            .expect("lookup failed")
+            .expect("the row exists");
+        assert!(
+            !after_rollback.passport_verified,
+            "the operation must take part in the transaction, not commit on its own"
+        );
+
+        let mut tx = pool.begin().await.expect("begin failed");
+        let missing = CitizenTransactionRepo::new(&mut tx)
+            .verify_passport(VerifyPassportCitizen {
+                id:                Uuid::now_v7(),
+                passport_provider: None
+            })
+            .await
+            .expect("an unknown id is not an error here");
+        assert!(missing.is_none(), "an unknown id must report no row");
+        tx.commit().await.expect("commit failed");
 
         db.teardown().await;
     }

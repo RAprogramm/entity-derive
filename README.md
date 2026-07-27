@@ -339,6 +339,18 @@ nothing else. The expressions land in the statement verbatim, like
 `#[column(default = "...")]`; the column names are checked against the
 entity at compile time.
 
+With `transactions` on, the same operation is available on the adapter,
+so it can land together with other writes — there it returns
+`Ok(None)` for a missing row, like the adapter's other methods:
+
+```rust,ignore
+let mut tx = pool.begin().await?;
+let verified = CitizenTransactionRepo::new(&mut tx)
+    .verify_passport(VerifyPassportCitizen { id, passport_provider: Some("gov".into()) })
+    .await?;
+tx.commit().await?;
+```
+
 ### Participant Scopes
 
 "Rows where this principal takes part in any role" is an OR over several

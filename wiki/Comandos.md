@@ -156,6 +156,17 @@ Un comando con `sets(...)` escribe columnas nombradas directamente, sin que teng
 
 Un solo UPDATE escribe las expresiones fijas más las columnas del payload y nada más. Las expresiones llegan a la sentencia tal cual, como en `#[column(default = "...")]`; los nombres de columna se verifican contra la entidad en compilación.
 
+Con `transactions` activo, la misma operación está en el adaptador y se confirma junto con las demás escrituras; allí una fila ausente devuelve `Ok(None)`, como en los otros métodos del adaptador.
+
+```rust
+let mut tx = pool.begin().await?;
+let verified = UserTransactionRepo::new(&mut tx)
+    .verify_passport(VerifyPassportUser { id, passport_provider: Some("gov".into()) })
+    .await?;
+tx.commit().await?;
+```
+
+
 ### Comando Solo ID
 
 Añade solo el campo ID:
