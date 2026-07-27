@@ -48,7 +48,11 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
         .map(|f| {
             let name = f.name();
             let ty = f.ty();
-            quote! { pub #name: #ty }
+            let schema = f.schema_attr();
+            quote! {
+                #schema
+                pub #name: #ty
+            }
         })
         .collect();
     let join_fields: Vec<TokenStream> = entity
