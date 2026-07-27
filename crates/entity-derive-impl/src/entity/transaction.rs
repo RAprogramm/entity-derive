@@ -801,6 +801,134 @@ mod tests {
     }
 }
 
+#[cfg(all(
+    test,
+    feature = "postgres",
+    feature = "transactions",
+    feature = "commands"
+))]
+mod tx_domain_operation_tests {
+    use quote::quote;
+    use syn::DeriveInput;
+
+    use super::*;
+
+    fn parse_entity(tokens: proc_macro2::TokenStream) -> EntityDef {
+        let input: DeriveInput = syn::parse2(tokens).expect("test entity must parse");
+        EntityDef::from_derive_input(&input).expect("test entity must be valid")
+    }
+
+    fn verified_citizen() -> EntityDef {
+        parse_entity(quote! {
+            #[entity(table = "citizens", transactions, commands)]
+            #[command(
+                VerifyPassport,
+                payload(passport_provider, passport_provider_id),
+                sets(passport_verified = "true", passport_verified_at = "NOW()")
+            )]
+            pub struct Citizen {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, update, response)]
+                pub name: String,
+                #[field(response)]
+                pub passport_verified: bool,
+                #[field(response)]
+                pub passport_provider: Option<String>,
+                #[field(response)]
+                pub passport_provider_id: Option<String>,
+                #[field(response)]
+                pub passport_verified_at: Option<chrono::DateTime<chrono::Utc>>,
+            }
+        })
+    }
+
+    #[test]
+    fn adapter_gains_the_declared_operation() {
+        let code = generate(&verified_citizen()).to_string();
+
+        assert!(code.contains("pub async fn verify_passport"));
+        assert!(code.contains("command : VerifyPassportCitizen"));
+        assert!(code.contains("self . tx"));
+    }
+
+    #[test]
+    fn the_statement_writes_expressions_then_payload_then_matches_the_id() {
+        let code = generate(&verified_citizen()).to_string();
+
+        assert!(code.contains(
+            "UPDATE citizens SET passport_verified = true, passport_verified_at = NOW(), \
+             passport_provider = $1, passport_provider_id = $2 WHERE id = $3"
+        ));
+    }
+
+    #[test]
+    fn every_payload_column_is_bound_in_order() {
+        let code = generate(&verified_citizen()).to_string();
+
+        let provider = code
+            .find("command . passport_provider)")
+            .expect("the first payload column must be bound");
+        let provider_id = code
+            .find("command . passport_provider_id)")
+            .expect("the second payload column must be bound");
+        assert!(
+            provider < provider_id,
+            "binds must follow the placeholder order"
+        );
+    }
+
+    #[test]
+    fn a_missing_row_is_not_an_error() {
+        let code = generate(&verified_citizen()).to_string();
+
+        assert!(code.contains("Result < Option < Citizen >"));
+        assert!(code.contains("fetch_optional"));
+    }
+
+    #[test]
+    fn a_command_without_sets_generates_no_operation() {
+        let entity = parse_entity(quote! {
+            #[entity(table = "citizens", transactions, commands)]
+            #[command(Deactivate, requires_id)]
+            pub struct Citizen {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, update, response)]
+                pub name: String,
+            }
+        });
+
+        let code = generate(&entity).to_string();
+
+        assert!(!code.contains("pub async fn deactivate"));
+    }
+
+    #[test]
+    fn soft_delete_keeps_deleted_rows_out_of_the_operation() {
+        let entity = parse_entity(quote! {
+            #[entity(table = "citizens", transactions, commands, soft_delete)]
+            #[command(VerifyPassport, payload(passport_provider), sets(passport_verified = "true"))]
+            pub struct Citizen {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, update, response)]
+                pub name: String,
+                #[field(response)]
+                pub passport_verified: bool,
+                #[field(response)]
+                pub passport_provider: Option<String>,
+                #[auto]
+                pub deleted_at: Option<chrono::DateTime<chrono::Utc>>,
+            }
+        });
+
+        let code = generate(&entity).to_string();
+
+        assert!(code.contains("WHERE id = $2 AND deleted_at IS NULL"));
+    }
+}
+
 #[cfg(all(test, feature = "postgres", feature = "transactions"))]
 mod tx_upsert_tests {
     use quote::quote;
