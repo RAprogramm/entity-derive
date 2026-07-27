@@ -8,6 +8,12 @@ edition = "2024"
 publish = false
 description = "Lifecycle hooks example with entity-derive"
 
+# Reached only through derives the macro emits — `serde::Serialize`
+# on the DTOs, `utoipa::ToSchema` on the OpenAPI ones — which the
+# unused-dependency heuristic cannot see.
+[package.metadata.cargo-machete]
+ignored = ["serde", "utoipa"]
+
 [features]
 default = ["postgres", "api"]
 postgres = []
@@ -31,7 +37,6 @@ sqlx = { version = "0.9", features = [
 uuid = { version = "1", features = ["v4", "v7", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
 async-trait = "0.1"
 utoipa = { version = "5", features = ["chrono", "uuid"] }
 tracing = "0.1"

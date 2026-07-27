@@ -86,6 +86,7 @@ run drops it once it is half an hour old.
 | Examples | `cargo check --manifest-path examples/<name>/Cargo.toml --all-targets` |
 | Feature combinations | `cargo hack check --workspace --feature-powerset --depth 2 --no-dev-deps` |
 | Dependency policy | `cargo deny check` |
+| Unused dependencies | `cargo machete` |
 | Workflow audit | `zizmor --offline .github/workflows/` — actions must be pinned to a commit SHA |
 
 `CI Success` is the terminal job: it reports every other job's outcome as
