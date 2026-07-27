@@ -83,6 +83,7 @@ run drops it once it is half an hour old.
 | Workflow audit | `zizmor --offline .github/workflows/` — actions must be pinned to a commit SHA |
 | Semver | `cargo semver-checks check-release --workspace --exclude entity-derive-impl` |
 | Coverage | `cargo llvm-cov` (95%+ required) |
+| Mutants (advisory) | `cargo mutants --in-diff <(git diff main...HEAD)` — nightly runs the full sweep |
 
 ## Code standards
 
