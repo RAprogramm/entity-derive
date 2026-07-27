@@ -93,6 +93,7 @@ mod view;
 // with a generator switched off the stream is legitimately smaller.
 #[cfg(all(
     test,
+    feature = "postgres",
     feature = "events",
     feature = "commands",
     feature = "hooks",

@@ -46,9 +46,15 @@ Run locally:
 
 ```bash
 cargo +nightly fmt
-cargo clippy -- -D warnings
-cargo test
+cargo clippy --all-targets --all-features -- -D warnings
+cargo test --all-features
 ```
+
+`--all-features` is not optional for the test suite: the compile-pass
+fixtures under `crates/entity-derive/tests/cases/pass/` declare entities
+that use the HTTP, stream and validation attributes, and trybuild
+compiles them against whichever features are active. CI runs the same
+commands.
 
 ## Live Postgres suite
 

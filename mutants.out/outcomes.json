@@ -1,0 +1,46 @@
+{
+  "outcomes": [
+    {
+      "scenario": "Baseline",
+      "summary": "Failure",
+      "log_path": "log/baseline.log",
+      "diff_path": null,
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 12.568698988,
+          "process_status": "Success",
+          "argv": [
+            "/home/ra/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=entity-derive-impl@0.20.15"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.101812134,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/ra/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=entity-derive-impl@0.20.15"
+          ]
+        }
+      ]
+    }
+  ],
+  "total_mutants": 0,
+  "missed": 0,
+  "caught": 0,
+  "timeout": 0,
+  "unviable": 0,
+  "success": 0,
+  "start_time": "2026-07-27T00:50:57.981234444Z",
+  "end_time": "2026-07-27T00:51:15.761629568Z",
+  "cargo_mutants_version": "27.1.0"
+}
