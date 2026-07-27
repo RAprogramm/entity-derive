@@ -46,9 +46,15 @@ Run locally:
 
 ```bash
 cargo +nightly fmt
-cargo clippy -- -D warnings
-cargo test
+cargo clippy --all-targets --all-features -- -D warnings
+cargo test --all-features
 ```
+
+`--all-features` is not optional for the test suite: the compile-pass
+fixtures under `crates/entity-derive/tests/cases/pass/` declare entities
+that use the HTTP, stream and validation attributes, and trybuild
+compiles them against whichever features are active. CI runs the same
+commands.
 
 ## Live Postgres suite
 
@@ -75,7 +81,7 @@ run drops it once it is half an hour old.
 |-------|---------|
 | Format | `cargo +nightly fmt --check` |
 | Lint | `cargo clippy -- -D warnings` |
-| Test | `cargo test` |
+| Test | `cargo test --all-features` |
 | Live Postgres | `cargo nextest run -p entity-derive --all-features --test postgres` (matrix: Postgres 18, 17) |
 | Examples | `cargo check --manifest-path examples/<name>/Cargo.toml --all-targets` |
 | Feature combinations | `cargo hack check --workspace --feature-powerset --depth 2 --no-dev-deps` |
