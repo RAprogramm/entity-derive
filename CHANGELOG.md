@@ -27,6 +27,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased](https://github.com/RAprogramm/entity-derive/compare/v0.22.0...HEAD)
 
+## [0.22.7](https://github.com/RAprogramm/entity-derive/compare/v0.22.6...v0.22.7) - 2026-07-27
+
+### ✨ Features
+
+- OpenAPI schema overrides carried to generated structs ([#291](https://github.com/RAprogramm/entity-derive/issues/291))
+- repository wrapper invoking the generated hooks ([#267](https://github.com/RAprogramm/entity-derive/issues/267))
+- domain operations writing declared columns ([#266](https://github.com/RAprogramm/entity-derive/issues/266))
+- participant scopes over an OR group of columns ([#265](https://github.com/RAprogramm/entity-derive/issues/265))
+- chainable setters on update DTOs ([#264](https://github.com/RAprogramm/entity-derive/issues/264))
+
+### 🐛 Bug Fixes
+
+- reject SQL identifiers that generated statements cannot carry ([#249](https://github.com/RAprogramm/entity-derive/issues/249))
+- reach the runtime through the facade in generated code ([#247](https://github.com/RAprogramm/entity-derive/issues/247))
+- give auto temporal columns a database default in migrations ([#238](https://github.com/RAprogramm/entity-derive/issues/238))
+
+### 📚 Documentation
+
+- security, support and conduct policies ([#274](https://github.com/RAprogramm/entity-derive/issues/274))
+- mark the ClickHouse and MongoDB dialects as unimplemented ([#251](https://github.com/RAprogramm/entity-derive/issues/251))
+- pass bare substrings to like filters in every example ([#245](https://github.com/RAprogramm/entity-derive/issues/245))
+
+### 🧪 Testing
+
+- execute commands, guards, transitions and the OpenAPI document ([#263](https://github.com/RAprogramm/entity-derive/issues/263))
+- drive the generated HTTP handlers over a real router ([#260](https://github.com/RAprogramm/entity-derive/issues/260))
+- execute join views, the policy wrapper, the drainer and the subscriber ([#258](https://github.com/RAprogramm/entity-derive/issues/258))
+- execute the remaining generated SQL surfaces against Postgres ([#255](https://github.com/RAprogramm/entity-derive/issues/255))
+- execute generated SQL against a live Postgres ([#235](https://github.com/RAprogramm/entity-derive/issues/235))
+
 ## [0.22.6](https://github.com/RAprogramm/entity-derive/compare/v0.22.5...v0.22.6) - 2026-07-21
 
 ### ✨ Features

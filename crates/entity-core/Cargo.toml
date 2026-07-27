@@ -3,7 +3,7 @@
 
 [package]
 name = "entity-core"
-version = "0.10.3"
+version = "0.10.4"
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
