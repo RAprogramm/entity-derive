@@ -528,6 +528,26 @@ pub struct User { /* ... */ }
 
 **Generado:** Método `find_posts()` en repositorio.
 
+### `#[schema(...)]`
+
+Sobrescribe cómo se documenta un campo en OpenAPI. La lista de tokens se
+entrega a utoipa tal cual y aparece en cada estructura generada que
+deriva `ToSchema`: los DTO de creación y respuesta y la vista unida.
+
+Una columna JSONB tipada como `serde_json::Value` se documenta como un
+objeto libre; la sobrescritura nombra la forma que realmente lleva:
+
+```rust
+#[field(create, response)]
+#[schema(value_type = Option<SizeCm>)]
+pub size_cm: Option<serde_json::Value>,
+```
+
+Sin la característica `api` nada generado deriva `ToSchema` y el atributo
+se descarta. Los DTO de actualización no lo llevan: la macro reescribe
+los tipos de sus campos para la semántica PATCH, así que un `value_type`
+declarado contradiría el tipo generado.
+
 ### `#[projection(Name: fields)]`
 
 Genera estructura de vista parcial (nivel de entidad).
@@ -654,6 +674,7 @@ pub struct Post {
 | Usar comandos de dominio | `commands` en entidad + `#[command(...)]` |
 | Definir relación | `#[belongs_to(Entity)]` o `#[has_many(Entity)]` |
 | Vista parcial de entidad | `#[projection(Name: fields)]` |
+| Sobrescribir el tipo OpenAPI de un campo | `#[schema(value_type = T)]` |
 
 ### DTO de actualización: semántica PATCH
 

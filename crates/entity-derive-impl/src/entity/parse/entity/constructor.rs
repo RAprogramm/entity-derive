@@ -410,7 +410,8 @@ fn expand_embed_fields(fields: &mut Vec<FieldDef>) -> darling::Result<()> {
                 doc:          None,
                 validation:   ValidationConfig::default(),
                 example:      None,
-                map:          MapConfig::default()
+                map:          MapConfig::default(),
+                schema:       None
             });
         }
         insertions.push((idx + 1, synthetic));
