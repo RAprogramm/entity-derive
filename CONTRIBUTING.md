@@ -81,6 +81,9 @@ run drops it once it is half an hour old.
 | Feature combinations | `cargo hack check --workspace --feature-powerset --depth 2 --no-dev-deps` |
 | Dependency policy | `cargo deny check` |
 | Workflow audit | `zizmor --offline .github/workflows/` — actions must be pinned to a commit SHA |
+
+`CI Success` is the terminal job: it reports every other job's outcome as
+a table and is the check `main` requires before a merge.
 | Semver | `cargo semver-checks check-release --workspace --exclude entity-derive-impl` |
 | Coverage | `cargo llvm-cov` (95%+ required) |
 

@@ -39,6 +39,7 @@ jobs:
   prepare:
     name: Prepare
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     outputs:
       msrv: ${{ steps.msrv.outputs.msrv }}
     steps:
@@ -65,6 +66,7 @@ jobs:
     name: Check (${{ matrix.rust }} / ${{ matrix.os }})
     needs: prepare
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -116,6 +118,7 @@ jobs:
   fmt:
     name: Format
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -133,6 +136,7 @@ jobs:
   docs:
     name: Documentation
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
       RUSTDOCFLAGS: -D warnings
     steps:
@@ -154,6 +158,7 @@ jobs:
   security:
     name: Security Audit
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -178,6 +183,7 @@ jobs:
   features:
     name: Feature Combinations
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -209,6 +215,7 @@ jobs:
   semver:
     name: Semver
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -241,6 +248,7 @@ jobs:
   reuse:
     name: REUSE Compliance
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -255,6 +263,7 @@ jobs:
   workflows:
     name: Workflow Audit
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -281,6 +290,7 @@ jobs:
     needs: [check, fmt, security, reuse]
     if: ${{ !inputs.skip_tests }}
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -337,6 +347,7 @@ jobs:
     needs: [check, fmt, security, reuse]
     if: ${{ !inputs.skip_tests }}
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -372,6 +383,7 @@ jobs:
     needs: [check, fmt, security, reuse]
     if: ${{ !inputs.skip_tests }}
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -426,6 +438,7 @@ jobs:
     name: Coverage
     needs: test
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -474,4 +487,63 @@ jobs:
           echo "## Coverage: $COVERAGE" >> $GITHUB_STEP_SUMMARY
 
   # ════════════════════════════════════════════════════════════════════════════
-  # STAGE 3: RELEASE (after tests pass, main branch only)
+  # STAGE 3: GATE (one context for branch protection)
+  # ════════════════════════════════════════════════════════════════════════════
+
+  # Branch protection can require one status check, not thirteen that
+  # change whenever the matrix does. This job depends on all of them and
+  # reduces their outcomes to a single verdict: anything other than
+  # success fails the gate, and a job skipped because its dependency
+  # failed fails it too. A manual dispatch with `skip_tests` is the one
+  # case where skipped counts as passing.
+  ci-success:
+    name: CI Success
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: always()
+    needs:
+      - prepare
+      - check
+      - fmt
+      - docs
+      - security
+      - features
+      - semver
+      - reuse
+      - workflows
+      - test
+      - examples
+      - postgres
+      - coverage
+    steps:
+      - name: Verify every job succeeded
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+          SKIP_TESTS: ${{ inputs.skip_tests }}
+        run: |
+          set -euo pipefail
+          if [ "$SKIP_TESTS" = "true" ]; then
+            allowed='["success", "skipped"]'
+          else
+            allowed='["success"]'
+          fi
+          {
+            echo "## CI gate"
+            echo
+            echo "| Job | Result |"
+            echo "|---|---|"
+            jq -r --argjson allowed "$allowed" \
+              'to_entries[] | "| \(.key) | \(.value.result)\(if ([.value.result] | inside($allowed)) then "" else " :x:" end) |"' \
+              <<< "$RESULTS"
+          } >> "$GITHUB_STEP_SUMMARY"
+          failed=$(jq -r --argjson allowed "$allowed" \
+            '[to_entries[] | select([.value.result] | inside($allowed) | not) | .key] | join(", ")' \
+            <<< "$RESULTS")
+          if [ -n "$failed" ]; then
+            echo "::error::CI gate failed: $failed"
+            exit 1
+          fi
+          echo "CI gate passed"
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # STAGE 4: RELEASE (after tests pass, main branch only)
