@@ -86,6 +86,7 @@ run drops it once it is half an hour old.
 a table and is the check `main` requires before a merge.
 | Semver | `cargo semver-checks check-release --workspace --exclude entity-derive-impl` |
 | Coverage | `cargo llvm-cov` (95%+ required) |
+| Mutants (advisory) | `cargo mutants --in-diff <(git diff main...HEAD)` — nightly runs the full sweep |
 
 ## Code standards
 
