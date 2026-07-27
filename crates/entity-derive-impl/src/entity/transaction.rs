@@ -31,7 +31,7 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
 use super::{
-    parse::{EntityDef, SqlLevel, TransitionDef},
+    parse::{CommandSource, EntityDef, SqlLevel, TransitionDef},
     sql::postgres::Context
 };
 use crate::utils::{marker, tracing::instrument};
@@ -222,6 +222,7 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
     };
 
     let transition_methods = transition_methods(entity, &ctx, error_type);
+    let domain_operation_methods = domain_operation_methods(entity, &ctx, error_type);
 
     let find_span = instrument(&entity_name_str, "tx.find_by_id");
     let find_for_update_span = instrument(&entity_name_str, "tx.find_by_id_for_update");
@@ -239,7 +240,8 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
 
         /// Transaction repository adapter for #entity_name.
         ///
-        /// Provides repository operations that execute within an active transaction.
+        /// Provides repository operations that execute within an active transaction,
+        /// including the declared transitions and domain operations.
         /// Access via `ctx.{entities}()` within a transaction closure.
         ///
         /// Methods return the entity's configured `error` type; with
@@ -296,6 +298,8 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
 
             #(#transition_methods)*
 
+            #(#domain_operation_methods)*
+
             /// Delete an entity within the transaction.
             #delete_span
             pub async fn delete(
@@ -321,6 +325,88 @@ fn generate_repo_adapter(entity: &EntityDef) -> TokenStream {
             }
         }
     }
+}
+
+/// Generate the declared domain operations against the transaction.
+///
+/// Mirrors the pool repository's `#[command(..., sets(...))]` methods so
+/// an operation that must land together with other writes does not have
+/// to be rewritten as raw SQL. Same statement, same column checking; the
+/// only difference is the executor and that a missing row is `Ok(None)`
+/// rather than an error, matching the other adapter methods.
+fn domain_operation_methods(
+    entity: &EntityDef,
+    ctx: &Context<'_>,
+    error_type: &syn::Path
+) -> Vec<TokenStream> {
+    let entity_name = ctx.entity_name;
+    let entity_name_str = entity_name.to_string();
+    let row_name = &ctx.row_name;
+    let table = &ctx.table;
+    let id_name = &ctx.id_name;
+    let columns_str = &ctx.columns_str;
+    let soft_delete = ctx.soft_delete;
+
+    entity
+        .command_defs()
+        .iter()
+        .filter(|cmd| !cmd.sets.is_empty())
+        .map(|cmd| {
+            let method_name = format_ident!("{}", cmd.name.to_string().to_case(Case::Snake));
+            let command_struct = cmd.struct_name(&entity.name_str());
+            let payload: Vec<syn::Ident> = match &cmd.source {
+                CommandSource::Fields(fields) => fields.clone(),
+                _ => Vec::new()
+            };
+
+            let mut assignments: Vec<String> = cmd
+                .sets
+                .iter()
+                .map(|(column, expression)| format!("{column} = {expression}"))
+                .collect();
+            for (index, field) in payload.iter().enumerate() {
+                assignments.push(format!("{field} = ${}", index + 1));
+            }
+
+            let id_placeholder = payload.len() + 1;
+            let deleted_filter = if soft_delete {
+                " AND deleted_at IS NULL"
+            } else {
+                ""
+            };
+            let sql = format!(
+                "UPDATE {table} SET {} WHERE {id_name} = ${id_placeholder}{deleted_filter} \
+                 RETURNING {columns_str}",
+                assignments.join(", ")
+            );
+            let binds = payload
+                .iter()
+                .map(|field| quote! { .bind(&command.#field) });
+            let span = instrument(&entity_name_str, &format!("tx.{method_name}"));
+            let doc = format!(
+                "Run the `{}` operation within the transaction.\n\n\
+                 Writes the declared expressions plus the payload columns in\n\
+                 one UPDATE; returns `Ok(None)` when the row does not exist.",
+                cmd.name
+            );
+
+            quote! {
+                #[doc = #doc]
+                #span
+                pub async fn #method_name(
+                    &mut self,
+                    command: #command_struct,
+                ) -> Result<Option<#entity_name>, #error_type> {
+                    let row: Option<#row_name> = sqlx::query_as(#sql)
+                        #(#binds)*
+                        .bind(&command.id)
+                        .fetch_optional(&mut **self.tx)
+                        .await?;
+                    Ok(row.map(#entity_name::from))
+                }
+            }
+        })
+        .collect()
 }
 
 /// Generate `transition_to_{target}` methods from `#[transition(...)]`
@@ -712,6 +798,134 @@ mod tests {
         // surprises like `childcare → childrencare`.
         assert_eq!(pluralize("childcare"), "childcares");
         assert_eq!(pluralize("manager"), "managers");
+    }
+}
+
+#[cfg(all(
+    test,
+    feature = "postgres",
+    feature = "transactions",
+    feature = "commands"
+))]
+mod tx_domain_operation_tests {
+    use quote::quote;
+    use syn::DeriveInput;
+
+    use super::*;
+
+    fn parse_entity(tokens: proc_macro2::TokenStream) -> EntityDef {
+        let input: DeriveInput = syn::parse2(tokens).expect("test entity must parse");
+        EntityDef::from_derive_input(&input).expect("test entity must be valid")
+    }
+
+    fn verified_citizen() -> EntityDef {
+        parse_entity(quote! {
+            #[entity(table = "citizens", transactions, commands)]
+            #[command(
+                VerifyPassport,
+                payload(passport_provider, passport_provider_id),
+                sets(passport_verified = "true", passport_verified_at = "NOW()")
+            )]
+            pub struct Citizen {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, update, response)]
+                pub name: String,
+                #[field(response)]
+                pub passport_verified: bool,
+                #[field(response)]
+                pub passport_provider: Option<String>,
+                #[field(response)]
+                pub passport_provider_id: Option<String>,
+                #[field(response)]
+                pub passport_verified_at: Option<chrono::DateTime<chrono::Utc>>,
+            }
+        })
+    }
+
+    #[test]
+    fn adapter_gains_the_declared_operation() {
+        let code = generate(&verified_citizen()).to_string();
+
+        assert!(code.contains("pub async fn verify_passport"));
+        assert!(code.contains("command : VerifyPassportCitizen"));
+        assert!(code.contains("self . tx"));
+    }
+
+    #[test]
+    fn the_statement_writes_expressions_then_payload_then_matches_the_id() {
+        let code = generate(&verified_citizen()).to_string();
+
+        assert!(code.contains(
+            "UPDATE citizens SET passport_verified = true, passport_verified_at = NOW(), \
+             passport_provider = $1, passport_provider_id = $2 WHERE id = $3"
+        ));
+    }
+
+    #[test]
+    fn every_payload_column_is_bound_in_order() {
+        let code = generate(&verified_citizen()).to_string();
+
+        let provider = code
+            .find("command . passport_provider)")
+            .expect("the first payload column must be bound");
+        let provider_id = code
+            .find("command . passport_provider_id)")
+            .expect("the second payload column must be bound");
+        assert!(
+            provider < provider_id,
+            "binds must follow the placeholder order"
+        );
+    }
+
+    #[test]
+    fn a_missing_row_is_not_an_error() {
+        let code = generate(&verified_citizen()).to_string();
+
+        assert!(code.contains("Result < Option < Citizen >"));
+        assert!(code.contains("fetch_optional"));
+    }
+
+    #[test]
+    fn a_command_without_sets_generates_no_operation() {
+        let entity = parse_entity(quote! {
+            #[entity(table = "citizens", transactions, commands)]
+            #[command(Deactivate, requires_id)]
+            pub struct Citizen {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, update, response)]
+                pub name: String,
+            }
+        });
+
+        let code = generate(&entity).to_string();
+
+        assert!(!code.contains("pub async fn deactivate"));
+    }
+
+    #[test]
+    fn soft_delete_keeps_deleted_rows_out_of_the_operation() {
+        let entity = parse_entity(quote! {
+            #[entity(table = "citizens", transactions, commands, soft_delete)]
+            #[command(VerifyPassport, payload(passport_provider), sets(passport_verified = "true"))]
+            pub struct Citizen {
+                #[id]
+                pub id: uuid::Uuid,
+                #[field(create, update, response)]
+                pub name: String,
+                #[field(response)]
+                pub passport_verified: bool,
+                #[field(response)]
+                pub passport_provider: Option<String>,
+                #[auto]
+                pub deleted_at: Option<chrono::DateTime<chrono::Utc>>,
+            }
+        });
+
+        let code = generate(&entity).to_string();
+
+        assert!(code.contains("WHERE id = $2 AND deleted_at IS NULL"));
     }
 }
 

@@ -156,6 +156,17 @@ A command declaring `sets(...)` writes named columns directly, without them bein
 
 One UPDATE writes the fixed expressions plus the payload columns and nothing else. The expressions land in the statement verbatim, like `#[column(default = "...")]`; the column names are checked against the entity at compile time.
 
+With `transactions` on, the same operation is available on the adapter, so it can land together with other writes; there a missing row is `Ok(None)`, like the adapter's other methods.
+
+```rust
+let mut tx = pool.begin().await?;
+let verified = UserTransactionRepo::new(&mut tx)
+    .verify_passport(VerifyPassportUser { id, passport_provider: Some("gov".into()) })
+    .await?;
+tx.commit().await?;
+```
+
+
 ### ID-Only Command
 
 Adds only the ID field:
