@@ -80,6 +80,7 @@ run drops it once it is half an hour old.
 | Examples | `cargo check --manifest-path examples/<name>/Cargo.toml --all-targets` |
 | Feature combinations | `cargo hack check --workspace --feature-powerset --depth 2 --no-dev-deps` |
 | Dependency policy | `cargo deny check` |
+| Workflow audit | `zizmor --offline .github/workflows/` — actions must be pinned to a commit SHA |
 | Semver | `cargo semver-checks check-release --workspace --exclude entity-derive-impl` |
 | Coverage | `cargo llvm-cov` (95%+ required) |
 
