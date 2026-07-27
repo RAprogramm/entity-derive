@@ -10,10 +10,6 @@ on:
   pull_request:
   workflow_dispatch:
     inputs:
-      force_publish:
-        description: "Force publish (ignores version check)"
-        type: boolean
-        default: false
       skip_tests:
         description: "Skip test stage (for emergency releases)"
         type: boolean
@@ -23,11 +19,11 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# Nothing here writes to the repository: the jobs check out, build, test
+# and upload coverage with a dedicated token. Releasing, attesting and
+# publishing the site live in their own workflows with their own grants.
 permissions:
-  contents: write
-  pull-requests: write
-  id-token: write
-  attestations: write
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always
@@ -43,10 +39,13 @@ jobs:
   prepare:
     name: Prepare
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     outputs:
       msrv: ${{ steps.msrv.outputs.msrv }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Read MSRV from workspace Cargo.toml
         id: msrv
@@ -67,6 +66,7 @@ jobs:
     name: Check (${{ matrix.rust }} / ${{ matrix.os }})
     needs: prepare
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -90,16 +90,18 @@ jobs:
             allow_fail: true
     continue-on-error: ${{ matrix.allow_fail || false }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Install Rust ${{ matrix.rust }}
-        uses: dtolnay/rust-toolchain@master
+        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # master
         with:
           toolchain: ${{ matrix.rust }}
           components: clippy
 
       - name: Cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           shared-key: ${{ matrix.rust }}-${{ matrix.os }}
           save-if: ${{ github.ref == 'refs/heads/main' }}
@@ -116,12 +118,16 @@ jobs:
   fmt:
     name: Format
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Install Rust nightly
-        uses: dtolnay/rust-toolchain@nightly
+        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # master
         with:
+          toolchain: nightly
           components: rustfmt
 
       - name: Check formatting
@@ -130,16 +136,21 @@ jobs:
   docs:
     name: Documentation
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
       RUSTDOCFLAGS: -D warnings
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # master
+        with:
+          toolchain: stable
 
       - name: Cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
 
       - name: Build docs
         run: cargo doc --all-features --no-deps
@@ -147,31 +158,150 @@ jobs:
   security:
     name: Security Audit
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # master
+        with:
+          toolchain: stable
 
       - name: Install cargo-deny
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@41049aa56687c35e0afa74eed4f09cec4f9afabf # v2.85.2
         with:
           tool: cargo-deny
 
-      - name: Security audit
-        run: cargo deny check advisories
+      # Everything deny.toml configures, not advisories alone: the
+      # licence allow-list, the ban rules and the source allow-list are
+      # policy too, and an unenforced policy drifts.
+      - name: Dependency policy
+        run: cargo deny check
+
+  features:
+    name: Feature Combinations
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # master
+        with:
+          toolchain: stable
+
+      - name: Cache
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        continue-on-error: true
+        with:
+          shared-key: features
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Install cargo-hack
+        uses: taiki-e/install-action@41049aa56687c35e0afa74eed4f09cec4f9afabf # v2.85.2
+        with:
+          tool: cargo-hack
+
+      # The facade carries fifteen features; building only "all on" and
+      # "all off" leaves every combination in between unchecked. Depth 2
+      # covers each feature alone and each pair.
+      - name: Check the feature powerset
+        run: cargo hack check --workspace --feature-powerset --depth 2 --no-dev-deps
+
+  semver:
+    name: Semver
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # master
+        with:
+          toolchain: stable
+
+      - name: Cache
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        continue-on-error: true
+        with:
+          shared-key: semver
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Install cargo-semver-checks
+        uses: taiki-e/install-action@41049aa56687c35e0afa74eed4f09cec4f9afabf # v2.85.2
+        with:
+          tool: cargo-semver-checks
+
+      # Compares the working tree against the versions already on
+      # crates.io, so a breaking change has to be a deliberate version
+      # bump rather than a surprise for downstream users.
+      - name: Check API compatibility
+        run: cargo semver-checks check-release --workspace --exclude entity-derive-impl
 
   reuse:
     name: REUSE Compliance
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Install reuse
         run: pip install --user reuse
 
       - name: Check REUSE compliance
         run: reuse lint
+
+  machete:
+    name: Unused Dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install cargo-machete
+        uses: taiki-e/install-action@41049aa56687c35e0afa74eed4f09cec4f9afabf # v2.85.2
+        with:
+          tool: cargo-machete
+
+      # The examples are the reference dependency set for a consumer, so
+      # a leftover there teaches the wrong thing — and would hide the
+      # facade regressing back to naming runtime crates in expansions.
+      # Dependencies reached only through emitted derives are declared
+      # in each manifest's cargo-machete metadata.
+      - name: Check for unused dependencies
+        run: cargo machete
+
+  workflows:
+    name: Workflow Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install zizmor
+        uses: taiki-e/install-action@41049aa56687c35e0afa74eed4f09cec4f9afabf # v2.85.2
+        with:
+          tool: zizmor
+
+      # Keeps the workflows from drifting back: an action referenced by a
+      # mutable tag, a template expansion into a `run` block, a job
+      # granted more than it needs. Deliberate exceptions carry a
+      # `zizmor: ignore[...]` comment next to the reason.
+      - name: Audit workflows
+        run: zizmor --offline .github/workflows/
 
   # ════════════════════════════════════════════════════════════════════════════
   # STAGE 2: TEST (after checks pass)
@@ -182,26 +312,31 @@ jobs:
     needs: [check, fmt, security, reuse]
     if: ${{ !inputs.skip_tests }}
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # master
+        with:
+          toolchain: stable
 
       - name: Cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         continue-on-error: true
         with:
           shared-key: test
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install nextest
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@41049aa56687c35e0afa74eed4f09cec4f9afabf # v2.85.2
         with:
           tool: cargo-nextest
 
       - name: Run tests
-        run: cargo nextest run --all-features --profile ci --no-tests=pass
+        run: cargo nextest run --all-features --profile ci --no-tests=pass -E 'not binary(postgres)'
 
       - name: Run doctests
         run: cargo test --doc --all-features || true
@@ -213,7 +348,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: test-results
           path: target/nextest/ci/junit.xml
@@ -222,51 +357,147 @@ jobs:
 
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
-        uses: codecov/codecov-action@v7
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: target/nextest/ci/junit.xml
           report_type: test_results
           fail_ci_if_error: false
 
+  examples:
+    name: Examples
+    needs: [check, fmt, security, reuse]
+    if: ${{ !inputs.skip_tests }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # master
+        with:
+          toolchain: stable
+
+      - name: Cache
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        continue-on-error: true
+        with:
+          shared-key: examples
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      # The example crates are the only consumers shaped like a user
+      # project: they depend on the facade alone, so they are what
+      # proves the generated code needs nothing else in scope.
+      - name: Check every example
+        run: |
+          status=0
+          for manifest in examples/*/Cargo.toml; do
+            echo "::group::$manifest"
+            cargo check --manifest-path "$manifest" --all-targets || status=1
+            echo "::endgroup::"
+          done
+          exit $status
+
+  postgres:
+    name: Live Postgres (${{ matrix.postgres }})
+    needs: [check, fmt, security, reuse]
+    if: ${{ !inputs.skip_tests }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        # Two most recent stable majors: the generated DDL and SQL must
+        # hold on the version users run today and the one before it.
+        postgres: ["18", "17"]
+    services:
+      postgres:
+        image: postgres:${{ matrix.postgres }}-alpine
+        env:
+          # The container is reachable only from this job and is thrown
+          # away with it, so it takes no password at all rather than a
+          # hardcoded one.
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # master
+        with:
+          toolchain: stable
+
+      - name: Cache
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        continue-on-error: true
+        with:
+          shared-key: test
+          save-if: false
+
+      - name: Install nextest
+        uses: taiki-e/install-action@41049aa56687c35e0afa74eed4f09cec4f9afabf # v2.85.2
+        with:
+          tool: cargo-nextest
+
+      # --no-tests=fail: an empty target here would mean the suite
+      # silently stopped covering the generated SQL.
+      - name: Run generated SQL against Postgres
+        env:
+          ENTITY_DERIVE_TEST_DATABASE_URL: postgres://postgres@localhost:5432/postgres
+        run: cargo nextest run -p entity-derive --all-features --test postgres --profile ci --no-tests=fail
+
   coverage:
     name: Coverage
     needs: test
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # master
         with:
+          toolchain: stable
           components: llvm-tools-preview
 
       - name: Cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         continue-on-error: true
         with:
           shared-key: coverage
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install tools
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@41049aa56687c35e0afa74eed4f09cec4f9afabf # v2.85.2
         with:
           tool: cargo-llvm-cov,cargo-nextest
 
       - name: Generate coverage
         run: |
-          cargo llvm-cov nextest --all-features --profile ci --lcov --output-path lcov.info
+          cargo llvm-cov nextest --all-features --profile ci --lcov --output-path lcov.info -E 'not binary(postgres)'
           cargo llvm-cov report --html
 
       - name: Upload to Codecov
-        uses: codecov/codecov-action@v7
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info
           fail_ci_if_error: false
 
       - name: Upload coverage report
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage-report
           path: target/llvm-cov/html/
@@ -278,4 +509,64 @@ jobs:
           echo "## Coverage: $COVERAGE" >> $GITHUB_STEP_SUMMARY
 
   # ════════════════════════════════════════════════════════════════════════════
-  # STAGE 3: RELEASE (after tests pass, main branch only)
+  # STAGE 3: GATE (one context for branch protection)
+  # ════════════════════════════════════════════════════════════════════════════
+
+  # Branch protection can require one status check, not thirteen that
+  # change whenever the matrix does. This job depends on all of them and
+  # reduces their outcomes to a single verdict: anything other than
+  # success fails the gate, and a job skipped because its dependency
+  # failed fails it too. A manual dispatch with `skip_tests` is the one
+  # case where skipped counts as passing.
+  ci-success:
+    name: CI Success
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: always()
+    needs:
+      - prepare
+      - check
+      - fmt
+      - docs
+      - security
+      - features
+      - semver
+      - reuse
+      - workflows
+      - machete
+      - test
+      - examples
+      - postgres
+      - coverage
+    steps:
+      - name: Verify every job succeeded
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+          SKIP_TESTS: ${{ inputs.skip_tests }}
+        run: |
+          set -euo pipefail
+          if [ "$SKIP_TESTS" = "true" ]; then
+            allowed='["success", "skipped"]'
+          else
+            allowed='["success"]'
+          fi
+          {
+            echo "## CI gate"
+            echo
+            echo "| Job | Result |"
+            echo "|---|---|"
+            jq -r --argjson allowed "$allowed" \
+              'to_entries[] | "| \(.key) | \(.value.result)\(if ([.value.result] | inside($allowed)) then "" else " :x:" end) |"' \
+              <<< "$RESULTS"
+          } >> "$GITHUB_STEP_SUMMARY"
+          failed=$(jq -r --argjson allowed "$allowed" \
+            '[to_entries[] | select([.value.result] | inside($allowed) | not) | .key] | join(", ")' \
+            <<< "$RESULTS")
+          if [ -n "$failed" ]; then
+            echo "::error::CI gate failed: $failed"
+            exit 1
+          fi
+          echo "CI gate passed"
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # STAGE 4: RELEASE (after tests pass, main branch only)

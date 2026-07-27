@@ -3,7 +3,7 @@
 
 [package]
 name = "entity-derive"
-version = "0.22.5"
+version = "0.22.8"
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
@@ -30,18 +30,23 @@ default = [
   "projections",
 ]
 
-# Database dialects
+# Database dialects. Postgres is the only implemented one: selecting
+# `dialect = "clickhouse"` or `"mongodb"` on an entity is a compile
+# error pointing at the tracking issue (#23, #24). The features exist so
+# the dialect names resolve, not because they generate anything.
 postgres = ["entity-core/postgres", "entity-derive-impl/postgres"]
 clickhouse = ["entity-core/clickhouse"]
 mongodb = ["entity-core/mongodb"]
 
 # Real-time streams via Postgres LISTEN/NOTIFY. Pulls in `events`
 # because the NOTIFY payload is an event variant.
-streams = ["entity-core/streams", "events"]
-outbox = ["entity-core/outbox", "events"]
+streams = ["entity-core/streams", "events", "entity-derive-impl/streams", "dep:serde_json"]
+outbox = ["entity-core/outbox", "events", "entity-derive-impl/outbox", "dep:serde_json"]
 
-# HTTP handlers + OpenAPI generation.
-api = ["entity-derive-impl/api"]
+# HTTP handlers + OpenAPI generation. The error type and the JSON
+# examples in the document belong to the generated code, so the facade
+# carries them instead of asking every consumer to.
+api = ["entity-derive-impl/api", "dep:masterror", "dep:serde_json"]
 
 # `validator::Validate` integration on DTOs.
 validate = ["entity-derive-impl/validate"]
@@ -54,7 +59,8 @@ events = ["entity-derive-impl/events"]
 # CQRS command pattern: command structs + dispatcher.
 commands = ["entity-derive-impl/commands"]
 
-# `{Entity}Hooks` trait. Manual wiring today; auto-invocation tracked in #127.
+# `{Entity}Hooks` trait plus `{Entity}Repo<H>`, the repository that runs
+# the hooks around every mutation.
 hooks = ["entity-derive-impl/hooks"]
 
 # `{Entity}TransactionRepo` adapter and the `with_*` builder methods
@@ -78,6 +84,8 @@ tracing = ["entity-core/tracing", "entity-derive-impl/tracing"]
 [dependencies]
 entity-core = { path = "../entity-core", version = "0.10", features = ["serde"] }
 entity-derive-impl = { path = "../entity-derive-impl", version = "0.20", default-features = false }
+masterror = { version = "0.29", features = ["axum", "openapi"], optional = true }
+serde_json = { version = "1", optional = true }
 
 [dev-dependencies]
 trybuild = "1"
@@ -98,8 +106,12 @@ tracing = "0.1"
 utoipa = { version = "5", features = ["chrono", "uuid"] }
 validator = { version = "0.20", features = ["derive"] }
 axum = "0.8"
+tower = { version = "0.5", features = ["util"] }
 garde = { version = "0.23", features = ["derive", "email", "url"] }
 masterror = { version = "0.29", features = ["axum", "openapi"] }
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 all-features = true

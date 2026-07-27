@@ -1,0 +1,164 @@
+# SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
+#
+# SPDX-License-Identifier: MIT
+
+name: Mutants
+
+# Coverage says a line ran; mutation testing says a change to that line
+# was noticed. For a code generator the difference is wide — a test can
+# expand a macro, assert little, and still count as coverage. cargo-mutants
+# rewrites one expression at a time and reports the mutants the suite let
+# through.
+#
+# The full sweep is nightly: ~1200 mutants at a few seconds each is too
+# long for the pull-request path. Pull requests get the mutants that touch
+# their own diff instead, which is fast and is where the signal matters.
+# Both are advisory — a surviving mutant is a question for review, not a
+# merge blocker.
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  full:
+    name: Full sweep
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    if: ${{ github.event_name != 'pull_request' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # master
+        with:
+          toolchain: stable
+
+      - name: Cache
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          shared-key: mutants
+          save-if: ${{ github.event_name == 'schedule' }}
+
+      - name: Install tools
+        uses: taiki-e/install-action@41049aa56687c35e0afa74eed4f09cec4f9afabf # v2.85.2
+        with:
+          tool: cargo-mutants,cargo-nextest
+
+      - name: Run cargo-mutants
+        continue-on-error: true
+        run: cargo mutants --no-shuffle --jobs 2 --output mutants.out
+
+      - name: Summarize outcomes
+        if: always()
+        run: |
+          set -euo pipefail
+          outcomes=mutants.out/outcomes.json
+          if [ ! -f "$outcomes" ]; then
+            echo "No outcomes.json produced" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          {
+            echo "## Mutation testing"
+            echo
+            echo "| Outcome | Count |"
+            echo "|---|---:|"
+            jq -r '[.outcomes[] | select(.scenario | type == "object") | .summary] | group_by(.) | map("| \(.[0]) | \(length) |") | .[]' "$outcomes"
+            echo
+            missed=$(jq -r '.outcomes[] | select(.summary == "MissedMutant") | .scenario.Mutant | "\(.file):\(.function.span.start.line) \(.function.function_name)"' "$outcomes" || true)
+            if [ -n "$missed" ]; then
+              echo "### Survived"
+              echo
+              echo '```'
+              echo "$missed"
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mutants-full
+          path: mutants.out/
+          retention-days: 30
+
+  diff:
+    name: Pull-request diff
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    if: ${{ github.event_name == 'pull_request' }}
+    continue-on-error: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # master
+        with:
+          toolchain: stable
+
+      - name: Cache
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          shared-key: mutants
+          save-if: false
+
+      - name: Install tools
+        uses: taiki-e/install-action@41049aa56687c35e0afa74eed4f09cec4f9afabf # v2.85.2
+        with:
+          tool: cargo-mutants,cargo-nextest
+
+      # `core.quotePath` off keeps non-ASCII paths literal; with it on,
+      # git escapes them and cargo-mutants rejects the whole diff — the
+      # wiki pages are named in Russian, Chinese and Korean.
+      - name: Compute the diff
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: git -c core.quotePath=false diff "$BASE_SHA"...HEAD > pr.diff
+
+      - name: Run cargo-mutants on the diff
+        run: cargo mutants --no-shuffle --jobs 2 --in-diff pr.diff --output mutants.out
+
+      - name: Summarize outcomes
+        if: always()
+        run: |
+          set -euo pipefail
+          outcomes=mutants.out/outcomes.json
+          if [ ! -f "$outcomes" ]; then
+            echo "No mutants in this diff" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          {
+            echo "## Mutation testing (diff)"
+            echo
+            echo "| Outcome | Count |"
+            echo "|---|---:|"
+            jq -r '[.outcomes[] | select(.scenario | type == "object") | .summary] | group_by(.) | map("| \(.[0]) | \(length) |") | .[]' "$outcomes"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mutants-diff
+          path: mutants.out/
+          retention-days: 14

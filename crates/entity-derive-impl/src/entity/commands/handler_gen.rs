@@ -69,7 +69,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     quote! {
         #marker
         #[doc = #doc]
-        #[async_trait::async_trait]
+        #[::entity_derive::async_trait]
         #vis trait #trait_name: Send + Sync {
             /// Error type for handler operations.
             type Error: std::error::Error + Send + Sync;

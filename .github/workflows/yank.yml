@@ -1,0 +1,67 @@
+# SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
+#
+# SPDX-License-Identifier: MIT
+
+# Withdraw a published version without a maintainer machine and without a
+# local registry token. Yanking keeps the version resolvable for existing
+# lockfiles but stops new dependants from selecting it — the response to a
+# release that shipped broken or incomplete contents. The three crates
+# version independently, so the crate is an explicit choice.
+
+name: Yank
+
+on:
+  workflow_dispatch:
+    inputs:
+      crate:
+        description: Crate to act on
+        required: true
+        type: choice
+        options:
+          - entity-derive
+          - entity-derive-impl
+          - entity-core
+      version:
+        description: "Version, e.g. 0.22.6"
+        required: true
+        type: string
+      undo:
+        description: Un-yank instead of yank
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.crate }}-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  yank:
+    name: Yank
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: ${{ github.repository_owner == 'RAprogramm' }}
+    steps:
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # master
+        with:
+          toolchain: stable
+
+      - name: Yank or un-yank
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          CRATE: ${{ inputs.crate }}
+          VERSION: ${{ inputs.version }}
+          UNDO: ${{ inputs.undo }}
+        run: |
+          set -euo pipefail
+          if [ "$UNDO" = "true" ]; then
+            echo "Un-yanking $CRATE@$VERSION"
+            cargo yank --undo --version "$VERSION" "$CRATE"
+          else
+            echo "Yanking $CRATE@$VERSION"
+            cargo yank --version "$VERSION" "$CRATE"
+          fi

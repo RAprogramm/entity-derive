@@ -29,7 +29,6 @@
 //! ```
 
 #![warn(missing_docs)]
-#![warn(clippy::all)]
 
 #[cfg(feature = "outbox")]
 pub mod outbox;
@@ -43,6 +42,12 @@ pub mod transaction;
 
 /// Re-export `async_trait` for generated code.
 pub use async_trait::async_trait;
+/// Re-export `futures` for generated streaming methods.
+///
+/// Generated code reaches it through the `entity-derive` facade, so a
+/// consumer never has to depend on `futures` itself.
+#[cfg(feature = "streams")]
+pub use futures;
 
 /// Compare two strings in const context.
 ///

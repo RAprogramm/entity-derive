@@ -3,7 +3,7 @@
 
 [package]
 name = "entity-core"
-version = "0.10.2"
+version = "0.10.4"
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
@@ -37,6 +37,9 @@ tracing = { version = "0.1", optional = true }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt"] }
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 all-features = true

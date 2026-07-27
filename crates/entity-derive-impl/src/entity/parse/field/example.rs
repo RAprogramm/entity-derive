@@ -162,12 +162,12 @@ mod tests {
     #[test]
     fn parse_int_example() {
         let attrs = parse_attrs(
-            r#"
+            r"
             struct Foo {
                 #[example = 42]
                 age: i32,
             }
-        "#
+        "
         );
         let example = parse_example_attr(&attrs);
         assert!(matches!(example, Some(ExampleValue::Int(42))));
@@ -176,12 +176,12 @@ mod tests {
     #[test]
     fn parse_negative_int_example() {
         let attrs = parse_attrs(
-            r#"
+            r"
             struct Foo {
                 #[example = -10]
                 temperature: i32,
             }
-        "#
+        "
         );
         let example = parse_example_attr(&attrs);
         assert!(matches!(example, Some(ExampleValue::Int(-10))));
@@ -190,12 +190,12 @@ mod tests {
     #[test]
     fn parse_float_example() {
         let attrs = parse_attrs(
-            r#"
+            r"
             struct Foo {
                 #[example = 99.99]
                 price: f64,
             }
-        "#
+        "
         );
         let example = parse_example_attr(&attrs);
         assert!(matches!(example, Some(ExampleValue::Float(f)) if (f - 99.99).abs() < 0.001));
@@ -204,12 +204,12 @@ mod tests {
     #[test]
     fn parse_bool_example() {
         let attrs = parse_attrs(
-            r#"
+            r"
             struct Foo {
                 #[example = true]
                 active: bool,
             }
-        "#
+        "
         );
         let example = parse_example_attr(&attrs);
         assert!(matches!(example, Some(ExampleValue::Bool(true))));
@@ -218,12 +218,12 @@ mod tests {
     #[test]
     fn no_example_attr() {
         let attrs = parse_attrs(
-            r#"
+            r"
             struct Foo {
                 #[field(create)]
                 name: String,
             }
-        "#
+        "
         );
         let example = parse_example_attr(&attrs);
         assert!(example.is_none());
@@ -247,7 +247,7 @@ mod tests {
 
     #[test]
     fn to_schema_attr_float() {
-        let example = ExampleValue::Float(3.14);
+        let example = ExampleValue::Float(1.5);
         let tokens = example.to_schema_attr().to_string();
         assert!(tokens.contains("example"));
     }
@@ -291,12 +291,12 @@ mod tests {
     #[test]
     fn parse_example_expr_float() {
         let attrs = parse_attrs(
-            r#"
+            r"
             struct Foo {
                 #[example = -0.5]
                 temp: f64,
             }
-        "#
+        "
         );
         let example = parse_example_attr(&attrs);
         assert!(matches!(example, Some(ExampleValue::Float(f)) if (f - (-0.5)).abs() < 0.001));

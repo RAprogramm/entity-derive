@@ -245,14 +245,14 @@ pub fn generate_update_handler(entity: &EntityDef) -> TokenStream {
             axum::extract::Path(id): axum::extract::Path<#id_type>,
             #guard_param
             axum::extract::Json(dto): axum::extract::Json<#update_dto>,
-        ) -> masterror::AppResult<axum::response::Json<#response_dto>>
+        ) -> ::entity_derive::masterror::AppResult<axum::response::Json<#response_dto>>
         where
             R: #repo_trait + 'static,
         {
             let entity = repo
                 .update(id, dto)
                 .await
-                .map_err(|e| masterror::AppError::internal(e.to_string()))?;
+                .map_err(|e| ::entity_derive::masterror::AppError::internal(e.to_string()))?;
             Ok(axum::response::Json(#response_dto::from(entity)))
         }
     }

@@ -205,6 +205,42 @@ fn parse_single_command(attr: &Attribute) -> syn::Result<CommandDef> {
                         }
                     }
                 }
+                "sets" => {
+                    let content;
+                    syn::parenthesized!(content in input);
+                    while !content.is_empty() {
+                        let column: Ident = content.parse()?;
+                        content.parse::<syn::Token![=]>()?;
+                        let expression: syn::LitStr = content.parse()?;
+                        cmd.sets.push((column.to_string(), expression.value()));
+                        if content.peek(syn::Token![,]) {
+                            content.parse::<syn::Token![,]>()?;
+                        }
+                    }
+                    if cmd.sets.is_empty() {
+                        return Err(syn::Error::new(
+                            option_name.span(),
+                            "sets(...) needs at least one `column = \"expression\"` pair"
+                        ));
+                    }
+                    cmd.requires_id = true;
+                    cmd.kind = CommandKindHint::Update;
+                }
+                "payload" if input.peek(syn::token::Paren) => {
+                    let content;
+                    syn::parenthesized!(content in input);
+                    let fields =
+                        syn::punctuated::Punctuated::<Ident, syn::Token![,]>::parse_terminated(
+                            &content
+                        )?;
+                    if fields.is_empty() {
+                        return Err(syn::Error::new(
+                            option_name.span(),
+                            "payload(...) needs at least one column"
+                        ));
+                    }
+                    cmd.source = CommandSource::Fields(fields.into_iter().collect());
+                }
                 "payload" => {
                     let _: syn::Token![=] = input.parse()?;
                     let payload_lit: syn::LitStr = input.parse()?;

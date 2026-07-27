@@ -31,6 +31,7 @@ mod example;
 mod expose;
 mod filter;
 pub mod map;
+mod schema;
 mod storage;
 mod validation;
 
@@ -214,7 +215,13 @@ pub struct FieldDef {
     ///
     /// Parsed from `#[map(...)]` attributes for transforming fields
     /// in the `From<Row> for Entity` implementation.
-    pub map: MapConfig
+    pub map: MapConfig,
+
+    /// `OpenAPI` schema override carried from `#[schema(...)]`.
+    ///
+    /// The token list utoipa is given verbatim on every generated
+    /// struct that derives `utoipa::ToSchema`.
+    pub schema: Option<proc_macro2::TokenStream>
 }
 
 impl FieldDef {
@@ -234,6 +241,7 @@ impl FieldDef {
         let doc = extract_doc_comments(&field.attrs);
         let validation = validation::parse_validation_attrs(&field.attrs);
         let example = example::parse_example_attr(&field.attrs);
+        let schema = schema::parse_schema_attr(&field.attrs);
 
         let mut sortable = false;
         let mut embed: Option<EmbedConfig> = None;
@@ -286,8 +294,22 @@ impl FieldDef {
             doc,
             validation,
             example,
-            map
+            map,
+            schema
         })
+    }
+
+    /// The `#[schema(...)]` attribute to place on a generated field.
+    ///
+    /// Empty unless the entity declared one and the `api` feature is on:
+    /// with it off nothing generated derives `utoipa::ToSchema`, and the
+    /// attribute would land on a struct that cannot interpret it.
+    #[must_use]
+    pub fn schema_attr(&self) -> proc_macro2::TokenStream {
+        match &self.schema {
+            Some(tokens) if cfg!(feature = "api") => quote::quote! { #[schema(#tokens)] },
+            _ => proc_macro2::TokenStream::new()
+        }
     }
 
     /// Get the field name as an identifier.

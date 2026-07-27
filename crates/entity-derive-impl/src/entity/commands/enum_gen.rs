@@ -17,8 +17,8 @@
 //!     Deactivate(DeactivateUser),
 //! }
 //!
-//! impl entity_core::EntityCommand for UserCommand {
-//!     fn kind(&self) -> entity_core::CommandKind { ... }
+//! impl ::entity_derive::EntityCommand for UserCommand {
+//!     fn kind(&self) -> ::entity_derive::CommandKind { ... }
 //!     fn name(&self) -> &'static str { ... }
 //! }
 //! ```
@@ -61,8 +61,8 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             #variants
         }
 
-        impl entity_core::EntityCommand for #enum_name {
-            fn kind(&self) -> entity_core::CommandKind {
+        impl ::entity_derive::EntityCommand for #enum_name {
+            fn kind(&self) -> ::entity_derive::CommandKind {
                 match self {
                     #kind_arms
                 }
@@ -110,10 +110,10 @@ fn generate_kind_arms(commands: &[CommandDef]) -> TokenStream {
         .map(|cmd| {
             let variant_name = &cmd.name;
             let kind = match cmd.kind {
-                CommandKindHint::Create => quote! { entity_core::CommandKind::Create },
-                CommandKindHint::Update => quote! { entity_core::CommandKind::Update },
-                CommandKindHint::Delete => quote! { entity_core::CommandKind::Delete },
-                CommandKindHint::Custom => quote! { entity_core::CommandKind::Custom }
+                CommandKindHint::Create => quote! { ::entity_derive::CommandKind::Create },
+                CommandKindHint::Update => quote! { ::entity_derive::CommandKind::Update },
+                CommandKindHint::Delete => quote! { ::entity_derive::CommandKind::Delete },
+                CommandKindHint::Custom => quote! { ::entity_derive::CommandKind::Custom }
             };
 
             quote! {

@@ -82,8 +82,8 @@ Dialecto de BD para generación SQL. Por defecto: `"postgres"`.
 | Dialecto | Alias | Tipo Cliente | Estado |
 |----------|-------|--------------|--------|
 | `"postgres"` | `"pg"`, `"postgresql"` | `sqlx::PgPool` | Estable |
-| `"clickhouse"` | `"ch"` | `clickhouse::Client` | Planificado |
-| `"mongodb"` | `"mongo"` | `mongodb::Client` | Planificado |
+| `"clickhouse"` | `"ch"` | `clickhouse::Client` | No implementado — error de compilación |
+| `"mongodb"` | `"mongo"` | `mongodb::Client` | No implementado — error de compilación |
 
 ### `uuid` (opcional)
 
@@ -340,6 +340,11 @@ Marca campos auto-generados (timestamps, secuencias).
 - Obtiene `Default::default()` en `From<CreateRequest>`
 - Excluido de `CreateRequest` y `UpdateRequest`
 - Puede incluirse en `Response` con `#[field(response)]`
+- Excluido del `INSERT` generado, por lo que con `migrations` una
+  columna temporal no nulable recibe el valor por defecto correspondiente
+  en la base de datos: `NOW()` para `TIMESTAMPTZ` y `TIMESTAMP`,
+  `CURRENT_DATE` para `DATE`, `CURRENT_TIME` para `TIME`. Un
+  `#[column(default = "...")]` explícito tiene prioridad
 
 ```rust
 #[auto]
@@ -450,6 +455,20 @@ sqlx::query(Order::MIGRATION_UP).execute(&pool).await?;
 - El nombre declarado se verifica contra la constante `PG_TYPE` del enum en tiempo de compilación; una discrepancia rompe la compilación
 - El flag opcional `sqlx` de `ValueObject` genera impls `sqlx::Type` / `Encode` / `Decode`; omítelo si ya derivas `sqlx::Type`
 
+### `#[scope(...)]`
+
+A nivel de entidad. Declara un listado sobre un grupo OR de columnas del mismo tipo: «filas donde este principal participa en cualquier rol».
+
+```rust
+#[derive(Entity)]
+#[entity(table = "disputes")]
+#[scope(involving: requester_id | subject_id)]
+#[scope(handled: requester_id | subject_id, within = parcel_id)]
+pub struct Dispute { /* ... */ }
+```
+
+Genera: `list_involving(value, limit, offset)` y `list_handled(parcel_id, value, limit, offset)`. El valor se liga una vez y se compara con todas las columnas declaradas; `within` acota antes el grupo a un padre. Se exigen al menos dos columnas, que deben existir y coincidir en tipo — todo verificado en compilación. Respeta el borrado lógico y ordena por id descendente.
+
 ### `#[owner]`
 
 Alcance por propietario a nivel de fila. Marca la columna con el id del propietario; el repositorio obtiene métodos con alcance que nunca revelan si una fila existe para otro propietario y respetan `soft_delete`.
@@ -508,6 +527,26 @@ pub struct User { /* ... */ }
 ```
 
 **Generado:** Método `find_posts()` en repositorio.
+
+### `#[schema(...)]`
+
+Sobrescribe cómo se documenta un campo en OpenAPI. La lista de tokens se
+entrega a utoipa tal cual y aparece en cada estructura generada que
+deriva `ToSchema`: los DTO de creación y respuesta y la vista unida.
+
+Una columna JSONB tipada como `serde_json::Value` se documenta como un
+objeto libre; la sobrescritura nombra la forma que realmente lleva:
+
+```rust
+#[field(create, response)]
+#[schema(value_type = Option<SizeCm>)]
+pub size_cm: Option<serde_json::Value>,
+```
+
+Sin la característica `api` nada generado deriva `ToSchema` y el atributo
+se descarta. Los DTO de actualización no lo llevan: la macro reescribe
+los tipos de sus campos para la semántica PATCH, así que un `value_type`
+declarado contradiría el tipo generado.
 
 ### `#[projection(Name: fields)]`
 
@@ -635,10 +674,21 @@ pub struct Post {
 | Usar comandos de dominio | `commands` en entidad + `#[command(...)]` |
 | Definir relación | `#[belongs_to(Entity)]` o `#[has_many(Entity)]` |
 | Vista parcial de entidad | `#[projection(Name: fields)]` |
+| Sobrescribir el tipo OpenAPI de un campo | `#[schema(value_type = T)]` |
 
 ### DTO de actualización: semántica PATCH
 
 Las actualizaciones generadas son parches parciales reales: la cláusula SET se construye en tiempo de ejecución con los campos realmente presentes; los omitidos no se tocan. Las columnas anulables usan doble `Option` (`None` = dejar, `Some(None)` = poner NULL, `Some(Some(v))` = poner v) mediante `entity_core::serde_helpers::double_option`.
+
+Los setters encadenables expresan el mismo parche sin el anidamiento: `set_{field}` para cada columna actualizable, `clear_{field}` para las anulables y `expecting_version` cuando hay `#[version]`.
+
+```rust
+let patch = UpdateUserRequest::default()
+    .set_name("Neo".into())
+    .clear_nickname();
+```
+
+La construcción con literal de estructura sigue funcionando; los setters son aditivos.
 
 ```rust
 // {}                   → nothing changes

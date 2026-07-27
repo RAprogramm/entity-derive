@@ -37,7 +37,7 @@
 //! ```
 
 use proc_macro2::TokenStream;
-use quote::quote;
+use quote::{format_ident, quote};
 
 use super::parse::{EntityDef, FieldDef};
 use crate::utils::marker;
@@ -66,8 +66,10 @@ fn generate_create_dto(entity: &EntityDef) -> TokenStream {
         let n = f.name();
         let t = f.ty();
         let garde = garde_attr(f, 0);
+        let schema = f.schema_attr();
         quote! {
             #garde
+            #schema
             pub #n: #t
         }
     });
@@ -168,7 +170,7 @@ fn generate_update_dto(entity: &EntityDef) -> TokenStream {
                 #[serde(
                     default,
                     skip_serializing_if = "Option::is_none",
-                    with = "::entity_core::serde_helpers::double_option"
+                    with = "::entity_derive::serde_helpers::double_option"
                 )]
                 #garde
                 pub #n: Option<#t>
@@ -201,6 +203,7 @@ fn generate_update_dto(entity: &EntityDef) -> TokenStream {
 
     let extra_derives = dto_extra_derives();
     let marker = marker::generated();
+    let builders = generate_update_builders(entity, &name);
 
     quote! {
         #marker
@@ -211,6 +214,90 @@ fn generate_update_dto(entity: &EntityDef) -> TokenStream {
             #version_field
         }
 
+        #builders
+    }
+}
+
+/// Generate chainable setters for the update DTO.
+///
+/// A patch built from a struct literal has to spell the wrapping out —
+/// `Some(value)` for a plain column and `Some(Some(value))` for a
+/// nullable one, where `Some(None)` means "write NULL". The setters say
+/// the same thing in the caller's words, and struct-literal
+/// construction keeps working unchanged.
+fn generate_update_builders(entity: &EntityDef, name: &syn::Ident) -> TokenStream {
+    let fields = entity.update_fields();
+    if fields.is_empty() {
+        return TokenStream::new();
+    }
+
+    let vis = &entity.vis;
+    let methods: Vec<TokenStream> = fields
+        .iter()
+        .flat_map(|f| {
+            let field = f.name();
+            let setter = format_ident!("set_{}", f.name_str());
+            if f.is_option() {
+                let inner = f.option_inner_type();
+                let clear = format_ident!("clear_{}", f.name_str());
+                let set_doc =
+                    format!("Set `{}` to the given value.", f.name_str());
+                let clear_doc = format!(
+                    "Write NULL to `{}`.\n\nLeaving the field untouched keeps the stored value;                      this asks for the column to be cleared.",
+                    f.name_str()
+                );
+                vec![
+                    quote! {
+                        #[doc = #set_doc]
+                        #[must_use]
+                        #vis fn #setter(mut self, value: #inner) -> Self {
+                            self.#field = Some(Some(value));
+                            self
+                        }
+                    },
+                    quote! {
+                        #[doc = #clear_doc]
+                        #[must_use]
+                        #vis fn #clear(mut self) -> Self {
+                            self.#field = Some(None);
+                            self
+                        }
+                    },
+                ]
+            } else {
+                let ty = f.ty();
+                let set_doc = format!("Set `{}` to the given value.", f.name_str());
+                vec![quote! {
+                    #[doc = #set_doc]
+                    #[must_use]
+                    #vis fn #setter(mut self, value: #ty) -> Self {
+                        self.#field = Some(value);
+                        self
+                    }
+                }]
+            }
+        })
+        .collect();
+
+    let version_method = entity.version_field().map(|f| {
+        let ty = f.ty();
+        quote! {
+            /// Record the version the caller observed.
+            ///
+            /// The update applies only while the row still carries it.
+            #[must_use]
+            #vis fn expecting_version(mut self, version: #ty) -> Self {
+                self.expected_version = version;
+                self
+            }
+        }
+    });
+
+    quote! {
+        impl #name {
+            #(#methods)*
+            #version_method
+        }
     }
 }
 
@@ -225,7 +312,11 @@ fn generate_response_dto(entity: &EntityDef) -> TokenStream {
     let field_defs = fields.iter().map(|f| {
         let n = f.name();
         let t = f.ty();
-        quote! { pub #n: #t }
+        let schema = f.schema_attr();
+        quote! {
+            #schema
+            pub #n: #t
+        }
     });
 
     let extra_derives_api = if cfg!(feature = "api") {

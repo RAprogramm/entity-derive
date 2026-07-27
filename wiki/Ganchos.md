@@ -57,6 +57,27 @@ pub trait UserHooks: Send + Sync {
 }
 ```
 
+## Invocación de los Ganchos
+
+El atributo `hooks` genera además `{Entity}Repo<H>`: un repositorio que posee un pool junto con una implementación de ganchos y los ejecuta alrededor de cada mutación:
+
+```rust
+let repo = UserRepo::new(pool, MyUserHooks);
+
+let user = repo.create(dto).await?;       // before_create → INSERT → after_create
+let user = repo.update(id, patch).await?; // before_update → UPDATE → after_update
+let gone = repo.delete(id).await?;        // after_delete solo si se afectó una fila
+let found = repo.find_by_id(id).await?;   // las lecturas no llevan ganchos
+```
+
+Un `before_*` que falla aborta antes de escribir nada. Las lecturas y el resto de métodos del repositorio llegan al pool a través del envoltorio sin cambios, y el pool desnudo sigue funcionando sin ganchos: el envoltorio es opcional.
+
+Al error de los ganchos le basta con convertirse en el error del repositorio, así que pueden mantener su propio tipo:
+
+```rust
+impl From<HookError> for sqlx::Error { /* ... */ }
+```
+
 ## Ejemplo de Implementación
 
 ```rust

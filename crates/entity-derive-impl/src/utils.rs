@@ -10,9 +10,11 @@
 //! - [`docs`] — Documentation extraction from attributes
 //! - [`fields`] — Field assignment generation for `From` implementations
 //! - [`marker`] — Generated code marker comments
+//! - [`sql_ident`] — Validation of identifiers that reach generated SQL
 //! - [`tracing`] — Optional `#[tracing::instrument]` attribute emission
 
 pub mod docs;
 pub mod fields;
 pub mod marker;
+pub mod sql_ident;
 pub mod tracing;

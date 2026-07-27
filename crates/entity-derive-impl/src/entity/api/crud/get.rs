@@ -224,15 +224,15 @@ pub fn generate_get_handler(entity: &EntityDef) -> TokenStream {
             axum::extract::State(repo): axum::extract::State<std::sync::Arc<R>>,
             axum::extract::Path(id): axum::extract::Path<#id_type>,
             #guard_param
-        ) -> masterror::AppResult<axum::response::Json<#response_dto>>
+        ) -> ::entity_derive::masterror::AppResult<axum::response::Json<#response_dto>>
         where
             R: #repo_trait + 'static,
         {
             let entity = repo
                 .find_by_id(id)
                 .await
-                .map_err(|e| masterror::AppError::internal(e.to_string()))?
-                .ok_or_else(|| masterror::AppError::not_found(#not_found_msg))?;
+                .map_err(|e| ::entity_derive::masterror::AppError::internal(e.to_string()))?
+                .ok_or_else(|| ::entity_derive::masterror::AppError::not_found(#not_found_msg))?;
             Ok(axum::response::Json(#response_dto::from(entity)))
         }
     }

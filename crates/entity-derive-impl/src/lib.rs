@@ -7,40 +7,30 @@
     html_favicon_url = "https://raw.githubusercontent.com/RAprogramm/entity-derive/main/assets/favicon.ico"
 )]
 #![cfg_attr(docsrs, feature(doc_cfg))]
-// Several parsing helpers (column DDL, composite indexes, projection
-// metadata) are only consumed by the `migrations` and `projections`
-// generators. When users opt out of those features, the helpers become
-// unused — silence the dead-code lint in those configurations so minimal
-// builds stay warning-clean. Default builds (every feature on) keep the
-// warning active.
+// The macro parses every attribute regardless of which generators are
+// compiled in, so the parse layer carries helpers — column DDL,
+// composite indexes, projection metadata, command sources, transition
+// definitions — that only one generator consumes. Switching that
+// generator off leaves its helpers legitimately unused, and a minimal
+// build must still be warning-clean. With every generator on (the
+// default, and what CI builds) the lints stay active.
 #![cfg_attr(
-    any(not(feature = "migrations"), not(feature = "projections")),
+    not(all(
+        feature = "events",
+        feature = "commands",
+        feature = "hooks",
+        feature = "transactions",
+        feature = "aggregate_root",
+        feature = "migrations",
+        feature = "projections"
+    )),
     allow(dead_code, unused_imports)
 )]
 #![warn(
     missing_docs,
     rustdoc::missing_crate_level_docs,
-    rustdoc::broken_intra_doc_links,
-    rust_2018_idioms
+    rustdoc::broken_intra_doc_links
 )]
-#![deny(unsafe_code)]
-#![allow(clippy::option_if_let_else)]
-#![allow(clippy::match_same_arms)]
-#![allow(clippy::trivially_copy_pass_by_ref)]
-#![allow(clippy::struct_excessive_bools)]
-#![allow(clippy::too_many_lines)]
-#![allow(clippy::format_push_string)]
-#![allow(clippy::unused_self)]
-#![allow(clippy::needless_continue)]
-#![allow(clippy::needless_pass_by_value)]
-#![allow(clippy::uninlined_format_args)]
-#![allow(clippy::needless_raw_string_hashes)]
-#![allow(clippy::doc_markdown)]
-#![allow(clippy::missing_const_for_fn)]
-#![allow(clippy::used_underscore_binding)]
-#![allow(clippy::useless_format)]
-#![allow(clippy::approx_constant)]
-#![allow(clippy::needless_collect)]
 
 //! # Quick Navigation
 //!
@@ -59,7 +49,7 @@
 //!     table = "users",      // Required: database table name
 //!     schema = "public",    // Optional: database schema (omit to exclude from SQL)
 //!     sql = "full",         // Optional: "full" | "trait" | "none" (default: "full")
-//!     dialect = "postgres", // Optional: "postgres" | "clickhouse" | "mongodb" (default: "postgres")
+//!     dialect = "postgres", // Optional; "postgres" is the only implemented dialect
 //!     uuid = "v7"           // Optional: "v7" | "v4" (default: "v7")
 //! )]
 //! pub struct User { /* ... */ }
@@ -282,7 +272,7 @@ use proc_macro::TokenStream;
 /// | `table` | **Yes** | — | Database table name |
 /// | `schema` | No | — | Database schema name (omitted = no prefix in SQL) |
 /// | `sql` | No | `"full"` | SQL generation: `"full"`, `"trait"`, or `"none"` |
-/// | `dialect` | No | `"postgres"` | Database dialect: `"postgres"`, `"clickhouse"`, `"mongodb"` |
+/// | `dialect` | No | `"postgres"` | Database dialect. `"postgres"` is the only implemented one; `"clickhouse"` and `"mongodb"` parse but fail to compile |
 /// | `uuid` | No | `"v7"` | UUID version for ID: `"v7"` (time-ordered) or `"v4"` (random) |
 /// | `migrations` | No | `false` | Generate `MIGRATION_UP` and `MIGRATION_DOWN` constants |
 ///
@@ -470,7 +460,7 @@ use proc_macro::TokenStream;
     Entity,
     attributes(
         entity, field, id, auto, owner, sort, version, embed, validate, belongs_to, has_many,
-        projection, filter, command, example, column, map, join, transition
+        projection, filter, command, example, column, map, join, transition, scope, schema
     )
 )]
 pub fn derive_entity(input: TokenStream) -> TokenStream {

@@ -33,7 +33,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
         #[derive(Debug, Clone, Copy, Default)]
         #vis struct #struct_name;
 
-        #[::entity_core::async_trait]
+        #[::entity_derive::async_trait]
         impl #trait_name for #struct_name {
             type Context = ();
             type Error = std::convert::Infallible;

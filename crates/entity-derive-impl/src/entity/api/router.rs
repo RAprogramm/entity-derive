@@ -278,7 +278,8 @@ mod tests {
             requires_id,
             result_type: None,
             kind,
-            security: None
+            security: None,
+            sets: Vec::new()
         }
     }
 

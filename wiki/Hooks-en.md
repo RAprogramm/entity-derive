@@ -57,6 +57,27 @@ pub trait UserHooks: Send + Sync {
 }
 ```
 
+## Invoking the Hooks
+
+The `hooks` attribute also generates `{Entity}Repo<H>` — a repository that owns a pool and a hooks implementation and runs the hooks around every mutation:
+
+```rust
+let repo = UserRepo::new(pool, MyUserHooks);
+
+let user = repo.create(dto).await?;      // before_create → INSERT → after_create
+let user = repo.update(id, patch).await?; // before_update → UPDATE → after_update
+let gone = repo.delete(id).await?;        // after_delete only when a row was affected
+let found = repo.find_by_id(id).await?;   // reads carry no hooks
+```
+
+A failing `before_*` aborts before anything is written. Reads and every other repository method reach the pool through the wrapper unchanged, and the bare pool keeps working without hooks — the wrapper is opt-in.
+
+The hook error only has to convert into the repository error, so hooks may keep their own error type:
+
+```rust
+impl From<HookError> for sqlx::Error { /* ... */ }
+```
+
 ## Implementation Example
 
 ```rust

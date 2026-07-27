@@ -84,6 +84,18 @@ pub struct User {
 entity-derive = { version = "0.22", features = ["postgres", "api"] }
 ```
 
+Generated code reaches its own runtime through the `entity-derive`
+facade, so nothing else has to be added on its behalf. The crates you
+still declare are the ones your entity itself uses — the pool and column
+types, and `serde` when the DTOs are serialized:
+
+```toml
+sqlx = { version = "0.9", features = ["runtime-tokio", "postgres", "uuid", "chrono"] }
+uuid = { version = "1", features = ["v4", "v7", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+```
+
 ### Feature flags
 
 | Feature | Default | What it does |
@@ -96,8 +108,8 @@ entity-derive = { version = "0.22", features = ["postgres", "api"] }
 | `aggregate_root` | ✓ | `New{Entity}` constructor type and transactional `save()` (`#[entity(aggregate_root)]`) |
 | `migrations` | ✓ | Compile-time `MIGRATION_UP` / `MIGRATION_DOWN` SQL constants (`#[entity(migrations)]`) |
 | `projections` | ✓ | Projection structs and `find_by_id_<projection>` lookups (`#[projection(...)]`) |
-| `clickhouse` |   | Generate ClickHouse-backed repositories *(planned)* |
-| `mongodb` |   | Generate MongoDB-backed repositories *(planned)* |
+| `clickhouse` |   | **Not implemented** — selecting this dialect is a compile error ([#23](https://github.com/RAprogramm/entity-derive/issues/23)) |
+| `mongodb` |   | **Not implemented** — selecting this dialect is a compile error ([#24](https://github.com/RAprogramm/entity-derive/issues/24)) |
 | `streams` |   | `{Entity}Subscriber` using Postgres `LISTEN`/`NOTIFY` (pulls in `events`) |
 | `outbox` |   | Transactional-outbox enqueue in generated writes + `OutboxDrainer` runtime (pulls in `events`) |
 | `api` |   | Generate HTTP handlers (`axum`) and `utoipa` OpenAPI schemas |
@@ -140,17 +152,19 @@ tracing-subscriber = "0.3"
 | **PATCH Semantics** | Dynamic UPDATE SET; double-`Option` distinguishes "leave" from "set NULL" |
 | **Optimistic Locking** | `#[version]` — guarded, auto-incremented version column |
 | **Typed Constraint Errors** | `typed_constraints` — violations resolved to `ConstraintError` with field info |
+| **OpenAPI Overrides** | `#[schema(...)]` forwarded verbatim to the generated create/response DTOs and joined views |
 | **Embedded Value Objects** | `#[embed(prefix, fields(...))]` — structs flattened to prefixed columns |
 | **Relations** | `#[belongs_to]`, `#[has_many]` and many-to-many via `through = "junction"` |
 | **Ownership Scoping** | `#[owner]` generates `find_by_id_scoped` / `list_by_owner` / `update_scoped` / `delete_scoped` |
+| **Participant Scopes** | `#[scope(name: col_a \| col_b)]` generates `list_{name}` over an OR group, optionally narrowed by `within` |
 | **Upsert** | `upsert(conflict = "…")` generates `INSERT ... ON CONFLICT DO UPDATE / DO NOTHING` |
 | **Aggregate Roots** | `#[entity(aggregate_root)]` with `New{T}` DTOs and transactional `save` |
 | **Transactions** | Multi-entity atomic operations |
 | **Lifecycle Events** | `Created`, `Updated`, `Deleted` events |
 | **Real-Time Streams** | Postgres LISTEN/NOTIFY integration |
 | **Transactional Outbox** | `events(outbox)` — durable at-least-once event delivery with retry/backoff |
-| **Lifecycle Hook Traits** | `{Entity}Hooks` trait emitted with `before_create` / `after_update` / etc.; invocation is currently manual at your service layer (tracking auto-invocation: [#127](https://github.com/RAprogramm/entity-derive/issues/127)) |
-| **CQRS Commands** | Business-oriented command pattern |
+| **Lifecycle Hooks** | `{Entity}Hooks` trait plus `{Entity}Repo<H>`, a repository that runs the hooks around every mutation |
+| **CQRS Commands** | Business-oriented command pattern; `sets(...)` turns one into a domain operation writing named columns |
 | **Soft Delete** | `deleted_at` timestamp support |
 | **Structured Logging** | Opt-in `tracing` feature wraps every generated async method in `#[tracing::instrument]` with `entity` + `op` fields |
 
@@ -220,7 +234,7 @@ tracing-subscriber = "0.3"
 
 ```rust,ignore
 #[id]                          // Primary key (auto-generated UUID)
-#[auto]                        // Auto-generated (timestamps)
+#[auto]                        // Auto-generated: skipped by INSERT, gets a DB default in migrations
 #[owner]                       // Ownership column: adds *_scoped methods
 #[version]                     // Optimistic locking: guarded, auto-bumped
 #[embed(prefix, fields(...))]  // Flatten a value object to prefixed columns
@@ -229,7 +243,7 @@ tracing-subscriber = "0.3"
 #[field(response)]             // Include in Response
 #[field(skip)]                 // Exclude from all DTOs
 #[filter]                      // Exact match filter
-#[filter(like)]                // ILIKE pattern filter
+#[filter(like)]                // ILIKE substring filter; pass the bare value, wildcards in it are escaped
 #[filter(range)]               // Range filter (from/to)
 #[filter(search)]              // Trigram substring search (pg_trgm)
 #[sort]                        // Whitelisted dynamic ORDER BY
@@ -237,6 +251,8 @@ tracing-subscriber = "0.3"
 #[has_many(Entity)]            // One-to-many relation
 #[has_many(E, through = "t")]  // Many-to-many via junction table
 #[projection(Name: fields)]    // Partial view
+#[scope(name: col_a | col_b)]  // list_{name} over an OR group of columns
+#[schema(value_type = T)]      // OpenAPI type override, forwarded to the generated structs
 ```
 
 ### Transactional Outbox
@@ -273,6 +289,89 @@ cooperate), retried with exponential backoff and parked after
 handlers must be idempotent. Composes with `streams`: NOTIFY wakes
 subscribers instantly, the outbox guarantees nothing is lost. Requires
 the `outbox` feature and `serde_json` in your crate.
+
+### Lifecycle Hooks
+
+`#[entity(hooks)]` emits the `{Entity}Hooks` trait and `{Entity}Repo<H>`,
+a repository that owns a pool and a hooks implementation and runs the
+hooks around every mutation:
+
+```rust,ignore
+#[derive(Entity)]
+#[entity(table = "users", hooks)]
+pub struct User { /* ... */ }
+
+let repo = UserRepo::new(pool, Audit);
+
+let user = repo.create(dto).await?;      // before_create → INSERT → after_create
+let found = repo.find_by_id(id).await?;  // reads carry no hooks
+```
+
+A failing `before_*` aborts before anything is written; `after_delete`
+and `after_restore` run only when a row was actually affected. The hook
+error only has to convert into the repository error, so hooks may keep
+their own error type. The bare pool keeps working exactly as before —
+the wrapper is opt-in.
+
+### Domain Operations
+
+Columns that must change only through a named operation cannot be
+`#[field(update)]` — that would put them in the public patch DTO and in
+the upsert SET list. Declare the operation instead:
+
+```rust,ignore
+#[derive(Entity)]
+#[entity(table = "citizens", commands)]
+#[command(VerifyPassport, payload(passport_provider), sets(
+    passport_verified = "true",
+    passport_verified_at = "NOW()"
+))]
+pub struct Citizen { /* ... */ }
+
+let verified = pool.verify_passport(VerifyPassportCitizen {
+    id,
+    passport_provider: Some("gov".into()),
+}).await?;
+```
+
+One UPDATE writes the fixed expressions plus the payload columns and
+nothing else. The expressions land in the statement verbatim, like
+`#[column(default = "...")]`; the column names are checked against the
+entity at compile time.
+
+With `transactions` on, the same operation is available on the adapter,
+so it can land together with other writes — there it returns
+`Ok(None)` for a missing row, like the adapter's other methods:
+
+```rust,ignore
+let mut tx = pool.begin().await?;
+let verified = CitizenTransactionRepo::new(&mut tx)
+    .verify_passport(VerifyPassportCitizen { id, passport_provider: Some("gov".into()) })
+    .await?;
+tx.commit().await?;
+```
+
+### Participant Scopes
+
+"Rows where this principal takes part in any role" is an OR over several
+columns holding the same kind of value. Declare it once:
+
+```rust,ignore
+#[derive(Entity)]
+#[entity(table = "disputes")]
+#[scope(involving: requester_id | subject_id)]
+#[scope(handled: requester_id | subject_id, within = parcel_id)]
+pub struct Dispute { /* ... */ }
+
+let mine = pool.list_involving(user_id, 20, 0).await?;
+let here = pool.list_handled(parcel_id, user_id, 20, 0).await?;
+```
+
+The value is bound once and matched against every declared column;
+`within` narrows the group to one parent first. Columns are checked at
+compile time: an unknown name or a group whose columns disagree on their
+type is an error at the declaration. Soft-delete aware, ordered by id
+descending.
 
 ### Ownership Scoping
 
@@ -397,7 +496,9 @@ the flag behavior is unchanged.
 `#[filter(search)]` on a text column gives the Query struct a fuzzy
 substring filter (`col ILIKE '%' || $n || '%'`), while `migrations`
 emit the matching `gin_trgm_ops` index and add `pg_trgm` to
-`MIGRATION_EXTENSIONS` automatically:
+`MIGRATION_EXTENSIONS` automatically. Unlike `#[filter(like)]`, the
+value is bound as given: a `%` inside it acts as a wildcard rather than
+matching literally.
 
 ```rust,ignore
 #[field(create, update, response)]
@@ -467,7 +568,20 @@ let profile = pool.update(id, patch).await?;
 ```
 
 In Rust code: `None` = leave, `Some(None)` = SET NULL,
-`Some(Some(v))` = SET v.
+`Some(Some(v))` = SET v. Chainable setters say the same thing without
+the nesting — `set_{field}` for every updatable column, `clear_{field}`
+for the nullable ones, `expecting_version` where `#[version]` is
+declared:
+
+```rust,ignore
+let patch = UpdateProfileRequest::default()
+    .set_display_name("Neo".into())   // SET display_name = 'Neo'
+    .clear_nickname();                // SET nickname = NULL
+
+let profile = pool.update(id, patch).await?;
+```
+
+Struct-literal construction keeps working; the setters are additive.
 
 ### Bulk Operations
 
@@ -665,3 +779,16 @@ build without the attribute — zero runtime cost.
   </a>
 </p>
 
+
+---
+
+## Project
+
+| Document | Purpose |
+|---|---|
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Branch, commit and PR conventions; local checks; the live Postgres suite |
+| [SUPPORT.md](SUPPORT.md) | Where to ask what, and what a good issue contains |
+| [SECURITY.md](SECURITY.md) | Private vulnerability reporting, supported versions, what is in scope |
+| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | Expected behaviour in project spaces |
+| [RELEASE.md](RELEASE.md) | How a release is cut and how versions are decided |
+| [STABILITY.md](STABILITY.md) | What the generated API guarantees across versions |

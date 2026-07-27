@@ -266,11 +266,11 @@ pub async fn process_rows<H: OutboxHandler>(
 #[must_use]
 pub fn backoff_delay(base: Duration, attempts: i32, max_attempts: i32) -> Duration {
     if attempts + 1 >= max_attempts {
-        return Duration::from_secs(60 * 60 * 24 * 30);
+        return Duration::from_hours(720);
     }
     let exp = u32::try_from(attempts.clamp(0, 20)).unwrap_or(0);
     let delay = base.saturating_mul(2u32.saturating_pow(exp));
-    delay.min(Duration::from_secs(3600))
+    delay.min(Duration::from_hours(1))
 }
 
 #[cfg(test)]
@@ -329,7 +329,7 @@ mod tests {
             actions,
             vec![OutboxAction::ScheduleRetry {
                 id:    3,
-                delay: Duration::from_secs(60 * 60 * 24 * 30)
+                delay: Duration::from_hours(720)
             }]
         );
     }
@@ -360,14 +360,14 @@ mod tests {
     #[test]
     fn backoff_caps_at_one_hour() {
         let base = Duration::from_secs(5);
-        assert_eq!(backoff_delay(base, 15, 20), Duration::from_secs(3600));
+        assert_eq!(backoff_delay(base, 15, 20), Duration::from_hours(1));
     }
 
     #[test]
     fn backoff_parks_after_max_attempts() {
         let base = Duration::from_secs(5);
         let parked = backoff_delay(base, 9, 10);
-        assert_eq!(parked, Duration::from_secs(60 * 60 * 24 * 30));
+        assert_eq!(parked, Duration::from_hours(720));
     }
 
     #[test]

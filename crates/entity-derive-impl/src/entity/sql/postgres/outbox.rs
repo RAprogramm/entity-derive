@@ -6,7 +6,7 @@
 //! When `#[entity(events(outbox))]` is set, every generated write
 //! inserts the serialized `{Entity}Event` into the `entity_outbox`
 //! table **in the same transaction** as the DML. A separate drainer
-//! (`entity_core::outbox::OutboxDrainer`) delivers the rows with
+//! (`::entity_derive::outbox::OutboxDrainer`) delivers the rows with
 //! retry/backoff, so events survive crashes that LISTEN/NOTIFY alone
 //! would lose.
 //!
@@ -14,7 +14,7 @@
 //!
 //! ```rust,ignore
 //! let __event = UserEvent::created(entity.clone());
-//! let __payload = ::serde_json::to_value(&__event)
+//! let __payload = ::entity_derive::serde_json::to_value(&__event)
 //!     .expect("event serialization should not fail");
 //! ::sqlx::query(
 //!     "INSERT INTO entity_outbox (entity, kind, entity_id, payload) \
@@ -53,7 +53,7 @@ impl Context<'_> {
         let table = &self.table;
 
         quote! {
-            let __outbox_payload = ::serde_json::to_value(&__event)
+            let __outbox_payload = ::entity_derive::serde_json::to_value(&__event)
                 .expect("event serialization should not fail");
             ::sqlx::query(#OUTBOX_INSERT_SQL)
                 .bind(#table)
@@ -130,7 +130,9 @@ impl Context<'_> {
     }
 }
 
-#[cfg(test)]
+// The generators keep quiet when the feature is off, so the
+// fragments these assert on only exist with `outbox` compiled in.
+#[cfg(all(test, feature = "outbox"))]
 mod tests {
     use quote::quote;
     use syn::DeriveInput;

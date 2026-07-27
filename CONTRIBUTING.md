@@ -27,8 +27,18 @@ Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`
 
 ### 3. Create PR
 
-- Title: `123`
+- Title: same format as the commit — `#123 feat: add custom class support`.
+  A squash merge takes the PR title as the commit subject, and the
+  changelog groups releases by the type in that subject; a bare number
+  lands the change in no section.
 - Description must include: `Closes #123`
+
+### 4. Bump the version only for a behavioural break
+
+Versions are otherwise raised by the release PR, never by hand. The one
+exception is a change that breaks behaviour without breaking the API —
+`cargo semver-checks` cannot see it, so the PR itself raises the version
+of the affected crates to the next minor. See [RELEASE.md](RELEASE.md).
 
 ## Before commit
 
@@ -36,9 +46,34 @@ Run locally:
 
 ```bash
 cargo +nightly fmt
-cargo clippy -- -D warnings
-cargo test
+cargo clippy --all-targets --all-features -- -D warnings
+cargo test --all-features
 ```
+
+`--all-features` is not optional for the test suite: the compile-pass
+fixtures under `crates/entity-derive/tests/cases/pass/` declare entities
+that use the HTTP, stream and validation attributes, and trybuild
+compiles them against whichever features are active. CI runs the same
+commands.
+
+## Live Postgres suite
+
+`crates/entity-derive/tests/postgres.rs` runs the *generated* SQL —
+migrations, CRUD, upsert, keyset pagination, soft delete, lookups,
+projections, optimistic locking — against a real server. Point it at
+one and it provisions a throwaway database per test:
+
+```bash
+ENTITY_DERIVE_TEST_DATABASE_URL=postgres://postgres@localhost/postgres \
+  cargo test -p entity-derive --all-features --test postgres
+```
+
+`DATABASE_URL` works as a fallback. Without either variable the tests
+print a notice and pass, so no local server is required to contribute;
+CI always provides one, and there the missing variable is a hard error.
+
+A test that panics leaves its database behind for inspection — the next
+run drops it once it is half an hour old.
 
 ## CI checks
 
@@ -46,8 +81,19 @@ cargo test
 |-------|---------|
 | Format | `cargo +nightly fmt --check` |
 | Lint | `cargo clippy -- -D warnings` |
-| Test | `cargo test` |
+| Test | `cargo test --all-features` |
+| Live Postgres | `cargo nextest run -p entity-derive --all-features --test postgres` (matrix: Postgres 18, 17) |
+| Examples | `cargo check --manifest-path examples/<name>/Cargo.toml --all-targets` |
+| Feature combinations | `cargo hack check --workspace --feature-powerset --depth 2 --no-dev-deps` |
+| Dependency policy | `cargo deny check` |
+| Unused dependencies | `cargo machete` |
+| Workflow audit | `zizmor --offline .github/workflows/` — actions must be pinned to a commit SHA |
+
+`CI Success` is the terminal job: it reports every other job's outcome as
+a table and is the check `main` requires before a merge.
+| Semver | `cargo semver-checks check-release --workspace --exclude entity-derive-impl` |
 | Coverage | `cargo llvm-cov` (95%+ required) |
+| Mutants (advisory) | `cargo mutants --in-diff <(git diff main...HEAD)` — nightly runs the full sweep |
 
 ## Code standards
 

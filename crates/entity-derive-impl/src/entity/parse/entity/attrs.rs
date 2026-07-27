@@ -424,9 +424,9 @@ pub struct EntityAttrs {
     ///
     /// When enabled, generated write methods resolve violated
     /// constraint names against the entity's known constraints and
-    /// surface `entity_core::ConstraintError` through the repository
+    /// surface `::entity_derive::ConstraintError` through the repository
     /// `Error` type, which must additionally implement
-    /// `From<entity_core::ConstraintError>`.
+    /// `From<::entity_derive::ConstraintError>`.
     #[darling(default)]
     pub typed_constraints: bool
 }

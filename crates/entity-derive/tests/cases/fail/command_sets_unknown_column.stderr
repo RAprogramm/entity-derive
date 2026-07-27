@@ -1,0 +1,5 @@
+error: command `VerifyPassport` writes column `passport_checked`, which is not a field of this entity
+  --> tests/cases/fail/command_sets_unknown_column.rs:13:12
+   |
+13 | pub struct User {
+   |            ^^^^

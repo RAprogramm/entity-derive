@@ -31,7 +31,7 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     quote! {
         #marker
         #[doc = #doc]
-        #[::entity_core::async_trait]
+        #[::entity_derive::async_trait]
         #vis trait #trait_name: Send + Sync {
             /// Authorization context type (e.g., user session, request context).
             type Context: Send + Sync;

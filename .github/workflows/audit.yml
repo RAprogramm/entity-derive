@@ -1,0 +1,73 @@
+# SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
+#
+# SPDX-License-Identifier: MIT
+
+name: Scheduled Audit
+
+# The CI workflow runs `cargo deny check` on pushes and pull requests, so
+# a quiet week leaves the tree unchecked while the advisory database keeps
+# moving. This job re-runs the same policy against `main` every Monday and
+# files an issue when it fails, because nobody watches a cron run.
+on:
+  schedule:
+    - cron: "0 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  policy:
+    name: Dependency policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # master
+        with:
+          toolchain: stable
+
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@41049aa56687c35e0afa74eed4f09cec4f9afabf # v2.85.2
+        with:
+          tool: cargo-deny
+
+      # Advisories move without the tree changing, and the licence, ban
+      # and source rules are policy too — run all of them, exactly as CI
+      # does on a pull request.
+      - name: Dependency policy
+        id: policy
+        run: |
+          set -o pipefail
+          cargo deny check 2>&1 | tee deny.log
+
+      - name: File an issue on failure
+        if: failure() && steps.policy.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          title="Scheduled dependency policy check failed"
+          existing=$(gh issue list --state open --search "$title in:title" \
+            --json number --jq 'first(.[].number) // empty')
+          body=$(printf '%s\n\n```\n%s\n```\n' \
+            "\`cargo deny check\` failed on \`main\` in the scheduled run: $RUN_URL" \
+            "$(tail -n 60 deny.log)")
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$body"
+          else
+            gh issue create --title "$title" --label security --body "$body"
+          fi

@@ -59,13 +59,18 @@ use darling::FromDeriveInput;
 use syn::DeriveInput;
 
 use super::{
-    super::{command::parse_command_attrs, field::FieldDef, returning::ReturningMode},
-    CompositeIndexDef, EntityAttrs, EntityDef,
+    super::{
+        ColumnConfig, MapConfig,
+        command::{CommandDef, parse_command_attrs},
+        field::{ExposeConfig, FieldDef, FilterConfig, StorageConfig, ValidationConfig},
+        returning::ReturningMode
+    },
+    CompositeIndexDef, EntityAttrs, EntityDef, ScopeDef,
     helpers::{parse_api_attr, parse_constraint_attrs, parse_has_many_attrs, parse_index_attrs},
     parse_projection_attrs,
     upsert::{UpsertAction, UpsertDef}
 };
-use crate::utils::docs::extract_doc_comments;
+use crate::utils::{docs::extract_doc_comments, sql_ident};
 
 impl EntityDef {
     /// Parse entity definition from syn's `DeriveInput`.
@@ -127,6 +132,8 @@ impl EntityDef {
             }
         };
 
+        validate_sql_names(&attrs.table, &attrs.schema, &fields, input)?;
+
         let has_many = parse_has_many_attrs(&input.attrs);
         let projections = parse_projection_attrs(&input.attrs);
         let command_defs = parse_command_attrs(&input.attrs).map_err(darling::Error::from)?;
@@ -135,6 +142,10 @@ impl EntityDef {
         let joins = super::join::parse_join_attrs(&input.attrs).map_err(darling::Error::from)?;
         let transitions = super::transition::parse_transition_attrs(&input.attrs)
             .map_err(darling::Error::from)?;
+        let scopes =
+            super::scope::parse_scope_attrs(&input.attrs).map_err(darling::Error::from)?;
+        validate_scopes(&scopes, &fields, input)?;
+        validate_command_sets(&command_defs, &fields, input)?;
         let field_names: Vec<String> = fields
             .iter()
             .map(super::super::field::FieldDef::name_str)
@@ -178,7 +189,7 @@ impl EntityDef {
                 quote::ToTokens::to_token_stream(&attrs.error).to_string() == "sqlx :: Error";
             if default_error {
                 return Err(darling::Error::custom(
-                    "transition(...) requires a custom error type implementing From<entity_core::TransitionError>"
+                    "transition(...) requires a custom error type implementing From<::entity_derive::TransitionError>"
                 )
                 .with_span(&input.ident));
             }
@@ -334,6 +345,7 @@ impl EntityDef {
             extensions: attrs.migrations.extensions,
             indexes,
             joins,
+            scopes,
             transitions,
             aggregate_root: attrs.aggregate_root,
             upsert: attrs.upsert,
@@ -391,14 +403,15 @@ fn expand_embed_fields(fields: &mut Vec<FieldDef>) -> darling::Result<()> {
                 sortable:     false,
                 embed:        None,
                 embed_origin: Some((field.ident.clone(), sub.clone())),
-                expose:       Default::default(),
-                storage:      Default::default(),
-                filter:       Default::default(),
-                column:       Default::default(),
+                expose:       ExposeConfig::default(),
+                storage:      StorageConfig::default(),
+                filter:       FilterConfig::default(),
+                column:       ColumnConfig::default(),
                 doc:          None,
-                validation:   Default::default(),
+                validation:   ValidationConfig::default(),
                 example:      None,
-                map:          Default::default()
+                map:          MapConfig::default(),
+                schema:       None
             });
         }
         insertions.push((idx + 1, synthetic));
@@ -424,6 +437,109 @@ fn expand_embed_fields(fields: &mut Vec<FieldDef>) -> darling::Result<()> {
 /// | Conflict target carries a uniqueness guarantee | `ON CONFLICT` requires a unique index or constraint |
 /// | `returning = "full"` | The returned entity must reflect the persisted row, which on the update path is the pre-existing one |
 /// | `action = "update"` needs a non-conflict insert column | An empty `DO UPDATE SET` is invalid SQL |
+/// Reject table, schema and column names that generated SQL cannot
+/// carry unquoted.
+///
+/// The generator interpolates these names into statements as written,
+/// so a reserved word or an upper-case letter produces SQL that fails
+/// at runtime — and only once that statement runs. Checking here turns
+/// it into an error at the offending attribute.
+fn validate_sql_names(
+    table: &str,
+    schema: &str,
+    fields: &[FieldDef],
+    input: &DeriveInput
+) -> darling::Result<()> {
+    sql_ident::validate("table", table)
+        .map_err(|msg| darling::Error::custom(msg).with_span(&input.ident))?;
+
+    if !schema.is_empty() {
+        sql_ident::validate("schema", schema)
+            .map_err(|msg| darling::Error::custom(msg).with_span(&input.ident))?;
+    }
+
+    for field in fields {
+        sql_ident::validate("column", &field.column_name())
+            .map_err(|msg| darling::Error::custom(msg).with_span(&field.ident))?;
+    }
+
+    Ok(())
+}
+
+/// Check that a command's `sets(...)` names real columns.
+///
+/// The expressions land in the statement verbatim, so a typo in a
+/// column name would only surface when the operation runs.
+fn validate_command_sets(
+    commands: &[CommandDef],
+    fields: &[FieldDef],
+    input: &DeriveInput
+) -> darling::Result<()> {
+    for command in commands.iter().filter(|c| !c.sets.is_empty()) {
+        for (column, _) in &command.sets {
+            if !fields.iter().any(|f| &f.name_str() == column) {
+                return Err(darling::Error::custom(format!(
+                    "command `{}` writes column `{column}`, which is not a field of this entity",
+                    command.name
+                ))
+                .with_span(&input.ident));
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Check that every column a scope names exists, and that the OR-ed
+/// ones share a type.
+///
+/// The generated method binds one value against all of them, so a
+/// mismatch would only surface as a decode error at run time.
+fn validate_scopes(
+    scopes: &[ScopeDef],
+    fields: &[FieldDef],
+    input: &DeriveInput
+) -> darling::Result<()> {
+    let column = |name: &str| fields.iter().find(|f| f.name_str() == name);
+
+    for scope in scopes {
+        for name in &scope.columns {
+            if column(name).is_none() {
+                return Err(darling::Error::custom(format!(
+                    "scope `{}` names column `{name}`, which is not a field of this entity",
+                    scope.name
+                ))
+                .with_span(&input.ident));
+            }
+        }
+
+        if let Some(within) = &scope.within
+            && column(within).is_none()
+        {
+            return Err(darling::Error::custom(format!(
+                "scope `{}` narrows by `{within}`, which is not a field of this entity",
+                scope.name
+            ))
+            .with_span(&input.ident));
+        }
+
+        let mut declared = scope.columns.iter().filter_map(|name| {
+            column(name).map(|f| quote::ToTokens::to_token_stream(f.ty()).to_string())
+        });
+        if let Some(first) = declared.next()
+            && let Some(other) = declared.find(|ty| *ty != first)
+        {
+            return Err(darling::Error::custom(format!(
+                "scope `{}` ORs columns of different types (`{first}` and `{other}`); one value is bound against all of them",
+                scope.name
+            ))
+            .with_span(&input.ident));
+        }
+    }
+
+    Ok(())
+}
+
 fn validate_upsert(
     upsert: &UpsertDef,
     fields: &[FieldDef],

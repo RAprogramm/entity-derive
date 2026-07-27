@@ -1,0 +1,42 @@
+# SPDX-FileCopyrightText: 2025-2026 RAprogramm <andrey.rozanov.vl@gmail.com>
+# SPDX-License-Identifier: MIT
+
+name: Feature request
+description: Generated code you need and the macro does not produce
+labels: ["enhancement"]
+
+body:
+  - type: textarea
+    id: missing
+    attributes:
+      label: What is missing
+      description: The generated item, attribute or SQL that does not exist today.
+    validations:
+      required: true
+
+  - type: textarea
+    id: declaration
+    attributes:
+      label: How you would declare it
+      description: The attribute or entity definition you would write.
+      render: rust
+    validations:
+      required: true
+
+  - type: textarea
+    id: generated
+    attributes:
+      label: What it should generate
+      description: The method signature, statement or type you expect out of it.
+      render: rust
+    validations:
+      required: false
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: What you write instead today
+      description: The hand-written code this would replace.
+      render: rust
+    validations:
+      required: false

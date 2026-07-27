@@ -123,6 +123,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "streams")]
     fn save_emits_pg_notify_when_streams_enabled() {
         let ctx = ctx_for(parse_quote! {
             #[entity(table = "users", aggregate_root, streams)]

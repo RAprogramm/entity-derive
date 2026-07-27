@@ -6,24 +6,14 @@
 //! Generates a hooks trait for entities with `#[entity(hooks)]`.
 //! Hooks provide before/after callbacks for CRUD operations.
 //!
-//! # ⚠️ Status: trait emitted, invocation is manual (as of 0.8.2)
+//! # Invocation
 //!
-//! This module emits the `{Entity}Hooks` trait for the user to
-//! implement. **The generated repository methods do not call it
-//! automatically yet.** The generated `impl {Entity}Repository for
-//! sqlx::PgPool` lives in a different crate from any user-provided
-//! `impl …Hooks for PgPool`, and Rust's orphan rule prevents the user
-//! from wiring the two together after the fact.
-//!
-//! Until full auto-invocation lands, the supported pattern is:
-//!
-//! 1. Implement `{Entity}Hooks` on a type you own (typically a wrapper around
-//!    `PgPool` or a service struct in your application).
-//! 2. Call the hook methods explicitly at your handler / service layer around
-//!    the calls into the generated CRUD methods. See
-//!    `examples/hooks/src/main.rs` for the wiring pattern.
-//!
-//! Tracking auto-invocation: [issue #127](https://github.com/RAprogramm/entity-derive/issues/127).
+//! The orphan rule keeps a user crate from implementing
+//! `{Entity}Hooks` for `sqlx::PgPool`, so the repository impl on the
+//! pool cannot call hooks — both the trait and the type are foreign
+//! there. [`wrapper`] emits the type that can: `{Entity}Repo<H>` owns
+//! the pool and the hooks together and runs the hooks around every
+//! mutation. The bare pool keeps working without hooks.
 //!
 //! # Generated Code
 //!
@@ -43,7 +33,7 @@
 //! }
 //! ```
 //!
-//! # Usage (manual wiring)
+//! # Usage
 //!
 //! ```rust,ignore
 //! struct AppService {
@@ -64,14 +54,12 @@
 //!     }
 //! }
 //!
-//! // At your handler layer:
-//! async fn create_user(svc: &AppService, mut req: CreateUserRequest) -> Result<User, AppError> {
-//!     svc.before_create(&mut req).await?;
-//!     let user = <PgPool as UserRepository>::create(&svc.pool, req).await?;
-//!     svc.after_create(&user).await?;
-//!     Ok(user)
-//! }
+//! // The generated repository runs them:
+//! let repo = UserRepo::new(pool, AppService);
+//! let user = repo.create(req).await?;   // before_create → INSERT → after_create
 //! ```
+
+mod wrapper;
 
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
@@ -86,6 +74,8 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
     if !entity.has_hooks() {
         return TokenStream::new();
     }
+
+    let repo_wrapper = wrapper::generate(entity);
 
     let vis = &entity.vis;
     let entity_name = entity.name();
@@ -107,22 +97,19 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
         /// Implement this trait to add custom logic before/after CRUD operations.
         /// All methods have default no-op implementations.
         ///
-        /// # ⚠️ Invocation is manual
+        /// # Invocation
         ///
-        /// The generated `Repository` impl on `sqlx::PgPool` does **not**
-        /// call these hooks automatically. Implement the trait on a type
-        /// you own (e.g. a service struct that wraps the pool) and call
-        /// the hook methods explicitly around your repository calls.
-        /// See `examples/hooks` and the module docs for the wiring pattern.
-        ///
-        /// Tracking auto-invocation: <https://github.com/RAprogramm/entity-derive/issues/127>.
+        /// Pair an implementation with a pool through the generated
+        /// repository — `{Entity}Repo::new(pool, hooks)` — and the
+        /// hooks run around every mutation. Calling the repository
+        /// methods on the bare pool skips them.
         ///
         /// # Error Handling
         ///
         /// If a `before_*` hook returns an error, the caller should abort
         /// the operation. If an `after_*` hook returns an error, the
         /// operation has already completed but the error is propagated.
-        #[async_trait::async_trait]
+        #[::entity_derive::async_trait]
         #vis trait #hooks_trait: Send + Sync {
             /// Error type for hook operations.
             type Error: std::error::Error + Send + Sync;
@@ -132,6 +119,8 @@ pub fn generate(entity: &EntityDef) -> TokenStream {
             #delete_hooks
             #command_hooks
         }
+
+        #repo_wrapper
     }
 }
 

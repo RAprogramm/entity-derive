@@ -84,8 +84,8 @@ Database dialect for SQL generation. Default: `"postgres"`.
 | Dialect | Aliases | Client Type | Status |
 |---------|---------|-------------|--------|
 | `"postgres"` | `"pg"`, `"postgresql"` | `sqlx::PgPool` | Stable |
-| `"clickhouse"` | `"ch"` | `clickhouse::Client` | Planned |
-| `"mongodb"` | `"mongo"` | `mongodb::Client` | Planned |
+| `"clickhouse"` | `"ch"` | `clickhouse::Client` | Not implemented — compile error |
+| `"mongodb"` | `"mongo"` | `mongodb::Client` | Not implemented — compile error |
 
 ### `uuid` (optional)
 
@@ -399,6 +399,11 @@ Marks auto-generated fields (timestamps, sequences).
 - Gets `Default::default()` in `From<CreateRequest>`
 - Excluded from `CreateRequest` and `UpdateRequest`
 - Can be included in `Response` with `#[field(response)]`
+- Excluded from the generated `INSERT`, so with `migrations` a
+  non-nullable temporal column receives a matching database default:
+  `NOW()` for `TIMESTAMPTZ` and `TIMESTAMP`, `CURRENT_DATE` for `DATE`,
+  `CURRENT_TIME` for `TIME`. An explicit `#[column(default = "...")]`
+  overrides it
 
 ```rust
 #[auto]
@@ -525,6 +530,20 @@ let taken = pool.exists_by_username(handle).await?;
 - With `migrations`, `unique + ci` emits `CREATE UNIQUE INDEX {table}_{column}_lower_key ON {table} (LOWER({column}))` instead of an inline `UNIQUE` constraint
 - With `typed_constraints`, violations of that index resolve to the field like any other unique constraint
 
+### `#[scope(...)]`
+
+Entity-level. Declares a listing over an OR group of columns holding the same kind of value — "rows where this principal takes part in any role".
+
+```rust
+#[derive(Entity)]
+#[entity(table = "disputes")]
+#[scope(involving: requester_id | subject_id)]
+#[scope(handled: requester_id | subject_id, within = parcel_id)]
+pub struct Dispute { /* ... */ }
+```
+
+Generated: `list_involving(value, limit, offset)` and `list_handled(parcel_id, value, limit, offset)`. The value is bound once and matched against every declared column; `within` narrows the group to one parent first. At least two columns are required, they must exist and must agree on their type — all checked at compile time. Soft-delete aware, ordered by id descending.
+
 ### `#[owner]`
 
 Row-level ownership scoping. Marks the column carrying the owning principal's id; the repository gains scoped methods that never reveal whether a row exists for another owner and respect `soft_delete`.
@@ -616,6 +635,27 @@ pub struct User { /* ... */ }
 ```
 
 **Generated:** `find_posts()` method in repository.
+
+### `#[schema(...)]`
+
+Overrides how a field documents itself in OpenAPI. The token list is
+handed to utoipa verbatim and lands on every generated struct that
+derives `ToSchema` — the create and response DTOs and the joined view.
+
+A JSONB column typed as `serde_json::Value` documents as a free-form
+object; the override names the shape it actually carries:
+
+```rust
+#[field(create, response)]
+#[schema(value_type = Option<SizeCm>)]
+pub size_cm: Option<serde_json::Value>,
+```
+
+Without the `api` feature nothing generated derives `ToSchema`, and the
+attribute is dropped rather than emitted onto a struct that cannot
+interpret it. Update DTOs do not carry it: the macro rewrites their
+field types for PATCH semantics, so a declared `value_type` would
+contradict the type actually generated.
 
 ### `#[projection(Name: fields)]`
 
@@ -744,10 +784,21 @@ pub struct Post {
 | Use multi-entity transactions | `transactions` on entity |
 | Define relationship | `#[belongs_to(Entity)]` or `#[has_many(Entity)]` |
 | Partial entity view | `#[projection(Name: fields)]` |
+| Override an OpenAPI field type | `#[schema(value_type = T)]` |
 
 ### Update DTOs: PATCH semantics
 
 Generated updates are true partial patches: the UPDATE SET clause is built at runtime from the fields actually present, so omitted fields stay untouched. Nullable columns use double-`Option` (`None` = leave, `Some(None)` = SET NULL, `Some(Some(v))` = SET v) via `entity_core::serde_helpers::double_option`.
+
+Chainable setters express the same patch without the nesting: `set_{field}` for every updatable column, `clear_{field}` for the nullable ones, and `expecting_version` where `#[version]` is declared.
+
+```rust
+let patch = UpdateUserRequest::default()
+    .set_name("Neo".into())
+    .clear_nickname();
+```
+
+Struct-literal construction keeps working; the setters are additive.
 
 ```rust
 // {}                   → nothing changes

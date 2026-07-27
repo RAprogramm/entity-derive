@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.17](https://github.com/RAprogramm/entity-derive/compare/entity-derive-impl-v0.20.16...entity-derive-impl-v0.20.17) - 2026-07-27
+
+### ✨ Features
+
+- domain operations on the transaction adapter ([#295](https://github.com/RAprogramm/entity-derive/issues/295))
+
+## [0.20.16](https://github.com/RAprogramm/entity-derive/compare/entity-derive-impl-v0.20.15...entity-derive-impl-v0.20.16) - 2026-07-27
+
+### ⚙️ CI
+
+- gate feature combinations, dependency policy and semver ([#248](https://github.com/RAprogramm/entity-derive/issues/248))
+
+### ✨ Features
+
+- OpenAPI schema overrides carried to generated structs ([#291](https://github.com/RAprogramm/entity-derive/issues/291))
+- repository wrapper invoking the generated hooks ([#267](https://github.com/RAprogramm/entity-derive/issues/267))
+- domain operations writing declared columns ([#266](https://github.com/RAprogramm/entity-derive/issues/266))
+- participant scopes over an OR group of columns ([#265](https://github.com/RAprogramm/entity-derive/issues/265))
+- chainable setters on update DTOs ([#264](https://github.com/RAprogramm/entity-derive/issues/264))
+
+### 🐛 Bug Fixes
+
+- gate the token budget on the SQL generator ([#286](https://github.com/RAprogramm/entity-derive/issues/286))
+- reject SQL identifiers that generated statements cannot carry ([#249](https://github.com/RAprogramm/entity-derive/issues/249))
+- reach the runtime through the facade in generated code ([#247](https://github.com/RAprogramm/entity-derive/issues/247))
+- give auto temporal columns a database default in migrations ([#238](https://github.com/RAprogramm/entity-derive/issues/238))
+
+### 📚 Documentation
+
+- mark the ClickHouse and MongoDB dialects as unimplemented ([#251](https://github.com/RAprogramm/entity-derive/issues/251))
+
+### 🧪 Testing
+
+- execute commands, guards, transitions and the OpenAPI document ([#263](https://github.com/RAprogramm/entity-derive/issues/263))
+- execute the remaining generated SQL surfaces against Postgres ([#255](https://github.com/RAprogramm/entity-derive/issues/255))
+- budget the size of the generated token stream ([#252](https://github.com/RAprogramm/entity-derive/issues/252))
+
+## [0.20.15](https://github.com/RAprogramm/entity-derive/compare/entity-derive-impl-v0.20.14...entity-derive-impl-v0.20.15) - 2026-07-21
+
+### ✨ Features
+
+- derive utoipa::ToSchema on joined read models under the api feature ([#228](https://github.com/RAprogramm/entity-derive/issues/228))
+
 ## [0.20.14](https://github.com/RAprogramm/entity-derive/compare/entity-derive-impl-v0.20.13...entity-derive-impl-v0.20.14) - 2026-07-05
 
 ### ✨ Features

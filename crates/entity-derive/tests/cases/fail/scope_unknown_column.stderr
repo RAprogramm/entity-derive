@@ -1,0 +1,5 @@
+error: scope `involving` names column `reviewer_id`, which is not a field of this entity
+  --> tests/cases/fail/scope_unknown_column.rs:13:12
+   |
+13 | pub struct Dispute {
+   |            ^^^^^^^

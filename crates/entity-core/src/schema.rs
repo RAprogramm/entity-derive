@@ -21,12 +21,15 @@
 //! # Type comparison
 //!
 //! Declared SQL types are normalised before comparison (`TEXT` ↔
-//! `character varying` ↔ `character` are one text family; parametrised
-//! types drop their arguments; arrays compare as arrays). Columns whose
-//! database type is `USER-DEFINED` (Postgres enums, domains) skip the
-//! type check — the macro cannot know the enum's SQL name unless
-//! `#[column(pg_enum = ...)]` is used, and presence + nullability still
-//! guard those columns.
+//! `character varying` ↔ `character` are one text family; the date/time
+//! families fold their aliases to the spelled-out names
+//! `information_schema.data_type` reports — `TIMESTAMPTZ` ↔ `timestamp
+//! with time zone`, `TIME` ↔ `time without time zone`, `TIMETZ` ↔ `time
+//! with time zone`; parametrised types drop their arguments; arrays
+//! compare as arrays). Columns whose database type is `USER-DEFINED`
+//! (Postgres enums, domains) skip the type check — the macro cannot know
+//! the enum's SQL name unless `#[column(pg_enum = ...)]` is used, and
+//! presence + nullability still guard those columns.
 
 /// Declared shape of one entity column.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -254,6 +257,8 @@ fn normalize(sql_type: &str) -> String {
         }
         "timestamptz" | "timestamp with time zone" => "timestamp with time zone".to_string(),
         "timestamp" | "timestamp without time zone" => "timestamp without time zone".to_string(),
+        "timetz" | "time with time zone" => "time with time zone".to_string(),
+        "time" | "time without time zone" => "time without time zone".to_string(),
         "int8" | "bigint" | "bigserial" => "bigint".to_string(),
         "int4" | "int" | "integer" | "serial" => "integer".to_string(),
         "int2" | "smallint" => "smallint".to_string(),
@@ -284,6 +289,21 @@ mod tests {
         assert_eq!(normalize("BOOLEAN"), "boolean");
         assert_eq!(normalize("uuid"), "uuid");
         assert_eq!(normalize("JSONB"), "jsonb");
+    }
+
+    #[test]
+    fn normalize_folds_time_family() {
+        // A `TIME` column declared from a NaiveTime field must match the
+        // spelled-out name `information_schema.data_type` reports, exactly
+        // as the timestamp family already does.
+        assert_eq!(normalize("TIME"), "time without time zone");
+        assert_eq!(
+            normalize("time without time zone"),
+            "time without time zone"
+        );
+        assert_eq!(normalize("TIMETZ"), "time with time zone");
+        assert_eq!(normalize("time with time zone"), "time with time zone");
+        assert_eq!(normalize("TIMESTAMP"), "timestamp without time zone");
     }
 
     #[test]
