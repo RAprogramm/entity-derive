@@ -97,7 +97,7 @@ sqlx = { version = "0.9", features = [
 ] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 utoipa = { version = "5", features = ["chrono", "uuid"] }
-validator = { version = "0.20", features = ["derive"] }
+validator = { version = "0.21", features = ["derive"] }
 entity-core = { path = "../entity-core" }
 
 [lints]

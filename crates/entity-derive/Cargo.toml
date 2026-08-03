@@ -104,7 +104,7 @@ sqlx = { version = "0.9", features = [
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 tracing = "0.1"
 utoipa = { version = "5", features = ["chrono", "uuid"] }
-validator = { version = "0.20", features = ["derive"] }
+validator = { version = "0.21", features = ["derive"] }
 axum = "0.8"
 tower = { version = "0.5", features = ["util"] }
 garde = { version = "0.23", features = ["derive", "email", "url"] }
