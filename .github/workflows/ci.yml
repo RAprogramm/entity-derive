@@ -101,7 +101,7 @@ jobs:
           components: clippy
 
       - name: Cache
-        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        uses: Swatinem/rust-cache@258712b0b7b1ddf8bddc9fc3b0faca682b2736c3 # v2
         with:
           shared-key: ${{ matrix.rust }}-${{ matrix.os }}
           save-if: ${{ github.ref == 'refs/heads/main' }}
@@ -150,7 +150,7 @@ jobs:
           toolchain: stable
 
       - name: Cache
-        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        uses: Swatinem/rust-cache@258712b0b7b1ddf8bddc9fc3b0faca682b2736c3 # v2
 
       - name: Build docs
         run: cargo doc --all-features --no-deps
@@ -195,7 +195,7 @@ jobs:
           toolchain: stable
 
       - name: Cache
-        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        uses: Swatinem/rust-cache@258712b0b7b1ddf8bddc9fc3b0faca682b2736c3 # v2
         continue-on-error: true
         with:
           shared-key: features
@@ -228,7 +228,7 @@ jobs:
           toolchain: stable
 
       - name: Cache
-        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        uses: Swatinem/rust-cache@258712b0b7b1ddf8bddc9fc3b0faca682b2736c3 # v2
         continue-on-error: true
         with:
           shared-key: semver
@@ -324,7 +324,7 @@ jobs:
           toolchain: stable
 
       - name: Cache
-        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        uses: Swatinem/rust-cache@258712b0b7b1ddf8bddc9fc3b0faca682b2736c3 # v2
         continue-on-error: true
         with:
           shared-key: test
@@ -381,7 +381,7 @@ jobs:
           toolchain: stable
 
       - name: Cache
-        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        uses: Swatinem/rust-cache@258712b0b7b1ddf8bddc9fc3b0faca682b2736c3 # v2
         continue-on-error: true
         with:
           shared-key: examples
@@ -438,7 +438,7 @@ jobs:
           toolchain: stable
 
       - name: Cache
-        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        uses: Swatinem/rust-cache@258712b0b7b1ddf8bddc9fc3b0faca682b2736c3 # v2
         continue-on-error: true
         with:
           shared-key: test
@@ -473,7 +473,7 @@ jobs:
           components: llvm-tools-preview
 
       - name: Cache
-        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        uses: Swatinem/rust-cache@258712b0b7b1ddf8bddc9fc3b0faca682b2736c3 # v2
         continue-on-error: true
         with:
           shared-key: coverage
