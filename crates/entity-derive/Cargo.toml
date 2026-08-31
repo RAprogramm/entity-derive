@@ -84,7 +84,7 @@ tracing = ["entity-core/tracing", "entity-derive-impl/tracing"]
 [dependencies]
 entity-core = { path = "../entity-core", version = "0.10", features = ["serde"] }
 entity-derive-impl = { path = "../entity-derive-impl", version = "0.20", default-features = false }
-masterror = { version = "0.29", features = ["axum", "openapi"], optional = true }
+masterror = { version = "0.30", features = ["axum", "openapi"], optional = true }
 serde_json = { version = "1", optional = true }
 
 [dev-dependencies]
@@ -108,7 +108,7 @@ validator = { version = "0.21", features = ["derive"] }
 axum = "0.8"
 tower = { version = "0.5", features = ["util"] }
 garde = { version = "0.23", features = ["derive", "email", "url"] }
-masterror = { version = "0.29", features = ["axum", "openapi"] }
+masterror = { version = "0.30", features = ["axum", "openapi"] }
 
 [lints]
 workspace = true
