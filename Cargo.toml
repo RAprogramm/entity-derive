@@ -31,7 +31,7 @@ entity-derive-impl = { path = "crates/entity-derive-impl", version = "0.20" }
 syn = { version = "2", features = ["full", "extra-traits", "parsing"] }
 quote = "1"
 proc-macro2 = "1"
-darling = "0.23"
+darling = "0.24"
 convert_case = "0.11"
 async-trait = "0.1"
 sqlx = { version = "0.9", default-features = false }
