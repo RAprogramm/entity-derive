@@ -84,7 +84,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
 /// # Returns
 ///
 /// Token stream with all generated code, or an error if validation fails.
-fn generate(input: &DeriveInput) -> syn::Result<TokenStream2> {
+pub(crate) fn generate(input: &DeriveInput) -> syn::Result<TokenStream2> {
     let name = &input.ident;
 
     // Ensure it's an enum

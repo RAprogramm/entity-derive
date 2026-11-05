@@ -42,7 +42,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
 }
 
 /// Generate the error responses code.
-fn generate(input: &DeriveInput) -> syn::Result<TokenStream2> {
+pub(crate) fn generate(input: &DeriveInput) -> syn::Result<TokenStream2> {
     let name = &input.ident;
     let vis = &input.vis;
 
