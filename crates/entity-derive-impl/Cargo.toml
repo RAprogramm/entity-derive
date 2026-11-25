@@ -99,6 +99,11 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 utoipa = { version = "5", features = ["chrono", "uuid"] }
 validator = { version = "0.21", features = ["derive"] }
 entity-core = { path = "../entity-core" }
+divan = { version = "6", package = "codspeed-divan-compat" }
+
+[[bench]]
+name = "expand"
+harness = false
 
 [lints]
 workspace = true

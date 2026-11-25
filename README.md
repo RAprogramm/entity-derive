@@ -27,6 +27,7 @@
   <a href="https://codecov.io/gh/RAprogramm/entity-derive">
     <img src="https://img.shields.io/codecov/c/github/RAprogramm/entity-derive?style=for-the-badge&token=HGuwZf0REV" alt="Coverage"/>
   </a>
+  <a href="https://app.codspeed.io/RAprogramm/entity-derive?utm_source=badge"><img src="https://img.shields.io/endpoint?url=https://codspeed.io/badge.json" alt="CodSpeed"/></a>
   <a href="https://github.com/RAprogramm/entity-derive/blob/main/LICENSES/MIT.txt">
     <img src="https://img.shields.io/badge/license-MIT-blue.svg?style=for-the-badge" alt="License: MIT"/>
   </a>
