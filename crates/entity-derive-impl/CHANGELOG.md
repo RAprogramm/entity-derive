@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.18](https://github.com/RAprogramm/entity-derive/compare/entity-derive-impl-v0.20.17...entity-derive-impl-v0.20.18) - 2026-11-25
+
+### ⚙️ CI
+
+- add CodSpeed benchmarks for macro expansion ([#316](https://github.com/RAprogramm/entity-derive/issues/316))
+
 ## [0.20.17](https://github.com/RAprogramm/entity-derive/compare/entity-derive-impl-v0.20.16...entity-derive-impl-v0.20.17) - 2026-07-27
 
 ### ✨ Features
