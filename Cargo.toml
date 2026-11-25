@@ -40,7 +40,7 @@ chrono = { version = "0.4", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 trybuild = "1"
-utoipa = { version = "5", features = ["chrono", "uuid"] }
+utoipa = { version = "6", features = ["chrono", "uuid"] }
 validator = { version = "0.21", features = ["derive"] }
 
 # One lint policy for every crate. Pedantic is on: what stays allowed
